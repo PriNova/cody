@@ -195,6 +195,7 @@ describe('getConfiguration', () => {
 
             overrideAuthToken: undefined,
             overrideServerEndpoint: undefined,
+            chatTemperature: 0.2
         } satisfies ClientConfiguration)
     })
 })

@@ -925,4 +925,5 @@ export const DEFAULT_VSCODE_SETTINGS = {
     experimentalGuardrailsTimeoutSeconds: undefined,
     overrideAuthToken: undefined,
     overrideServerEndpoint: undefined,
+    chatTemperature: 0.2,
 } satisfies ClientConfiguration

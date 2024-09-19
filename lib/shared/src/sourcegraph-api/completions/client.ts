@@ -45,8 +45,6 @@ export interface CompletionRequestParameters {
 export abstract class SourcegraphCompletionsClient {
     private errorEncountered = false
 
-    protected readonly isTemperatureZero = process.env.CODY_TEMPERATURE_ZERO === 'true'
-
     constructor(protected logger?: CompletionLogger) {}
 
     protected async completionsEndpoint(): Promise<string> {

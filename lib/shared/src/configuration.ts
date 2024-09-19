@@ -139,6 +139,7 @@ interface RawClientConfiguration {
      */
     overrideServerEndpoint?: string | undefined
     overrideAuthToken?: string | undefined
+    chatTemperature: number
 }
 
 /**

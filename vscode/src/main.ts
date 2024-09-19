@@ -242,7 +242,7 @@ const register = async (
         symfRunner,
         chatIntentAPIClient,
         dispose: disposeExternalServices,
-    } = await configureExternalServices(context, platform)
+    } = await configureExternalServices(getConfiguration().chatTemperature, context, platform)
     disposables.push({ dispose: disposeExternalServices })
 
     const editor = new VSCodeEditor()

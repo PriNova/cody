@@ -18,7 +18,18 @@ const DEFAULT_CHAT_COMPLETION_PARAMETERS: Omit<ChatParameters, 'maxTokensToSampl
 }
 
 export class ChatClient {
-    constructor(private completions: SourcegraphCompletionsClient) {}
+    constructor(
+        public temperature: number,
+        private completions: SourcegraphCompletionsClient,
+        private getAuthStatus: () => Pick<
+            AuthenticatedAuthStatus,
+            | 'authenticated'
+            | 'userCanUpgrade'
+            | 'endpoint'
+            | 'codyApiVersion'
+            | 'isFireworksTracingEnabled'
+        >
+    ) {}
 
     public async chat(
         messages: Message[],
@@ -59,7 +70,7 @@ export class ChatClient {
             text,
             speaker,
         }))
-
+        DEFAULT_CHAT_COMPLETION_PARAMETERS.temperature = this.temperature
         const completionParams = {
             ...DEFAULT_CHAT_COMPLETION_PARAMETERS,
             ...params,

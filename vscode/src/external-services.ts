@@ -23,6 +23,7 @@ interface ExternalServices {
 }
 
 export async function configureExternalServices(
+    chatTemperature: number,
     context: vscode.ExtensionContext,
     platform: Pick<
         PlatformContext,
@@ -45,7 +46,7 @@ export async function configureExternalServices(
     const symfRunner = platform.createSymfRunner?.(context)
     if (symfRunner) disposables.push(symfRunner)
 
-    const chatClient = new ChatClient(completionsClient)
+    const chatClient = new ChatClient(chatTemperature, completionsClient)
 
     const guardrails = new SourcegraphGuardrailsClient()
 
