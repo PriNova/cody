@@ -21,6 +21,7 @@ import {
     getTraceparentHeaders,
     globalAgentRef,
     isError,
+    logDebug,
     logError,
     onAbort,
     parseEvents,
@@ -44,7 +45,8 @@ export class SourcegraphNodeCompletionsClient extends SourcegraphCompletionsClie
             url.searchParams.append('api-version', '' + apiVersion)
         }
         addClientInfoParams(url.searchParams)
-
+        // log the temperature setting
+        logDebug('temperature', `temperature: ${params.temperature}`)
         return tracer.startActiveSpan(`POST ${url.toString()}`, async span => {
             span.setAttributes({
                 fast: params.fast,
@@ -54,13 +56,6 @@ export class SourcegraphNodeCompletionsClient extends SourcegraphCompletionsClie
                 topP: params.topP,
                 model: params.model,
             })
-
-            if (this.isTemperatureZero) {
-                params = {
-                    ...params,
-                    temperature: 0,
-                }
-            }
 
             const serializedParams = await getSerializedParams(params)
 
@@ -285,11 +280,13 @@ export class SourcegraphNodeCompletionsClient extends SourcegraphCompletionsClie
     ): Promise<void> {
         const { url, serializedParams } = await this.prepareRequest(params, requestParams)
         const log = this.logger?.startCompletion(params, url.toString())
+        // log the temperature setting
+        logDebug('temperature', `temperature: ${params.temperature}`)
         return tracer.startActiveSpan(`POST ${url.toString()}`, async span => {
             span.setAttributes({
                 fast: params.fast,
                 maxTokensToSample: params.maxTokensToSample,
-                temperature: this.isTemperatureZero ? 0 : params.temperature,
+                temperature:  params.temperature,
                 topK: params.topK,
                 topP: params.topP,
                 model: params.model,

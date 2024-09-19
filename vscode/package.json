@@ -1280,6 +1280,13 @@
             "-----BEGIN CERTIFICATE-----\n...\n-----END CERTIFICATE-----"
           ]
         }
+      },
+      "cody.chat.temperature": {
+        "type": "number",
+        "default": 0.2,
+        "minimum": 0.0,
+        "maximum": 1.0,
+        "description": "Sets the temperature for Cody's completions. Higher values make output more random, lower values make it more deterministic."
       }
     },
     "icons": {

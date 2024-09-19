@@ -17,7 +17,7 @@ const DEFAULT_CHAT_COMPLETION_PARAMETERS: Omit<ChatParameters, 'maxTokensToSampl
 }
 
 export class ChatClient {
-    constructor(private completions: SourcegraphCompletionsClient) {}
+    constructor(public temperature: number, private completions: SourcegraphCompletionsClient) { }
 
     public async chat(
         messages: Message[],
@@ -49,8 +49,8 @@ export class ChatClient {
             params?.model?.startsWith('fireworks/') || useApiV1
                 ? sanitizeMessages(messages)
                 : isLastMessageFromHuman
-                  ? messages.concat([{ speaker: 'assistant' }])
-                  : messages
+                    ? messages.concat([{ speaker: 'assistant' }])
+                    : messages
 
         // We only want to send up the speaker and prompt text, regardless of whatever other fields
         // might be on the messages objects (`file`, `displayText`, `contextFiles`, etc.).
@@ -58,7 +58,7 @@ export class ChatClient {
             text,
             speaker,
         }))
-
+        DEFAULT_CHAT_COMPLETION_PARAMETERS.temperature = this.temperature
         const completionParams = {
             ...DEFAULT_CHAT_COMPLETION_PARAMETERS,
             ...params,

@@ -160,6 +160,7 @@ export function getConfiguration(
          */
         overrideAuthToken: getHiddenSetting<string | undefined>('override.authToken'),
         overrideServerEndpoint: getHiddenSetting<string | undefined>('override.serverEndpoint'),
+        chatTemperature: getHiddenSetting<number>('chat.temperature', 0.2)
     }
 }
 
