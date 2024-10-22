@@ -1,8 +1,6 @@
 name: vscode-insiders-release
 
 on:
-  schedule:
-    - cron: '0 15 * * *' # daily at 1500 UTC
   push:
     tags:
       - vscode-v* # automatically create a new insider build with a release
@@ -10,9 +8,11 @@ on:
 
 jobs:
   release:
-    if: github.ref == 'refs/heads/main' && github.repository == 'sourcegraph/cody'
+    if: (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch') && github.repository == 'PriNova/Cody-Community-Edition'
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v3
@@ -22,24 +22,26 @@ jobs:
         with:
           run_install: true
       - run: pnpm build
-      - run: pnpm run test
-      - run: xvfb-run -a pnpm -C vscode run test:integration
-      - run: xvfb-run -a pnpm -C vscode run test:e2e
+      - run: CODY_RELEASE_TYPE=insiders pnpm -C vscode run release:dry-run
+      
+      # New steps to create release and upload artifact
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
         env:
-          NO_LOG_TESTING_TELEMETRY_CALLS: true
-      - run: CODY_RELEASE_TYPE=insiders pnpm -C vscode run release
-        if: github.ref == 'refs/heads/main' && github.repository == 'sourcegraph/cody'
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: Release ${{ github.ref }}
+          draft: false
+          prerelease: false
+
+      - name: Upload Release Asset
+        uses: actions/upload-release-asset@v1
         env:
-          VSCODE_MARKETPLACE_TOKEN: ${{ secrets.VSCODE_MARKETPLACE_TOKEN }}
-          VSCODE_OPENVSX_TOKEN: ${{ secrets.VSCODE_OPENVSX_TOKEN }}
-      - name: Slack Notification
-        if: ${{ failure() }}
-        uses: rtCamp/action-slack-notify@b24d75fe0e728a4bf9fc42ee217caa686d141ee8 # SECURITY: pin third-party action hashes
-        env:
-          SLACK_CHANNEL: wg-cody-vscode
-          SLACK_ICON: https://github.com/sourcegraph.png?size=48
-          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
-          SLACK_MESSAGE: Insiders build failed
-          SLACK_COLOR: danger
-          SLACK_FOOTER: ''
-          MSG_MINIMAL: actions url
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./vscode/dist/cody-community.vsix
+          asset_name: cody-community.vsix
+          asset_content_type: application/octet-stream
