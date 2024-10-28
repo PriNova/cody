@@ -3,11 +3,11 @@
 name: agent-bindings
 on:
 
-  pull_request:
-    paths:
-      - '**.ts'
-      - '**.tsx'
-      - '**.js'
+  #pull_request:
+  #  paths:
+  #    - '**.ts'
+  #    - '**.tsx'
+  #    - '**.js'
 
 jobs:
   kotlin:

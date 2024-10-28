@@ -1,10 +1,11 @@
 name: vscode-stable-release
 
 on:
-  push:
-    tags:
-      - vscode-v*
-
+  #push:
+  #  tags:
+  #    - vscode-v*
+  workflow_dispatch:
+  
 jobs:
   release:
     if: github.repository == 'sourcegraph/cody'

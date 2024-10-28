@@ -1,10 +1,10 @@
 name: agent-release
 
 on:
-  push:
-    tags:
-      - agent-v*
-
+  #push:
+  #  tags:
+  #    - agent-v*
+  workflow_dispatch:
 jobs:
   release:
     if: github.repository == 'sourcegraph/cody'
