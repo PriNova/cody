@@ -24,24 +24,14 @@ jobs:
       - run: pnpm build
       - run: CODY_RELEASE_TYPE=insiders pnpm -C vscode run release:dry-run
       
-      # New steps to create release and upload artifact
-      - name: Create Release
-        id: create_release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # Replace the Create Release step with this
+      - name: Create/Update Release
+        uses: softprops/action-gh-release@v1
         with:
+          files: ./vscode/dist/cody-community.vsix
+          name: Release ${{ github.ref_name }}
           tag_name: ${{ github.ref_name }}
-          release_name: Release ${{ github.ref_name }}
           draft: false
           prerelease: false
-
-      - name: Upload Release Asset
-        uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./vscode/dist/cody-community.vsix
-          asset_name: cody-community.vsix
-          asset_content_type: application/octet-stream
