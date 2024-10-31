@@ -2,6 +2,7 @@ import type * as vscode from 'vscode'
 
 import {
     ChatClient,
+    type ClientConfiguration,
     type Guardrails,
     type SourcegraphCompletionsClient,
     SourcegraphGuardrailsClient,
@@ -22,9 +23,9 @@ interface ExternalServices {
     dispose(): void
 }
 
-export async function configureExternalServices(
-    chatTemperature: number,
-    context: vscode.ExtensionContext,
+interface ExternalServicesConfig {
+    config: ClientConfiguration // Complete config type from your codebase
+    context: vscode.ExtensionContext
     platform: Pick<
         PlatformContext,
         | 'createCompletionsClient'
@@ -32,7 +33,13 @@ export async function configureExternalServices(
         | 'createOpenTelemetryService'
         | 'createSymfRunner'
     >
-): Promise<ExternalServices> {
+}
+
+export async function configureExternalServices({
+    config,
+    context,
+    platform,
+}: ExternalServicesConfig): Promise<ExternalServices> {
     const disposables: (vscode.Disposable | undefined)[] = []
 
     const sentryService = platform.createSentryService?.()
@@ -46,8 +53,10 @@ export async function configureExternalServices(
     const symfRunner = platform.createSymfRunner?.(context, completionsClient)
     if (symfRunner) disposables.push(symfRunner)
 
-
-    const chatClient = new ChatClient(chatTemperature, completionsClient)
+    const chatClient = new ChatClient({
+        temperature: config.chatTemperature,
+        completions: completionsClient,
+    })
 
     const guardrails = new SourcegraphGuardrailsClient()
 

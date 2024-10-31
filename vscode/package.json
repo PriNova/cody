@@ -1059,6 +1059,14 @@
           ],
           "default": "sticky"
         },
+        "cody.chat.temperature": {
+          "order": 6,
+          "type": "number",
+          "default": 0.2,
+          "minimum": 0.0,
+          "maximum": 1.0,
+          "description": "Sets the temperature for Cody's chat responses. Higher values make output more random, lower values make it more deterministic."
+        },
         "cody.edit.preInstruction": {
           "order": 7,
           "type": "string",
