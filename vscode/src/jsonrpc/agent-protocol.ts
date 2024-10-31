@@ -386,6 +386,8 @@ export type ClientNotifications = {
     'webview/didDisposeNative': [{ handle: string }]
 
     'secrets/didChange': [{ key: string }]
+
+    'window/didChangeFocus': [{ focused: boolean }]
 }
 
 // ================
@@ -593,7 +595,19 @@ export interface ExtensionConfiguration {
      */
     eventProperties?: EventProperties | undefined | null
 
+    /**
+     * @deprecated use 'customConfigurationJson' instead, it supports nested objects
+     */
     customConfiguration?: Record<string, any> | undefined | null
+
+    /**
+     * Custom configuration is parsed using the same rules as VSCode's WorkspaceConfiguration:
+     * https://code.visualstudio.com/api/references/vscode-api#WorkspaceConfiguration.get
+     * That means it supports dotted names - keys can be nested and are merged based on the prefix.
+     * Configuration objects from a nested settings can be obtained using dotted names.
+     * For the examples look at the `AgentWorkspaceConfiguration.test.ts`
+     */
+    customConfigurationJson?: string | undefined | null
 
     baseGlobalState?: Record<string, any> | undefined | null
 }

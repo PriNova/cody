@@ -88,10 +88,10 @@ export class CodeLens {
     constructor(
         public readonly range: Range,
         public readonly command?: vscode_types.Command
-    ) { }
+    ) {}
 }
 export class ThemeColor {
-    constructor(public readonly id: string) { }
+    constructor(public readonly id: string) {}
 }
 
 export class ThemeIcon {
@@ -100,7 +100,7 @@ export class ThemeIcon {
     constructor(
         public readonly id: string,
         public readonly color?: ThemeColor
-    ) { }
+    ) {}
 }
 
 export enum ColorThemeKind {
@@ -111,7 +111,7 @@ export enum ColorThemeKind {
 }
 
 export class MarkdownString implements vscode_types.MarkdownString {
-    constructor(public readonly value: string) { }
+    constructor(public readonly value: string) {}
     isTrusted?: boolean | { readonly enabledCommands: readonly string[] } | undefined
     supportThemeIcons?: boolean | undefined
     supportHtml?: boolean | undefined
@@ -153,7 +153,7 @@ export class DiagnosticRelatedInformation {
     constructor(
         public readonly location: Location,
         public readonly message: string
-    ) { }
+    ) {}
 }
 export enum DiagnosticSeverity {
     Error = 0,
@@ -213,7 +213,7 @@ export class CodeAction {
     constructor(
         public readonly title: string,
         public readonly kind?: vscode_types.CodeActionKind
-    ) { }
+    ) {}
 }
 export class CodeActionKind {
     static readonly Empty = new CodeActionKind('Empty')
@@ -227,7 +227,7 @@ export class CodeActionKind {
     static readonly SourceOrganizeImports = new CodeActionKind('SourceOrganizeImports')
     static readonly SourceFixAll = new CodeActionKind('SourceFixAll')
 
-    constructor(public readonly value: string) { }
+    constructor(public readonly value: string) {}
 }
 // biome-ignore lint/complexity/noStaticOnlyClass: mock
 export class QuickInputButtons {
@@ -240,7 +240,7 @@ export class TreeItem {
     constructor(
         public readonly resourceUri: vscode_types.Uri,
         public readonly collapsibleState?: TreeItemCollapsibleState
-    ) { }
+    ) {}
 }
 
 export class RelativePattern implements vscode_types.RelativePattern {
@@ -254,8 +254,8 @@ export class RelativePattern implements vscode_types.RelativePattern {
             typeof _base === 'string'
                 ? Uri.file(_base)
                 : 'uri' in _base
-                    ? Uri.from(_base.uri)
-                    : Uri.from(_base)
+                  ? Uri.from(_base.uri)
+                  : Uri.from(_base)
         this.base = _base.toString()
     }
 }
@@ -513,7 +513,7 @@ export class FoldingRange {
         public start: number,
         public end: number,
         public kind?: FoldingRangeKind
-    ) { }
+    ) {}
 }
 
 export class InlineCompletionItem {
@@ -567,10 +567,10 @@ export const workspaceFs: typeof vscode_types.workspace.fs = {
         const type = stat.isFile()
             ? FileType.File
             : stat.isDirectory()
-                ? FileType.Directory
-                : stat.isSymbolicLink()
-                    ? FileType.SymbolicLink
-                    : FileType.Unknown
+              ? FileType.Directory
+              : stat.isSymbolicLink()
+                ? FileType.SymbolicLink
+                : FileType.Unknown
 
         return {
             type,
@@ -588,10 +588,10 @@ export const workspaceFs: typeof vscode_types.workspace.fs = {
             const type = entry.isFile()
                 ? FileType.File
                 : entry.isDirectory()
-                    ? FileType.Directory
-                    : entry.isSymbolicLink()
-                        ? FileType.SymbolicLink
-                        : FileType.Unknown
+                  ? FileType.Directory
+                  : entry.isSymbolicLink()
+                    ? FileType.SymbolicLink
+                    : FileType.Unknown
 
             return [entry.name, type]
         })
@@ -798,13 +798,13 @@ export const vsCodeMocks = {
             options: { tabSize: 4 },
             selection: {},
         },
-        onDidChangeActiveTextEditor() { },
-        onDidChangeTextEditorSelection() { },
-        onDidChangeWindowState() { },
+        onDidChangeActiveTextEditor() {},
+        onDidChangeTextEditorSelection() {},
+        onDidChangeWindowState() {},
         state: { focused: false },
         createTextEditorDecorationType: () => ({
             key: 'foo',
-            dispose: () => { },
+            dispose: () => {},
         }),
         withProgress: async (
             options: vscode_types.ProgressOptions,
@@ -814,13 +814,13 @@ export const vsCodeMocks = {
             ) => Thenable<unknown>
         ) => {
             const cancel = new CancellationTokenSource()
-            return await task({ report: () => { } }, cancel.token)
+            return await task({ report: () => {} }, cancel.token)
         },
         visibleTextEditors: [],
         tabGroups: { all: [] },
     },
     commands: {
-        registerCommand: () => ({ dispose: () => { } }),
+        registerCommand: () => ({ dispose: () => {} }),
     },
     workspace: {
         fs: workspaceFs,
@@ -834,7 +834,7 @@ export const vsCodeMocks = {
                             return defaultValue
                     }
                 },
-                update(): void { },
+                update(): void {},
             }
         },
         openTextDocument: (uri: string) => ({
@@ -846,12 +846,13 @@ export const vsCodeMocks = {
         asRelativePath(path: string | vscode_types.Uri) {
             return path.toString()
         },
-        onDidChangeTextDocument() { },
-        onDidRenameFiles() { },
-        onDidDeleteFiles() { },
+        onDidChangeTextDocument() {},
+        onDidCloseTextDocument() {},
+        onDidRenameFiles() {},
+        onDidDeleteFiles() {},
         textDocuments: vscodeWorkspaceTextDocuments,
         workspaceFolders: undefined,
-        onDidChangeWorkspaceFolders: () => { },
+        onDidChangeWorkspaceFolders: () => {},
     },
     ConfigurationTarget: {
         Global: undefined,
@@ -923,5 +924,5 @@ export const DEFAULT_VSCODE_SETTINGS = {
     experimentalGuardrailsTimeoutSeconds: undefined,
     overrideAuthToken: undefined,
     overrideServerEndpoint: undefined,
-    chatTemperature: 0.2
+    chatTemperature: 0.2,
 } satisfies ClientConfiguration

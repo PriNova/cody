@@ -90,7 +90,7 @@ import { showSetupNotification } from './notifications/setup-notification'
 import { logDebug, logError } from './output-channel-logger'
 import { initVSCodeGitApi } from './repository/git-extension-api'
 import { authProvider } from './services/AuthProvider'
-import { CharactersLogger } from './services/CharactersLogger'
+import { charactersLogger } from './services/CharactersLogger'
 import { CodyTerminal } from './services/CodyTerminal'
 import { showFeedbackSupportQuickPick } from './services/FeedbackOptions'
 import { displayHistoryQuickPick } from './services/HistoryChat'
@@ -100,7 +100,6 @@ import { VSCodeSecretStorage, secretStorage } from './services/SecretStorageProv
 import { registerSidebarCommands } from './services/SidebarCommands'
 import { CodyStatusBar } from './services/StatusBar'
 import { createOrUpdateTelemetryRecorderProvider } from './services/telemetry-v2'
-import { onTextDocumentChange } from './services/utils/codeblock-action-tracker'
 import {
     enableVerboseDebugMode,
     exportOutputLog,
@@ -233,7 +232,6 @@ const register = async (
     disposables.push(await initVSCodeGitApi())
 
     registerParserListeners(disposables)
-    registerChatListeners(disposables)
 
     // Get complete configuration once
     const config = getConfiguration()
@@ -299,7 +297,7 @@ const register = async (
     }
     registerDebugCommands(context, disposables)
     registerUpgradeHandlers(disposables)
-    disposables.push(new CharactersLogger())
+    disposables.push(charactersLogger)
 
     // INC-267 do NOT await on this promise. This promise triggers
     // `vscode.window.showInformationMessage()`, which only resolves after the
@@ -341,20 +339,6 @@ function registerParserListeners(disposables: vscode.Disposable[]) {
     void parseAllVisibleDocuments()
     disposables.push(vscode.window.onDidChangeVisibleTextEditors(parseAllVisibleDocuments))
     disposables.push(vscode.workspace.onDidChangeTextDocument(updateParseTreeOnEdit))
-}
-
-function registerChatListeners(disposables: vscode.Disposable[]) {
-    // Enable tracking for pasting chat responses into editor text
-    disposables.push(
-        vscode.workspace.onDidChangeTextDocument(async e => {
-            const changedText = e.contentChanges[0]?.text
-            // Skip if the document is not a file or if the copied text is from insert
-            if (!changedText || e.document.uri.scheme !== 'file') {
-                return
-            }
-            await onTextDocumentChange(changedText)
-        })
-    )
 }
 
 async function registerOtherCommands(disposables: vscode.Disposable[]) {
