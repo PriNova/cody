@@ -22,6 +22,7 @@ import {
 } from '../../../ChatMessageContent/ChatMessageContent'
 import { ErrorItem, RequestErrorItem } from '../../../ErrorItem'
 import { type Interaction, editHumanMessage } from '../../../Transcript'
+import { CopyIcon } from '../../../components/CopyIcon'
 import { FeedbackButtons } from '../../../components/FeedbackButtons'
 import { LoadingDots } from '../../../components/LoadingDots'
 import { BaseMessageCell, MESSAGE_CELL_AVATAR_SIZE } from '../BaseMessageCell'
@@ -139,20 +140,31 @@ export const AssistantMessageCell: FunctionComponent<{
                             )}
                             <div className="tw-flex tw-items-center tw-divide-x tw-transition tw-divide-muted tw-opacity-65 hover:tw-opacity-100">
                                 {showFeedbackButtons && feedbackButtonsOnSubmit && (
-                                    <FeedbackButtons
-                                        feedbackButtonsOnSubmit={feedbackButtonsOnSubmit}
-                                        className="tw-pr-4"
-                                    />
+                                    <div className="tw-flex tw-items-center">
+                                        <FeedbackButtons
+                                            feedbackButtonsOnSubmit={feedbackButtonsOnSubmit}
+                                            className="tw-pr-4"
+                                        />
+                                    </div>
                                 )}
+                                <div className="tw-pl-4">
+                                    <button
+                                        type="button"
+                                        className="tw-flex tw-items-center tw-gap-2 tw-text-sm tw-text-muted-foreground hover:tw-text-foreground"
+                                        onClick={() => {
+                                            navigator.clipboard.writeText(message.text?.toString() || '')
+                                            copyButtonOnSubmit?.(message.text?.toString() || '')
+                                        }}
+                                        title="Copy message to clipboard"
+                                    >
+                                        <CopyIcon />
+                                    </button>
+                                </div>
                                 {!isLoading && (!message.error || isAborted) && (
                                     <ContextFocusActions
                                         humanMessage={humanMessage}
                                         longResponseTime={hasLongerResponseTime}
-                                        className={
-                                            showFeedbackButtons && feedbackButtonsOnSubmit
-                                                ? 'tw-pl-5'
-                                                : undefined
-                                        }
+                                        className="tw-pl-5"
                                     />
                                 )}
                             </div>
