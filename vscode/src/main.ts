@@ -235,6 +235,9 @@ const register = async (
 
     registerParserListeners(disposables)
 
+    // Get complete configuration once
+    const config = getConfiguration()
+
     // Initialize external services
     const {
         chatClient,
@@ -243,7 +246,7 @@ const register = async (
         symfRunner,
         chatIntentAPIClient,
         dispose: disposeExternalServices,
-    } = await configureExternalServices(getConfiguration().chatTemperature, context, platform)
+    } = await configureExternalServices({ config, context, platform })
     disposables.push({ dispose: disposeExternalServices })
 
     const editor = new VSCodeEditor()

@@ -17,11 +17,34 @@ const DEFAULT_CHAT_COMPLETION_PARAMETERS: Omit<ChatParameters, 'maxTokensToSampl
     topP: -1,
 }
 
+interface ChatClientConfig {
+    temperature: number
+    completions: SourcegraphCompletionsClient
+}
+
 export class ChatClient {
-    constructor(
-        public temperature: number,
-        private completions: SourcegraphCompletionsClient
-    ) {}
+    private readonly defaultTemperature = 0.2
+    private temperature: number
+
+    constructor(private config: ChatClientConfig) {
+        this.validateTemperature(config.temperature ?? this.defaultTemperature)
+        this.temperature = config.temperature ?? this.defaultTemperature
+    }
+
+    private validateTemperature(value: number): void {
+        if (value < 0 || value > 1) {
+            throw new Error('Temperature must be between 0 and 1')
+        }
+    }
+
+    public getTemperature(): number {
+        return this.temperature
+    }
+
+    public setTemperature(value: number): void {
+        this.validateTemperature(value)
+        this.temperature = value
+    }
 
     public async chat(
         messages: Message[],
@@ -75,7 +98,7 @@ export class ChatClient {
         const customHeaders: Record<string, string> =
             isFireworks && authStatus_.isFireworksTracingEnabled ? { 'X-Fireworks-Genie': 'true' } : {}
 
-        return this.completions.stream(
+        return this.config.completions.stream(
             completionParams,
             {
                 apiVersion: useApiV1 ? versions.codyAPIVersion : 0,

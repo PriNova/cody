@@ -90,6 +90,7 @@ export function getConfiguration(
         ),
         codeActions: config.get(CONFIG_KEY.codeActionsEnabled, true),
         commandHints: config.get(CONFIG_KEY.commandHintsEnabled, false),
+        chatTemperature: config.get<number>(CONFIG_KEY.chatTemperature, 0.2),
 
         /**
          * Hidden settings for internal use only.
@@ -164,7 +165,6 @@ export function getConfiguration(
          */
         overrideAuthToken: getHiddenSetting<string | undefined>('override.authToken'),
         overrideServerEndpoint: getHiddenSetting<string | undefined>('override.serverEndpoint'),
-        chatTemperature: getHiddenSetting<number>('chat.temperature', 0.2)
     }
 }
 
