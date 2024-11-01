@@ -26,17 +26,20 @@ jobs:
       - run: pnpm build
       - run: CODY_RELEASE_TYPE=insiders pnpm -C vscode run release:dry-run
       
-      # Replace the Create Release step with this
+      - name: Get tag message
+        id: tag
+        run: |
+          echo "message<<EOF" >> $GITHUB_OUTPUT
+          git tag -l --format='%(contents)' ${GITHUB_REF#refs/tags/} >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
       - name: Create/Update Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           files: ./vscode/dist/cody-community.vsix
-          name: "Release ${{ github.ref_name }}"
+          name: "Release community-builds ${{ github.ref_name }}"
           tag_name: ${{ github.ref_name }}
-          body: |
-            Release ${{ github.ref_name }}
-            
-            Automated release from tag push
+          body: ${{ steps.tag.outputs.message }}
           draft: false
           prerelease: false
         env:
