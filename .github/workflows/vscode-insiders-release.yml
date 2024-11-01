@@ -8,7 +8,7 @@ on:
 
 jobs:
   release:
-    if: (github.ref == 'refs/heads/community-builds' || github.event_name == 'workflow_dispatch') && github.repository == 'PriNova/Cody-Community-Edition'
+    if: (startsWith(github.ref, 'refs/tags/vscode-v') || github.event_name == 'workflow_dispatch') && github.repository == 'PriNova/Cody-Community-Edition'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
