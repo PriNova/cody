@@ -15,6 +15,8 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Get all tags
       - uses: actions/setup-node@v3
         with:
           node-version-file: .tool-versions
@@ -29,8 +31,12 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           files: ./vscode/dist/cody-community.vsix
-          name: Release ${{ github.ref_name }}
+          name: "Release ${{ github.ref_name }}"
           tag_name: ${{ github.ref_name }}
+          body: |
+            Release ${{ github.ref_name }}
+            
+            Automated release from tag push
           draft: false
           prerelease: false
         env:
