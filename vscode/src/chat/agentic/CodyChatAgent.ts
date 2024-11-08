@@ -48,7 +48,7 @@ export abstract class CodyChatAgent {
     ): Promise<string> {
         const stream = await this.chatClient.chat(
             message,
-            { model: model, maxTokensToSample: 4000 },
+            { model: 'anthropic::2024-10-22::claude-3-5-sonnet-latest', maxTokensToSample: 4000 },
             new AbortController().signal
         )
 
