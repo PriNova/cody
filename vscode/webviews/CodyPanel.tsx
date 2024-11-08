@@ -19,10 +19,10 @@ import { Notices } from './components/Notices'
 import { StateDebugOverlay } from './components/StateDebugOverlay'
 import { TabContainer, TabRoot } from './components/shadcn/ui/tabs'
 import { AccountTab, HistoryTab, PromptsTab, SettingsTab, TabsBar, View } from './tabs'
+import ToolboxTab from './tabs/ToolboxTab'
 import type { VSCodeWrapper } from './utils/VSCodeApi'
 import { useFeatureFlag } from './utils/useFeatureFlags'
 import { TabViewContext } from './utils/useTabView'
-
 interface CodyPanelProps {
     view: View
     setView: (view: View) => void
@@ -141,6 +141,12 @@ export const CodyPanel: FunctionComponent<CodyPanelProps> = ({
                             setView={setView}
                             isPromptsV2Enabled={isPromptsV2Enabled}
                         />
+                    )}
+                    {view === View.Toolbox && config.webviewType === 'sidebar' && (
+                        <ToolboxTab setView={setView} />
+                    )}
+                    {view === View.Toolbox && config.webviewType === 'sidebar' && (
+                        <ToolboxTab setView={setView} />
                     )}
                     {view === View.Account && <AccountTab setView={setView} />}
                     {view === View.Settings && <SettingsTab />}
