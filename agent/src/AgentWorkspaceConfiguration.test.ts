@@ -23,6 +23,7 @@ describe('AgentWorkspaceConfiguration', () => {
           "cody.debug": {
             "verbose": true
           },
+          "cody.advanced.hasNativeWebview": false,
           "cody.autocomplete.advanced.provider": "anthropic",
           "cody.experimental": {
             "tracing": true
@@ -39,7 +40,8 @@ describe('AgentWorkspaceConfiguration', () => {
                 "d1.d2": {
                     "v": 1
                 }
-            }
+            },
+            "dotted.property.name": 42
           }
         }
     `
@@ -53,6 +55,9 @@ describe('AgentWorkspaceConfiguration', () => {
         verboseDebug: true,
         codebase: 'test-repo',
         customConfigurationJson: customConfigJson,
+        customConfiguration: {
+            'cody.debug.additional': true,
+        },
     }
 
     beforeEach(() => {
@@ -65,9 +70,10 @@ describe('AgentWorkspaceConfiguration', () => {
 
     describe('get', () => {
         it('can return sub-configuration object', () => {
-            expect(config.get('cody.serverEndpoint')).toBe('https://sourcegraph.test')
+            expect(config.get('cody.serverEndpoint')).toEqual('https://sourcegraph.test')
             expect(config.get('cody.customHeaders')).toEqual({ 'X-Test': 'test' })
             expect(config.get('cody.telemetry.level')).toBe('agent')
+            // clientName undefined because custom JSON specified telemetry with level alone.
             expect(config.get('cody.telemetry.clientName')).toBe('test-client')
             expect(config.get('cody.autocomplete.enabled')).toBe(true)
             expect(config.get('cody.autocomplete.advanced.provider')).toBe('anthropic')
@@ -106,7 +112,7 @@ describe('AgentWorkspaceConfiguration', () => {
                         },
                         running: true,
                     },
-                    hasNativeWebview: true,
+                    hasNativeWebview: false,
                 },
                 autocomplete: {
                     advanced: {
@@ -121,6 +127,7 @@ describe('AgentWorkspaceConfiguration', () => {
                 },
                 debug: {
                     verbose: true,
+                    additional: true,
                 },
                 experimental: {
                     tracing: true,
@@ -134,14 +141,39 @@ describe('AgentWorkspaceConfiguration', () => {
         })
 
         it('handles parsing nested keys as objects', () => {
-            expect(config.get('foo.bar.baz.qux')).toBe(true)
-            expect(config.get('foo.bar.baz')).toStrictEqual({ d1: { d2: { v: 1 } }, qux: true })
-            expect(config.get('foo.bar.baz.d1')).toStrictEqual({ d2: { v: 1 } })
+            expect(config.get('foo.bar.baz')).toStrictEqual({ 'd1.d2': { v: 1 } })
+        })
+
+        // This reflects VSCode's behavior around configuration. OpenContext
+        // providers rely on this behavior, specifically, that property names
+        // at the top level are split on dots (so 'openctx.provider' is part of
+        // 'openctx') but within subobjects are not split (so
+        // 'https://github.com/foo/bar': true is not split into 'https://github'
+        // and 'com/foo/bar')
+        it('does not split apart dotted property names in nested objects', () => {
+            // The shape of the foo object, note the outermost dotted name
+            // foo.bar can be split into foo and bar.
+            expect(config.get('foo')).toStrictEqual({
+                bar: {
+                    'baz.qux': true,
+                    baz: {
+                        'd1.d2': {
+                            v: 1,
+                        },
+                    },
+                    'dotted.property.name': 42,
+                },
+            })
+            // 'baz.qux' is an atom different to baz containing qux. It is not
+            // outermost thus it is not split.
+            expect(config.get('foo.bar.baz.qux')).toStrictEqual(undefined)
+            // 'd1.d2' is an atom that should not be split at d1.
+            expect(config.get('foo.bar.baz.d1')).toBeUndefined()
         })
 
         it('handles agent capabilities correctly', () => {
             expect(config.get('cody.advanced.agent.capabilities.storage')).toBe(true)
-            expect(config.get('cody.advanced.hasNativeWebview')).toBe(true)
+            expect(config.get('cody.advanced.hasNativeWebview')).toBe(false)
         })
 
         it('returns default value for unknown sections', () => {
@@ -179,8 +211,26 @@ describe('AgentWorkspaceConfiguration', () => {
     })
 
     describe('inspect', () => {
-        it('returns undefined for any section', () => {
-            expect(config.inspect('cody.serverEndpoint')).toBeUndefined()
+        it('returns correct values for existing section', () => {
+            expect(config.inspect('cody.serverEndpoint')).toStrictEqual({
+                defaultValue: undefined,
+                globalValue: 'https://sourcegraph.test',
+                key: 'cody.serverEndpoint',
+                workspaceValue: 'https://sourcegraph.test',
+            })
+        })
+
+        it('returns correct default values for pre-defined properties', () => {
+            expect(config.inspect('cody.commandCodeLenses')).toStrictEqual({
+                defaultValue: false,
+                globalValue: false,
+                key: 'cody.commandCodeLenses',
+                workspaceValue: false,
+            })
+        })
+
+        it('returns undefined for not defined properties', () => {
+            expect(config.inspect('some.undefined.value')).toStrictEqual(undefined)
         })
     })
 
@@ -192,7 +242,11 @@ describe('AgentWorkspaceConfiguration', () => {
 
         it('updates nested configuration object', async () => {
             await config.update('cody.debug', { verbose: false, newSetting: true })
-            expect(config.get('cody.debug')).toEqual({ verbose: false, newSetting: true })
+            expect(config.get('cody.debug')).toEqual({
+                verbose: false,
+                newSetting: true,
+                additional: true,
+            })
             expect(config.get('cody.debug.newSetting')).toEqual(true)
         })
 
