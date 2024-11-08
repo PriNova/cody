@@ -18,6 +18,7 @@ interface WorkflowSidebarProps {
     onExecute?: () => void
     onClear?: () => void
     isExecuting?: boolean
+    onAbort?: () => void
 }
 
 export const WorkflowSidebar: React.FC<WorkflowSidebarProps> = ({
@@ -29,6 +30,7 @@ export const WorkflowSidebar: React.FC<WorkflowSidebarProps> = ({
     onExecute,
     onClear,
     isExecuting,
+    onAbort,
 }) => {
     const handleSave = async (): Promise<void> => {
         // Send message to VSCode extension to handle file saving
@@ -50,13 +52,16 @@ export const WorkflowSidebar: React.FC<WorkflowSidebarProps> = ({
                     variant="secondary"
                     className="tw-w-full"
                     onClick={() => {
-                        if (onExecute) {
+                        if (isExecuting && onAbort) {
+                            console.log('WorkflowSidebar: Abort')
+                            onAbort()
+                        } else if (onExecute) {
                             onExecute()
                         }
                     }}
-                    disabled={isExecuting}
+                    disabled={false} // Remove disabled state to allow abort
                 >
-                    {isExecuting ? 'Running...' : 'Execute'}
+                    {isExecuting ? 'Stop Execution' : 'Execute'}
                 </Button>
                 <Button variant="secondary" className="tw-w-full" onClick={onClear}>
                     Clear Workflow

@@ -19,6 +19,7 @@ import { handleWorkflowLoad, handleWorkflowSave } from './workflow-io'
  * @returns void
  */
 export function registerWorkflowCommands(context: vscode.ExtensionContext, chatClient: ChatClient) {
+    let activeAbortController: AbortController | null = null
     context.subscriptions.push(
         vscode.commands.registerCommand('cody.openWorkflowEditor', async () => {
             const panel = vscode.window.createWebviewPanel(
@@ -51,15 +52,27 @@ export function registerWorkflowCommands(context: vscode.ExtensionContext, chatC
                         }
                         case 'execute_workflow': {
                             if (message.data?.nodes && message.data?.edges) {
-                                await executeWorkflow(
-                                    message.data.nodes,
-                                    message.data.edges,
-                                    panel.webview,
-                                    chatClient
-                                )
+                                activeAbortController = new AbortController()
+                                try {
+                                    await executeWorkflow(
+                                        message.data?.nodes || [],
+                                        message.data?.edges || [],
+                                        panel.webview,
+                                        chatClient,
+                                        activeAbortController.signal
+                                    )
+                                } finally {
+                                    activeAbortController = null
+                                }
                             }
                             break
                         }
+                        case 'abort_workflow':
+                            if (activeAbortController) {
+                                activeAbortController.abort()
+                                activeAbortController = null
+                            }
+                            break
                     }
                 },
                 undefined,
@@ -68,6 +81,10 @@ export function registerWorkflowCommands(context: vscode.ExtensionContext, chatC
 
             // Clean Up
             panel.onDidDispose(() => {
+                if (activeAbortController) {
+                    activeAbortController.abort()
+                    activeAbortController = null
+                }
                 panel.dispose()
             })
 

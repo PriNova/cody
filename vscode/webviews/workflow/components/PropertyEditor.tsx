@@ -1,4 +1,5 @@
 import type React from 'react'
+import { Button } from '../../components/shadcn/ui/button'
 import { Input } from '../../components/shadcn/ui/input'
 import { Label } from '../../components/shadcn/ui/label'
 import { Textarea } from '../../components/shadcn/ui/textarea'
@@ -65,6 +66,20 @@ export const PropertyEditor: React.FC<PropertyEditorProps> = ({ node, onUpdate }
                         }
                         placeholder="Enter input text... (use ${1}, ${2} and so on for positional inputs)"
                     />
+                </div>
+            )}
+            {node.type === NodeType.PREVIEW && (
+                <div className="tw-flex tw-flex-col tw-gap-2">
+                    <div className="tw-flex tw-gap-2">
+                        <Button
+                            className="tw-w-full tw-px-4 tw-py-2 tw-bg-red-500 tw-text-white tw-rounded hover:tw-bg-red-600"
+                            onClick={() => onUpdate(node.id, { content: '' })}
+                            title="Clear content"
+                            variant={'secondary'}
+                        >
+                            Clear Content
+                        </Button>
+                    </div>
                 </div>
             )}
         </div>

@@ -16,7 +16,7 @@ import type { WorkflowNode } from '../components/nodes/Nodes'
  */
 
 export type WorkflowToExtension = {
-    type: 'save_workflow' | 'load_workflow' | 'execute_workflow'
+    type: 'save_workflow' | 'load_workflow' | 'execute_workflow' | 'abort_workflow'
     data?: {
         nodes: WorkflowNode[] | undefined
         edges: Edge[] | undefined
