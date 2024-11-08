@@ -2,15 +2,15 @@ import { exec } from 'node:child_process'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import { promisify } from 'node:util'
-import * as vscode from 'vscode'
-
 import { type ChatClient, type Message, PromptString } from '@sourcegraph/cody-shared'
+import * as vscode from 'vscode'
 import type { Edge } from '../../webviews/workflow/components/CustomOrderedEdge'
 import type { WorkflowNode } from '../../webviews/workflow/components/nodes/Nodes'
 import type { WorkflowFromExtension } from '../../webviews/workflow/services/WorkflowProtocol'
 
 interface ExecutionContext {
     nodeOutputs: Map<string, string>
+    //signal: AbortSignal
 }
 
 const execAsync = promisify(exec)
@@ -117,13 +117,20 @@ async function executeCLINode(node: WorkflowNode): Promise<string> {
  * @returns The generated response from the LLM.
  * @throws {Error} If no prompt is specified for the LLM node, or if there is an error executing the LLM node.
  */
-async function executeLLMNode(node: WorkflowNode, chatClient: ChatClient): Promise<string> {
+async function executeLLMNode(
+    node: WorkflowNode,
+    chatClient: ChatClient,
+    abortSignal: AbortSignal
+): Promise<string> {
     if (!node.data.prompt) {
         throw new Error(`No prompt specified for LLM node ${node.id} with ${node.data.label}`)
     }
 
+    const timeout = new Promise<never>((_, reject) => {
+        setTimeout(() => reject(new Error('LLM request timed out')), 30000)
+    })
+
     try {
-        // Convert to messages format expected by chat client
         const messages: Message[] = [
             {
                 speaker: 'human',
@@ -131,26 +138,32 @@ async function executeLLMNode(node: WorkflowNode, chatClient: ChatClient): Promi
             },
         ]
 
-        // Using the chat client directly as seen in chat.ts
-        const response = await new Promise<string>((resolve, reject) => {
-            let fullResponse = ''
-
-            // Stream the response and accumulate it
+        const streamPromise = new Promise<string>((resolve, reject) => {
+            // Use the AsyncGenerator correctly
             chatClient
-                .chat(messages, {
-                    stream: false,
-                    maxTokensToSample: 1000, // Adjust as needed
-                    model: 'anthropic::2024-10-22::claude-3-5-sonnet-latest',
-                })
+                .chat(
+                    messages,
+                    {
+                        stream: false,
+                        maxTokensToSample: 1000,
+                        model: 'anthropic::2024-10-22::claude-3-5-sonnet-latest',
+                    },
+                    abortSignal
+                )
                 .then(async stream => {
+                    const responseBuilder: string[] = []
                     try {
                         for await (const message of stream) {
                             switch (message.type) {
                                 case 'change':
-                                    fullResponse += message.text
+                                    if (responseBuilder.join('').length > 1_000_000) {
+                                        reject(new Error('Response too large'))
+                                        return
+                                    }
+                                    responseBuilder.push(message.text)
                                     break
                                 case 'complete':
-                                    resolve(fullResponse)
+                                    resolve(responseBuilder.join(''))
                                     break
                                 case 'error':
                                     reject(message.error)
@@ -164,11 +177,15 @@ async function executeLLMNode(node: WorkflowNode, chatClient: ChatClient): Promi
                 .catch(reject)
         })
 
-        return response
+        return await Promise.race([streamPromise, timeout])
     } catch (error) {
-        throw new Error(
-            `Failed to execute LLM node: ${error instanceof Error ? error.message : String(error)}`
-        )
+        if (error instanceof Error) {
+            if (error.name === 'AbortError') {
+                throw new Error('Workflow execution aborted')
+            }
+            throw new Error(`Failed to execute LLM node: ${error.message}`)
+        }
+        throw new Error('Unknown error in LLM node execution')
     }
 }
 
@@ -242,10 +259,13 @@ export async function executeWorkflow(
     nodes: WorkflowNode[],
     edges: Edge[],
     webview: vscode.Webview,
-    chatClient: ChatClient
+    chatClient: ChatClient,
+    abortController: AbortSignal
 ): Promise<void> {
+    //const abortController = new AbortController()
     const context: ExecutionContext = {
         nodeOutputs: new Map(),
+        //signal: abortController.signal,
     }
 
     const sortedNodes = topologicalSort(nodes, edges)
@@ -286,7 +306,8 @@ export async function executeWorkflow(
                     const prompt = node.data.prompt ? replaceIndexedInputs(node.data.prompt, inputs) : ''
                     result = await executeLLMNode(
                         { ...node, data: { ...node.data, prompt } },
-                        chatClient
+                        chatClient,
+                        abortController
                     )
                     break
                 }

@@ -13,7 +13,7 @@ import {
 import '@xyflow/react/dist/style.css'
 import type { GenericVSCodeWrapper } from '@sourcegraph/cody-shared'
 import type React from 'react'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { WorkflowFromExtension, WorkflowToExtension } from '../services/WorkflowProtocol'
 import { CustomOrderedEdge, type Edge } from './CustomOrderedEdge'
 import { WorkflowSidebar } from './WorkflowSidebar'
@@ -36,6 +36,7 @@ export const Flow: React.FC<{
     const [isResizing, setIsResizing] = useState(false)
     const [startX, setStartX] = useState(0)
     const [startWidth, setStartWidth] = useState(0)
+    const [abortController, setAbortController] = useState<AbortController | null>(null)
 
     const edgeTypes = {
         'ordered-edge': CustomOrderedEdge,
@@ -186,7 +187,9 @@ export const Flow: React.FC<{
         // Clear any existing errors before executing
         setNodeErrors(new Map())
 
-        // Execute workflow if validation passes
+        const controller = new AbortController()
+        setAbortController(controller)
+
         vscodeAPI.postMessage({
             type: 'execute_workflow',
             data: {
@@ -195,6 +198,16 @@ export const Flow: React.FC<{
             },
         })
     }, [nodes, edges, vscodeAPI])
+
+    const onAbort = useCallback(() => {
+        if (abortController) {
+            abortController.abort()
+            setAbortController(null)
+            vscodeAPI.postMessage({
+                type: 'abort_workflow',
+            })
+        }
+    }, [abortController, vscodeAPI])
 
     // 2. Edge Operations
     // Manages connections between nodes
@@ -230,13 +243,17 @@ export const Flow: React.FC<{
         updateEdgeOrder()
     }, [updateEdgeOrder])
 
-    const edgesWithOrder = edges.map(edge => ({
-        ...edge,
-        type: 'ordered-edge', // Make sure to set the type
-        data: {
-            orderNumber: edgeOrder.get(edge.id) || 0,
-        },
-    }))
+    const edgesWithOrder = useMemo(
+        () =>
+            edges.map(edge => ({
+                ...edge,
+                type: 'ordered-edge',
+                data: {
+                    orderNumber: edgeOrder.get(edge.id) || 0,
+                },
+            })),
+        [edges, edgeOrder]
+    )
 
     // 3. Selection Management
     // Handles node selection state
@@ -266,17 +283,21 @@ export const Flow: React.FC<{
     // Transforms data for rendering
     const [nodeResults, setNodeResults] = useState<Map<string, string>>(new Map())
 
-    const nodesWithState = nodes.map(node => ({
-        ...node,
-        selected: node.id === selectedNode?.id,
-        data: {
-            ...node.data,
-            moving: node.id === movingNodeId,
-            executing: node.id === executingNodeId,
-            error: nodeErrors.has(node.id),
-            result: nodeResults.get(node.id),
-        },
-    }))
+    const nodesWithState = useMemo(
+        () =>
+            nodes.map(node => ({
+                ...node,
+                selected: node.id === selectedNode?.id,
+                data: {
+                    ...node.data,
+                    moving: node.id === movingNodeId,
+                    executing: node.id === executingNodeId,
+                    error: nodeErrors.has(node.id),
+                    result: nodeResults.get(node.id),
+                },
+            })),
+        [nodes, selectedNode, movingNodeId, executingNodeId, nodeErrors, nodeResults]
+    )
 
     const onSave = useCallback(() => {
         const workflowData = {
@@ -378,7 +399,6 @@ export const Flow: React.FC<{
     const handleMouseMove = useCallback(
         (e: MouseEvent) => {
             if (!isResizing) return
-
             const delta = e.clientX - startX
             const newWidth = Math.min(Math.max(startWidth + delta, 200), 600)
             setSidebarWidth(newWidth)
@@ -417,6 +437,7 @@ export const Flow: React.FC<{
                     onExecute={onExecute}
                     onClear={onClear}
                     isExecuting={isExecuting}
+                    onAbort={onAbort}
                 />
             </div>
             <div
