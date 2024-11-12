@@ -135,18 +135,15 @@ export const CodyPanel: FunctionComponent<CodyPanelProps> = ({
                             multipleWebviewsEnabled={config.multipleWebviewsEnabled}
                         />
                     )}
+                    {view === View.Toolbox && config.webviewType === 'sidebar' && (
+                        <ToolboxTab setView={setView} />
+                    )}
                     {view === View.Prompts && (
                         <PromptsTab
                             IDE={clientCapabilities.agentIDE}
                             setView={setView}
                             isPromptsV2Enabled={isPromptsV2Enabled}
                         />
-                    )}
-                    {view === View.Toolbox && config.webviewType === 'sidebar' && (
-                        <ToolboxTab setView={setView} />
-                    )}
-                    {view === View.Toolbox && config.webviewType === 'sidebar' && (
-                        <ToolboxTab setView={setView} />
                     )}
                     {view === View.Account && <AccountTab setView={setView} />}
                     {view === View.Settings && <SettingsTab />}

@@ -148,7 +148,7 @@ execFileSync(
             : []),
         '--no-dependencies',
         '--out',
-        'dist/cody-community.vsix',
+        'dist/cody-custom.vsix',
     ],
     {
         stdio: 'inherit',
@@ -167,7 +167,7 @@ if (dryRun) {
             'publish',
             ...(releaseType === ReleaseType.Insiders ? ['--pre-release', '--no-git-tag-version'] : []),
             '--packagePath',
-            'dist/cody-community.vsix',
+            'dist/cody-custom.vsix',
         ],
         {
             env: { ...process.env, VSCE_PAT: tokens.vscode },
@@ -182,7 +182,7 @@ if (dryRun) {
             'publish',
             ...(releaseType === ReleaseType.Insiders ? ['--pre-release'] : []),
             '--packagePath',
-            'dist/cody-community.vsix',
+            'dist/cody-custom.vsix',
             '--pat',
             tokens.openvsx,
         ],
