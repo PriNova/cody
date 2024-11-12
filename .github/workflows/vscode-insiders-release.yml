@@ -8,13 +8,15 @@ on:
 
 jobs:
   release:
-    if: (github.ref == 'refs/heads/custom-builds' || github.event_name == 'workflow_dispatch') && github.repository == 'PriNova/cody'
+    if: (github.ref == 'refs/heads/PriNova/custom-builds' || github.event_name == 'workflow_dispatch') && github.repository == 'PriNova/cody'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
       contents: write
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Get all tags
       - uses: actions/setup-node@v3
         with:
           node-version-file: .tool-versions
@@ -24,24 +26,18 @@ jobs:
       - run: pnpm build
       - run: CODY_RELEASE_TYPE=insiders pnpm -C vscode run release:dry-run
       
-      # New steps to create release and upload artifact
-      - name: Create Release
-        id: create_release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # Replace the Create Release step with this
+      - name: Create/Update Release
+        uses: softprops/action-gh-release@v1
         with:
+          files: ./vscode/dist/cody-custom.vsix
+          name: "Release ${{ github.ref_name }}"
           tag_name: ${{ github.ref_name }}
-          release_name: Release ${{ github.ref_name }}
+          body: |
+            Release ${{ github.ref_name }}
+            
+            Automated release from tag push
           draft: false
           prerelease: false
-
-      - name: Upload Release Asset
-        uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./vscode/dist/cody-custom.vsix
-          asset_name: cody-custom.vsix
-          asset_content_type: application/octet-stream
