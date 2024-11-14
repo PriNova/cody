@@ -107,13 +107,16 @@ const getBorderColor = (
         executing,
         moving,
         selected,
+        interrupted,
     }: {
         error?: boolean
         executing?: boolean
         moving?: boolean
         selected?: boolean
+        interrupted?: boolean
     }
 ) => {
+    if (interrupted) return 'var(--vscode-charts-orange)'
     if (error) return 'var(--vscode-inputValidation-errorBorder)'
     if (executing) return 'var(--vscode-charts-yellow)'
     if (moving) return 'var(--vscode-focusBorder)'

@@ -37,6 +37,7 @@ export const Flow: React.FC<{
     const [startX, setStartX] = useState(0)
     const [startWidth, setStartWidth] = useState(0)
     const [abortController, setAbortController] = useState<AbortController | null>(null)
+    const [interruptedNodeIds, setInterruptedNodeIds] = useState<Set<string>>(new Set())
 
     const edgeTypes = {
         'ordered-edge': CustomOrderedEdge,
@@ -292,11 +293,12 @@ export const Flow: React.FC<{
                     ...node.data,
                     moving: node.id === movingNodeId,
                     executing: node.id === executingNodeId,
+                    interrupted: interruptedNodeIds.has(node.id),
                     error: nodeErrors.has(node.id),
                     result: nodeResults.get(node.id),
                 },
             })),
-        [nodes, selectedNode, movingNodeId, executingNodeId, nodeErrors, nodeResults]
+        [nodes, selectedNode, movingNodeId, executingNodeId, nodeErrors, nodeResults, interruptedNodeIds]
     )
 
     const onSave = useCallback(() => {
@@ -339,6 +341,11 @@ export const Flow: React.FC<{
                     break
                 case 'node_execution_status':
                     if (event.data.data?.nodeId && event.data.data?.status) {
+                        if (event.data.data.status === 'interrupted') {
+                            setInterruptedNodeIds(prev =>
+                                new Set(prev).add(event.data.data?.nodeId ?? '')
+                            )
+                        }
                         if (event.data.data.status === 'running') {
                             setExecutingNodeId(event.data.data.nodeId)
                             // Clear error state when node starts running
