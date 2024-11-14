@@ -6,6 +6,7 @@ import {
     REMOTE_FILE_PROVIDER_URI,
     type SerializedPromptEditorValue,
     deserializeContextItem,
+    getTokenCounterUtils,
     inputTextWithoutContextChipsFromPromptEditorState,
     isAbortErrorOrSocketHangUp,
 } from '@sourcegraph/cody-shared'
@@ -26,6 +27,7 @@ import {
     useImperativeHandle,
     useMemo,
     useRef,
+    useState,
 } from 'react'
 import { URI } from 'vscode-uri'
 import type { UserAccountInfo } from '../Chat'
@@ -117,6 +119,34 @@ export const Transcript: FC<TranscriptProps> = props => {
         []
     )
 
+    const [transcriptTokens, setTranscriptTokens] = useState<number>()
+
+    useMemo(() => {
+        const calculateTranscriptTokens = async () => {
+            const tokenCounter = await getTokenCounterUtils()
+
+            // Calculate history tokens from previous messages
+            const historyTokens = await Promise.all(
+                transcript.map(msg => tokenCounter.countTokens(msg.text?.toString() || ''))
+            ).then(counts => counts.reduce((a, b) => a + b, 0))
+
+            // Calculate tokens from context files
+            const contextFileTokens = await Promise.all(
+                transcript.flatMap(msg =>
+                    (msg.contextFiles || []).map(item => tokenCounter.countTokens(item.content || ''))
+                )
+            ).then(counts => counts.reduce((a, b) => a + b, 0))
+
+            // Add context file tokens to history tokens
+            const totalTokens = historyTokens + contextFileTokens
+
+            // Update state
+            setTranscriptTokens(totalTokens)
+        }
+
+        calculateTranscriptTokens()
+    }, [transcript])
+
     return (
         <div
             className={clsx('tw-px-8 tw-pt-8 tw-pb-6 tw-flex tw-flex-col tw-gap-8', {
@@ -147,6 +177,7 @@ export const Transcript: FC<TranscriptProps> = props => {
                     smartApplyEnabled={smartApplyEnabled}
                     editorRef={i === interactions.length - 1 ? lastHumanEditorRef : undefined}
                     onAddToFollowupChat={onAddToFollowupChat}
+                    transcriptTokens={i === interactions.length - 1 ? transcriptTokens : undefined}
                 />
             ))}
         </div>
@@ -225,6 +256,7 @@ interface TranscriptInteractionProps
         filePath: string
         fileURL: string
     }) => void
+    transcriptTokens?: number
 }
 
 const TranscriptInteraction: FC<TranscriptInteractionProps> = memo(props => {
@@ -246,6 +278,7 @@ const TranscriptInteraction: FC<TranscriptInteractionProps> = memo(props => {
         smartApplyEnabled,
         editorRef: parentEditorRef,
         onAddToFollowupChat,
+        transcriptTokens,
     } = props
 
     const [intentResults, setIntentResults] = useMutatedValue<
@@ -412,6 +445,7 @@ const TranscriptInteraction: FC<TranscriptInteractionProps> = memo(props => {
                 editorRef={humanEditorRef}
                 className={!isFirstInteraction && isLastInteraction ? 'tw-mt-auto' : ''}
                 onEditorFocusChange={resetIntent}
+                transcriptTokens={transcriptTokens}
             />
 
             {experimentalOneBoxEnabled && humanMessage.intent && (

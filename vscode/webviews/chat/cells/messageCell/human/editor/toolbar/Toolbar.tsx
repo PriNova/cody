@@ -10,6 +10,7 @@ import { useActionSelect } from '../../../../../../prompts/PromptsTab'
 import { useConfig } from '../../../../../../utils/useConfig'
 import { AddContextButton } from './AddContextButton'
 import { SubmitButton, type SubmitButtonState } from './SubmitButton'
+import { TokenDisplay } from './TokenDisplay'
 
 /**
  * The toolbar for the human message editor.
@@ -34,6 +35,9 @@ export const Toolbar: FunctionComponent<{
     className?: string
     intent?: ChatMessage['intent']
     onSelectIntent?: (intent: ChatMessage['intent']) => void
+    tokenCount?: number
+    contextWindow?: number
+    transcriptTokens?: number
 }> = ({
     userInfo,
     isEditorFocused,
@@ -47,6 +51,9 @@ export const Toolbar: FunctionComponent<{
     models,
     intent,
     onSelectIntent,
+    tokenCount,
+    contextWindow,
+    transcriptTokens,
 }) => {
     /**
      * If the user clicks in a gap or on the toolbar outside of any of its buttons, report back to
@@ -93,6 +100,10 @@ export const Toolbar: FunctionComponent<{
                     focusEditor={focusEditor}
                     className="tw-mr-1"
                 />
+
+                {tokenCount !== undefined && contextWindow && (
+                    <TokenDisplay current={tokenCount} total={transcriptTokens} limit={contextWindow} />
+                )}
             </div>
             <div className="tw-flex-1 tw-flex tw-justify-end">
                 <SubmitButton
