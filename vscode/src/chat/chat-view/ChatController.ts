@@ -495,6 +495,15 @@ export class ChatController implements vscode.Disposable, vscode.WebviewViewProv
                 logger(message.filterLabel, message.message)
                 break
             }
+            case 'updateChatTitle': {
+                const { chatID, newTitle } = message
+                // Update the chat title in your storage
+                const authStatus = currentAuthStatusAuthed()
+                await chatHistory.updateChatTitle(chatID, newTitle, authStatus)
+                // Update UI
+                this.syncPanelTitle()
+                break
+            }
         }
     }
 

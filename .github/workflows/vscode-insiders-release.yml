@@ -8,13 +8,15 @@ on:
 
 jobs:
   release:
-    if: (github.ref == 'refs/heads/custom-builds' || github.event_name == 'workflow_dispatch') && github.repository == 'PriNova/cody'
+    if: (github.ref == 'refs/heads/PriNova/custom-builds' || github.event_name == 'workflow_dispatch') && github.repository == 'PriNova/cody'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
       contents: write
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Get all tags
       - uses: actions/setup-node@v3
         with:
           node-version-file: .tool-versions
@@ -27,10 +29,17 @@ jobs:
       # Replace the Create Release step with this
       - name: Create/Update Release
         uses: softprops/action-gh-release@v1
+      # Replace the Create Release step with this
+      - name: Create/Update Release
+        uses: softprops/action-gh-release@v1
         with:
           files: ./vscode/dist/cody-custom.vsix
           name: Release ${{ github.ref_name }}
           tag_name: ${{ github.ref_name }}
+          body: |
+            Release ${{ github.ref_name }}
+            
+            Automated release from tag push
           draft: false
           prerelease: false
         env:

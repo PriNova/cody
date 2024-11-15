@@ -29,7 +29,7 @@ export type WorkflowFromExtension = {
         nodes: WorkflowNode[]
         edges: Edge[]
         nodeId?: string
-        status?: 'running' | 'completed' | 'error'
+        status?: 'running' | 'completed' | 'error' | 'interrupted'
         result?: string
     }
 }

@@ -132,6 +132,11 @@ export type WebviewMessage =
           filterLabel: string
           message: string
       }
+    | {
+          command: 'updateChatTitle'
+          chatID: string
+          newTitle: string
+      }
 
 export interface SmartApplyResult {
     taskId: FixupTaskID

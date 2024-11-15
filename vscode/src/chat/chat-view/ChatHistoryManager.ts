@@ -72,6 +72,18 @@ class ChatHistoryManager implements vscode.Disposable {
         this.changeNotifications.next()
     }
 
+    public async updateChatTitle(
+        chatID: string,
+        newTitle: string,
+        authStatus: Pick<AuthenticatedAuthStatus, 'endpoint' | 'username'>
+    ): Promise<void> {
+        const userHistory = localStorage.getChatHistory(authStatus)
+        if (userHistory?.chat[chatID]) {
+            userHistory.chat[chatID].chatTitle = newTitle
+            await localStorage.setChatHistory(authStatus, userHistory)
+        }
+    }
+
     private changeNotifications = new Subject<void>()
     public changes: Observable<UserLocalHistory | null> = combineLatest(
         authStatus.pipe(

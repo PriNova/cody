@@ -47,6 +47,7 @@ interface HumanMessageCellProps {
 
     /** For use in storybooks only. */
     __storybook__focus?: boolean
+    transcriptTokens?: number
 }
 
 /**
@@ -93,6 +94,7 @@ const HumanMessageCellContent = memo<HumanMessageCellContent>(props => {
         __storybook__focus,
         onEditorFocusChange,
         intent,
+        transcriptTokens,
     } = props
 
     return (
@@ -130,6 +132,7 @@ const HumanMessageCellContent = memo<HumanMessageCellContent>(props => {
                     __storybook__focus={__storybook__focus}
                     onEditorFocusChange={onEditorFocusChange}
                     initialIntent={intent}
+                    transcriptTokens={transcriptTokens}
                 />
             }
             className={className}

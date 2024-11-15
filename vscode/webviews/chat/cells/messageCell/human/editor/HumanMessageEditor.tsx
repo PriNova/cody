@@ -5,14 +5,18 @@ import {
     ModelTag,
     type SerializedPromptEditorState,
     type SerializedPromptEditorValue,
+    getTokenCounterUtils,
+    inputTextWithoutContextChipsFromPromptEditorState,
     textContentFromSerializedLexicalNode,
 } from '@sourcegraph/cody-shared'
 import {
+    ContextItemMentionNode,
     PromptEditor,
     type PromptEditorRefAPI,
     useDefaultContextForChat,
 } from '@sourcegraph/prompt-editor'
 import clsx from 'clsx'
+import { debounce } from 'lodash'
 import {
     type FocusEventHandler,
     type FunctionComponent,
@@ -68,6 +72,7 @@ export const HumanMessageEditor: FunctionComponent<{
     __storybook__focus?: boolean
 
     initialIntent?: ChatMessage['intent']
+    transcriptTokens?: number
 }> = ({
     models,
     userInfo,
@@ -88,6 +93,7 @@ export const HumanMessageEditor: FunctionComponent<{
     __storybook__focus,
     onEditorFocusChange: parentOnEditorFocusChange,
     initialIntent,
+    transcriptTokens,
 }) => {
     const telemetryRecorder = useTelemetryRecorder()
 
@@ -100,12 +106,54 @@ export const HumanMessageEditor: FunctionComponent<{
             ? textContentFromSerializedLexicalNode(initialEditorState.lexicalEditorState.root) === ''
             : true
     )
+    const [tokenCount, setTokenCount] = useState<number>(0)
+    const [tokenAdded, setTokenAdded] = useState<number>(0)
+
+    useEffect(() => {
+        const editor = editorRef.current
+        if (!editor) {
+            return
+        }
+        // Listen for changes to ContextItemMentionNode to update the token count.
+        // This updates the token count when a mention is added or removed.
+        const unregister = editor.registerMutationListener(ContextItemMentionNode, (node: any) => {
+            const value = editor.getSerializedValue()
+            const items = value.contextItems
+            if (!items?.length) {
+                setTokenAdded(0)
+                return
+            }
+            setTokenAdded(items.reduce((acc, item) => acc + (item.size ? item.size : 0), 0))
+        })
+        return unregister
+    }, [])
+
+    // Move token counter outside callback for stability
+    const tokenCounter = useMemo(async () => await getTokenCounterUtils(), [])
+
+    // Create stable debounced function outside main callback
+    const debouncedCount = useMemo(
+        () =>
+            debounce(async (text: string) => {
+                const counter = await tokenCounter
+                //const tokenCount = counter.encode(text).length
+                setTokenCount(counter.encode(text).length)
+            }, 300), // Reduced debounce time for better responsiveness
+        [tokenCounter]
+    )
+
+    // Replace the current onChange implementation with:
     const onEditorChange = useCallback(
-        (value: SerializedPromptEditorValue): void => {
+        async (value: SerializedPromptEditorValue): Promise<void> => {
             onChange?.(value)
             setIsEmptyEditorValue(!value?.text?.trim())
+
+            // Get pure text without @-mentions
+            const pureText = inputTextWithoutContextChipsFromPromptEditorState(value.editorState)
+
+            await debouncedCount(pureText)
         },
-        [onChange]
+        [onChange, debouncedCount]
     )
 
     const submitState: SubmitButtonState = isPendingPriorResponse
@@ -381,6 +429,10 @@ export const HumanMessageEditor: FunctionComponent<{
         currentChatModel?.contextWindow?.input ||
         FAST_CHAT_INPUT_TOKEN_BUDGET
 
+    const totalContextWindow =
+        (currentChatModel?.contextWindow?.context?.user || 0) +
+        (currentChatModel?.contextWindow?.input || 0)
+
     return (
         // biome-ignore lint/a11y/useKeyWithClickEvents: only relevant to click areas
         <div
@@ -426,6 +478,9 @@ export const HumanMessageEditor: FunctionComponent<{
                     className={styles.toolbar}
                     intent={submitIntent}
                     onSelectIntent={setSubmitIntent}
+                    tokenCount={tokenCount + tokenAdded}
+                    contextWindow={totalContextWindow}
+                    transcriptTokens={transcriptTokens}
                 />
             )}
         </div>

@@ -1,7 +1,7 @@
-import { exec } from 'node:child_process'
+import { spawn } from 'node:child_process'
+import type { ChildProcess } from 'node:child_process'
 import * as os from 'node:os'
 import * as path from 'node:path'
-import { promisify } from 'node:util'
 import { type ChatClient, type Message, PromptString } from '@sourcegraph/cody-shared'
 import * as vscode from 'vscode'
 import type { Edge } from '../../webviews/workflow/components/CustomOrderedEdge'
@@ -13,7 +13,7 @@ interface ExecutionContext {
     //signal: AbortSignal
 }
 
-const execAsync = promisify(exec)
+let activeProcess: ChildProcess | null = null
 
 /**
  * Performs a topological sort on the given workflow nodes and edges, returning the sorted nodes.
@@ -50,7 +50,6 @@ export function topologicalSort(nodes: WorkflowNode[], edges: Edge[]): WorkflowN
 
     const queue = sortedSourceNodes.map(node => node.id)
     const result: string[] = []
-
     while (queue.length > 0) {
         const nodeId = queue.shift()!
         result.push(nodeId)
@@ -73,40 +72,78 @@ export function topologicalSort(nodes: WorkflowNode[], edges: Edge[]): WorkflowN
  * Executes a CLI node in a workflow, running the specified shell command and returning its output.
  *
  * @param node - The workflow node to execute.
+ * @param abortSignal - The abort signal to cancel the execution.
  * @returns The output of the shell command.
  * @throws {Error} If the shell is not available, the workspace is not trusted, or the command fails to execute.
  */
-async function executeCLINode(node: WorkflowNode): Promise<string> {
-    // Check if shell is available and workspace is trusted
+async function executeCLINode(node: WorkflowNode, abortSignal: AbortSignal): Promise<string> {
     if (!vscode.env.shell || !vscode.workspace.isTrusted) {
         throw new Error('Shell command is not supported in your current workspace.')
     }
 
-    // Get workspace directory
     const homeDir = os.homedir() || process.env.HOME || process.env.USERPROFILE || ''
     const cwd = vscode.workspace.workspaceFolders?.[0]?.uri?.path
 
-    // Filter and sanitize command
     const filteredCommand = node.data.command?.replaceAll(/(\s~\/)/g, ` ${homeDir}${path.sep}`) || ''
 
-    // Check for disallowed commands (you'll need to define commandsNotAllowed array)
     if (commandsNotAllowed.some(cmd => filteredCommand.startsWith(cmd))) {
         void vscode.window.showErrorMessage('Cody cannot execute this command')
         throw new Error('Cody cannot execute this command')
     }
 
-    try {
-        const { stdout, stderr } = await execAsync(filteredCommand, { cwd })
+    return new Promise((resolve, reject) => {
+        const shell = process.platform === 'win32' ? 'cmd' : 'bash'
+        const shellFlag = process.platform === 'win32' ? '/c' : '-c'
 
-        if (stderr) {
-            throw new Error(stderr)
-        }
-        return stdout.replace(/\n$/, '')
-    } catch (error) {
-        throw new Error(
-            `Failed to execute command: ${error instanceof Error ? error.message : String(error)}`
-        )
-    }
+        activeProcess = spawn(shell, [shellFlag, filteredCommand], { cwd })
+        let stdout = ''
+        let stderr = ''
+
+        activeProcess.stdout?.on('data', data => {
+            stdout += data.toString()
+        })
+
+        activeProcess.stderr?.on('data', data => {
+            stderr += data.toString()
+        })
+
+        activeProcess.on('close', code => {
+            activeProcess = null
+            if (code === 0) {
+                resolve(stdout.replace(/\n$/, ''))
+            } else {
+                reject(new Error(stderr || `Process exited with code ${code}`))
+            }
+        })
+
+        activeProcess.on('error', error => {
+            activeProcess = null
+            reject(error)
+        })
+
+        // Handle abortion
+        abortSignal.addEventListener('abort', () => {
+            if (activeProcess) {
+                if (process.platform === 'win32') {
+                    spawn('taskkill', ['/pid', activeProcess.pid?.toString() || '', '/f', '/t'])
+                } else {
+                    try {
+                        // Try to kill process group first
+                        process.kill(-activeProcess.pid!, 'SIGTERM')
+                    } catch {
+                        // If process group kill fails, try killing single process without logging error
+                        try {
+                            process.kill(activeProcess.pid!, 'SIGTERM')
+                        } catch {
+                            // Process already terminated, ignore error
+                        }
+                    }
+                }
+                activeProcess = null
+                reject(new Error('CLI command execution aborted'))
+            }
+        })
+    })
 }
 
 /**
@@ -293,7 +330,10 @@ export async function executeWorkflow(
                     const command = node.data.command
                         ? replaceIndexedInputs(node.data.command, inputs)
                         : ''
-                    result = await executeCLINode({ ...node, data: { ...node.data, command } })
+                    result = await executeCLINode(
+                        { ...node, data: { ...node.data, command } },
+                        abortController
+                    )
                     break
                 }
                 case 'llm': {
@@ -344,17 +384,16 @@ export async function executeWorkflow(
             } as WorkflowFromExtension)
         } catch (error: unknown) {
             const errorMessage = error instanceof Error ? error.message : String(error)
+            const status = errorMessage === 'CLI command execution aborted' ? 'interrupted' : 'error'
+
             webview.postMessage({
                 type: 'node_execution_status',
-                data: { nodeId: node.id, status: 'error', result: errorMessage },
+                data: { nodeId: node.id, status, result: errorMessage },
             } as WorkflowFromExtension)
-            // Send execution completed message to indicate workflow has stopped
+
             webview.postMessage({
                 type: 'execution_completed',
             } as WorkflowFromExtension)
-            void vscode.window.showErrorMessage(errorMessage)
-            // Exit the function to stop execution
-            return
         }
     }
 

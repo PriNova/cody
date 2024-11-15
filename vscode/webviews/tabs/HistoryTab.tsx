@@ -1,8 +1,14 @@
 import type { CodyIDE, SerializedChatTranscript, UserLocalHistory } from '@sourcegraph/cody-shared'
 import { useExtensionAPI, useObservable } from '@sourcegraph/prompt-editor'
-import { HistoryIcon, MessageSquarePlusIcon, MessageSquareTextIcon, TrashIcon } from 'lucide-react'
+import {
+    HistoryIcon,
+    MessageSquarePlusIcon,
+    MessageSquareTextIcon,
+    PenIcon,
+    TrashIcon,
+} from 'lucide-react'
 import type React from 'react'
-import { useCallback, useMemo } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import type { WebviewType } from '../../src/chat/protocol'
 import { getRelativeChatPeriod } from '../../src/common/time-date'
 import { LoadingDots } from '../chat/components/LoadingDots'
@@ -43,6 +49,8 @@ export const HistoryTabWithData: React.FC<
     HistoryTabProps & { chats: UserLocalHistory['chat'][string][] }
 > = ({ IDE, webviewType, multipleWebviewsEnabled, setView, chats }) => {
     const nonEmptyChats = useMemo(() => chats.filter(chat => chat.interactions.length > 0), [chats])
+    const [editingId, setEditingId] = useState<string | null>(null)
+    const [newTitle, setNewTitle] = useState('')
 
     const chatByPeriod = useMemo(
         () =>
@@ -79,6 +87,32 @@ export const HistoryTabWithData: React.FC<
         })
         setView(View.Chat)
     }
+    const onEditButtonClick = useCallback(
+        (id: string) => {
+            setEditingId(id)
+            const chat = chats.find(chat => chat.id === id)
+            setNewTitle(chat?.chatTitle || '')
+        },
+        [chats]
+    )
+
+    const onSaveTitle = useCallback(
+        (id: string, newTitle: string) => {
+            // First update in local state
+            const chat = chats.find(chat => chat.id === id)
+            if (chat) {
+                chat.chatTitle = newTitle
+                // Send message to update in extension
+                getVSCodeAPI().postMessage({
+                    command: 'updateChatTitle',
+                    chatID: id,
+                    newTitle: newTitle,
+                })
+                setEditingId(null)
+            }
+        },
+        [chats]
+    )
 
     return (
         <div className="tw-flex tw-flex-col tw-gap-10">
@@ -90,42 +124,89 @@ export const HistoryTabWithData: React.FC<
                     title={period}
                     initialOpen={true}
                 >
-                    {chats.map(({ interactions, id }) => {
-                        const lastMessage =
-                            interactions[interactions.length - 1]?.humanMessage?.text?.trim()
+                    {chats.map(({ interactions, id, chatTitle }) => {
+                        const firstMessageOrTitle = chatTitle
+                            ? chatTitle
+                            : interactions[0]?.humanMessage?.text?.trim()
+
                         return (
                             <div key={id} className="tw-inline-flex tw-justify-between">
-                                <Button
-                                    key={id}
-                                    variant="ghost"
-                                    title={lastMessage}
-                                    onClick={() =>
-                                        getVSCodeAPI().postMessage({
-                                            command: 'restoreHistory',
-                                            chatID: id,
-                                        })
-                                    }
-                                    className="tw-text-left tw-truncate tw-w-full"
-                                >
-                                    <MessageSquareTextIcon
-                                        className="tw-w-8 tw-h-8 tw-opacity-80"
-                                        size={16}
-                                        strokeWidth="1.25"
-                                    />
-                                    <span className="tw-truncate tw-w-full">{lastMessage}</span>
-                                </Button>
-                                <Button
-                                    key={id}
-                                    variant="ghost"
-                                    title="Delete chat"
-                                    onClick={() => onDeleteButtonClick(id)}
-                                >
-                                    <TrashIcon
-                                        className="tw-w-8 tw-h-8 tw-opacity-80"
-                                        size={16}
-                                        strokeWidth="1.25"
-                                    />
-                                </Button>
+                                {editingId === id ? (
+                                    <div className="tw-flex tw-w-full tw-gap-2">
+                                        <input
+                                            type="text"
+                                            value={newTitle}
+                                            onChange={e => setNewTitle(e.target.value)}
+                                            className="tw-w-full tw-px-2 tw-py-1 tw-rounded tw-bg-transparent tw-border"
+                                            onKeyDown={e => {
+                                                if (e.key === 'Enter') {
+                                                    getVSCodeAPI().postMessage({
+                                                        command: 'updateChatTitle',
+                                                        chatID: id,
+                                                        newTitle,
+                                                    })
+                                                    setEditingId(null)
+                                                } else if (e.key === 'Escape') {
+                                                    setEditingId(null)
+                                                }
+                                            }}
+                                        />
+                                        <Button
+                                            variant="ghost"
+                                            onClick={() => onSaveTitle(id, newTitle)}
+                                        >
+                                            Save
+                                        </Button>
+                                        <Button variant="ghost" onClick={() => setEditingId(null)}>
+                                            Cancel
+                                        </Button>
+                                    </div>
+                                ) : (
+                                    <>
+                                        <Button
+                                            variant="ghost"
+                                            title={firstMessageOrTitle}
+                                            onClick={() =>
+                                                getVSCodeAPI().postMessage({
+                                                    command: 'restoreHistory',
+                                                    chatID: id,
+                                                })
+                                            }
+                                            className="tw-text-left tw-truncate tw-w-full"
+                                        >
+                                            <MessageSquareTextIcon
+                                                className="tw-w-8 tw-h-8 tw-opacity-80"
+                                                size={16}
+                                                strokeWidth="1.25"
+                                            />
+                                            <span className="tw-truncate tw-w-full">
+                                                {firstMessageOrTitle}
+                                            </span>
+                                        </Button>
+                                        <Button
+                                            variant="ghost"
+                                            title="Edit chat title"
+                                            onClick={() => onEditButtonClick(id)}
+                                        >
+                                            <PenIcon
+                                                className="tw-w-8 tw-h-8 tw-opacity-80"
+                                                size={16}
+                                                strokeWidth="1.25"
+                                            />
+                                        </Button>
+                                        <Button
+                                            variant="ghost"
+                                            title="Delete chat"
+                                            onClick={() => onDeleteButtonClick(id)}
+                                        >
+                                            <TrashIcon
+                                                className="tw-w-8 tw-h-8 tw-opacity-80"
+                                                size={16}
+                                                strokeWidth="1.25"
+                                            />
+                                        </Button>
+                                    </>
+                                )}
                             </div>
                         )
                     })}

@@ -6,6 +6,7 @@ import {
     REMOTE_FILE_PROVIDER_URI,
     type SerializedPromptEditorValue,
     deserializeContextItem,
+    getTokenCounterUtils,
     inputTextWithoutContextChipsFromPromptEditorState,
     isAbortErrorOrSocketHangUp,
 } from '@sourcegraph/cody-shared'
@@ -23,9 +24,11 @@ import {
     type MutableRefObject,
     memo,
     useCallback,
+    useEffect,
     useImperativeHandle,
     useMemo,
     useRef,
+    useState,
 } from 'react'
 import { URI } from 'vscode-uri'
 import type { UserAccountInfo } from '../Chat'
@@ -117,6 +120,42 @@ export const Transcript: FC<TranscriptProps> = props => {
         []
     )
 
+    const [transcriptTokens, setTranscriptTokens] = useState<number>()
+    const tokenCounter = useMemo(async () => await getTokenCounterUtils(), [])
+
+    // Create stable debounced calculation function
+    const debouncedCalculate = useMemo(
+        () =>
+            debounce(async (messages: ChatMessage[]) => {
+                const counter = await tokenCounter
+
+                // Calculate history tokens from previous messages
+                const messageTokens = await Promise.all(
+                    messages.map(msg => counter.encode(msg.text?.toString() || '').length)
+                )
+
+                // Calculate context file tokens
+                const contextTokens = await Promise.all(
+                    messages.flatMap(msg =>
+                        (msg.contextFiles || []).map(item => counter.encode(item.content || '').length)
+                    )
+                )
+
+                const total = [...messageTokens, ...contextTokens].reduce((a, b) => a + b, 0)
+                setTranscriptTokens(total)
+            }, 300),
+        [tokenCounter]
+    )
+
+    // Replace the existing transcript token calculation in TranscriptInteraction
+    useEffect(() => {
+        debouncedCalculate(transcript)
+
+        return () => {
+            debouncedCalculate.cancel()
+        }
+    }, [transcript, debouncedCalculate])
+
     return (
         <div
             className={clsx('tw-px-8 tw-pt-8 tw-pb-6 tw-flex tw-flex-col tw-gap-8', {
@@ -147,6 +186,7 @@ export const Transcript: FC<TranscriptProps> = props => {
                     smartApplyEnabled={smartApplyEnabled}
                     editorRef={i === interactions.length - 1 ? lastHumanEditorRef : undefined}
                     onAddToFollowupChat={onAddToFollowupChat}
+                    transcriptTokens={i === interactions.length - 1 ? transcriptTokens : undefined}
                 />
             ))}
         </div>
@@ -225,6 +265,7 @@ interface TranscriptInteractionProps
         filePath: string
         fileURL: string
     }) => void
+    transcriptTokens?: number
 }
 
 const TranscriptInteraction: FC<TranscriptInteractionProps> = memo(props => {
@@ -246,6 +287,7 @@ const TranscriptInteraction: FC<TranscriptInteractionProps> = memo(props => {
         smartApplyEnabled,
         editorRef: parentEditorRef,
         onAddToFollowupChat,
+        transcriptTokens,
     } = props
 
     const [intentResults, setIntentResults] = useMutatedValue<
@@ -412,6 +454,7 @@ const TranscriptInteraction: FC<TranscriptInteractionProps> = memo(props => {
                 editorRef={humanEditorRef}
                 className={!isFirstInteraction && isLastInteraction ? 'tw-mt-auto' : ''}
                 onEditorFocusChange={resetIntent}
+                transcriptTokens={transcriptTokens}
             />
 
             {experimentalOneBoxEnabled && humanMessage.intent && (
