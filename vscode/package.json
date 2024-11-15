@@ -3,7 +3,7 @@
   "name": "community-cody",
   "private": true,
   "displayName": "Community Cody: AI Coding Assistant",
-  "version": "1.40.3",
+  "version": "1.40.4",
   "publisher": "kynlos",
   "license": "Apache-2.0",
   "icon": "resources/cody.png",
