@@ -1,10 +1,10 @@
 {
   "$schema": "package.schema.json",
-  "name": "cody-ai",
+  "name": "community-cody",
   "private": true,
-  "displayName": "Cody: AI Coding Assistant with Autocomplete & Chat",
+  "displayName": "Community Cody: AI Coding Assistant",
   "version": "1.40.2",
-  "publisher": "sourcegraph",
+  "publisher": "kynlos",
   "license": "Apache-2.0",
   "icon": "resources/cody.png",
   "description": "AI coding assistant that uses search and codebase context to help you write code faster. Cody brings autocomplete, chat, and commands to VS Code, so you can generate code, write unit tests, create docs, and explain complex code using AI. Choose from the latest LLMs, including GPT-4o and Claude 3.5 Sonnet.",
