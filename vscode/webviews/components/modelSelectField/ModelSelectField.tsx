@@ -1,6 +1,6 @@
 import { type Model, ModelTag, isCodyProModel, isWaitlistModel } from '@sourcegraph/cody-shared'
 import { clsx } from 'clsx'
-import { BookOpenIcon, BuildingIcon, ExternalLinkIcon } from 'lucide-react'
+import { BookOpenIcon, BuildingIcon, ExternalLinkIcon, FlaskConicalIcon } from 'lucide-react'
 import { type FunctionComponent, type ReactNode, useCallback, useMemo } from 'react'
 import type { UserAccountInfo } from '../../Chat'
 import { getVSCodeAPI } from '../../utils/VSCodeApi'
@@ -308,6 +308,9 @@ function modelAvailability(
 }
 
 function getTooltip(model: Model, availability: string): string {
+    if (model.id.includes('deep-cody')) {
+        return 'Uses Claude 3.5 Sonnet (New) with other models to fetch any extra context needed for better responses'
+    }
     if (model.tags.includes(ModelTag.Waitlist)) {
         return 'Request access to this new model'
     }
@@ -355,6 +358,18 @@ const ModelTitleWithIcon: React.FC<{
     const modelBadge = getBadgeText(model, modelAvailability)
     const isDisabled = modelAvailability !== 'available'
 
+    if (model.id.includes('deep-cody')) {
+        return (
+            <span className={clsx(styles.modelTitleWithIcon, { [styles.disabled]: isDisabled })}>
+                {showIcon && <FlaskConicalIcon size={16} className={styles.modelIcon} />}
+                <span className={clsx('tw-flex-grow', styles.modelName)}>{model.title}</span>
+                <Badge variant="secondary" className={styles.badge}>
+                    Experimental ⓘ
+                </Badge>
+            </span>
+        )
+    }
+
     return (
         <span className={clsx(styles.modelTitleWithIcon, { [styles.disabled]: isDisabled })}>
             {showIcon && <ChatModelIcon model={model.provider} className={styles.modelIcon} />}
@@ -383,7 +398,7 @@ const ChatModelIcon: FunctionComponent<{ model: string; className?: string }> = 
 
 /** Common {@link ModelsService.uiGroup} values. */
 const ModelUIGroup: Record<string, string> = {
-    DeepCody: 'Mixed models',
+    DeepCody: 'Mixed models, extended processing',
     Power: 'More powerful models',
     Balanced: 'Balanced for power and speed',
     Speed: 'Faster models',

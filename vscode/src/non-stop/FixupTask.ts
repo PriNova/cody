@@ -51,6 +51,7 @@ export class FixupTask {
     public originalDiff: Edit[] | undefined
     /** The number of times we've submitted this to the LLM. */
     public spinCount = 0
+    public createdAt = performance.now()
 
     constructor(
         /**
@@ -176,7 +177,7 @@ export class FixupTask {
                         // We should consider doing that for initial ranges too.
                         range: document.validateRange(edit.range),
                         rangeOffset: document.offsetAt(edit.range.start),
-                        rangeLength: edit.text.length,
+                        rangeLength: 0,
                         text: edit.text,
                     })
                     break

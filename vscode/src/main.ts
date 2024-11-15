@@ -45,6 +45,7 @@ import type { CommandResult } from './CommandResult'
 import { showAccountMenu } from './auth/account-menu'
 import { showSignInMenu, showSignOutMenu, tokenCallbackHandler } from './auth/auth'
 import { AutoeditsProvider } from './autoedits/autoedits-provider'
+import { AutoeditTestingProvider } from './autoedits/renderer-testing'
 import type { MessageProviderOptions } from './chat/MessageProvider'
 import { ChatsController, CodyChatEditorViewType } from './chat/chat-view/ChatsController'
 import { ContextRetriever } from './chat/chat-view/ContextRetriever'
@@ -109,6 +110,7 @@ import { openCodyIssueReporter } from './services/utils/issue-reporter'
 import { SupercompletionProvider } from './supercompletions/supercompletion-provider'
 import { parseAllVisibleDocuments, updateParseTreeOnEdit } from './tree-sitter/parse-tree-cache'
 import { version } from './version'
+import { registerWorkflowCommands } from './workflow/workflow'
 
 /**
  * Start the extension, watching all relevant configuration and secrets for changes.
@@ -291,6 +293,7 @@ const register = async (
     registerOtherCommands(disposables)
     if (clientCapabilities().isVSCode) {
         registerVSCodeOnlyFeatures(chatClient, disposables)
+        registerWorkflowCommands(context, chatClient)
     }
     if (isExtensionModeDevOrTest) {
         await registerTestCommands(context, disposables)
@@ -455,14 +458,14 @@ async function registerCodyCommands(
     )
 
     // Initialize autoedit provider if experimental feature is enabled
+    registerAutoEdits(disposables)
+    // Initialize autoedit tester
     disposables.push(
         enableFeature(
-            ({ configuration }) => configuration.experimentalAutoedits !== undefined,
-            () => new AutoeditsProvider()
+            ({ configuration }) => configuration.experimentalAutoeditsRendererTesting !== false,
+            () => new AutoeditTestingProvider()
         )
     )
-
-    // Experimental Command: Auto Edit
     disposables.push(
         vscode.commands.registerCommand('cody.command.auto-edit', a => executeAutoEditCommand(a))
     )
@@ -701,6 +704,27 @@ async function tryRegisterTutorial(
         const { registerInteractiveTutorial } = await import('./tutorial')
         registerInteractiveTutorial(context).then(disposable => disposables.push(...disposable))
     }
+}
+
+function registerAutoEdits(disposables: vscode.Disposable[]): void {
+    disposables.push(
+        enableFeature(
+            ({ configuration }) => {
+                return (
+                    configuration.experimentalAutoeditsEnabled === true &&
+                    configuration.autocomplete === false
+                )
+            },
+            () => {
+                const provider = new AutoeditsProvider()
+                const completionRegistration = vscode.languages.registerInlineCompletionItemProvider(
+                    [{ scheme: 'file', language: '*' }, { notebookType: '*' }],
+                    provider
+                )
+                return vscode.Disposable.from(provider, completionRegistration)
+            }
+        )
+    )
 }
 
 /**

@@ -8,7 +8,7 @@ on:
 
 jobs:
   release:
-    if: (github.ref == 'refs/heads/community-builds' || github.event_name == 'workflow_dispatch') && github.repository == 'PriNova/Cody-Community-Edition'
+    if: (github.ref == 'refs/heads/custom-builds' || github.event_name == 'workflow_dispatch') && github.repository == 'PriNova/cody'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
@@ -28,7 +28,7 @@ jobs:
       - name: Create/Update Release
         uses: softprops/action-gh-release@v1
         with:
-          files: ./vscode/dist/cody-community.vsix
+          files: ./vscode/dist/cody-custom.vsix
           name: Release ${{ github.ref_name }}
           tag_name: ${{ github.ref_name }}
           draft: false

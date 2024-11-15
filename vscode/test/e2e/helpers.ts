@@ -13,6 +13,10 @@ import {
     test as base,
     expect as baseExpect,
 } from '@playwright/test'
+import type { RepoListResponse } from '@sourcegraph/cody-shared'
+import type { RepositoryIdResponse } from '@sourcegraph/cody-shared/src/sourcegraph-api/graphql/client'
+import type { TelemetryEventInput } from '@sourcegraph/telemetry'
+import { resolveCliArgsFromVSCodeExecutablePath } from '@vscode/test-electron'
 import { _electron as electron } from 'playwright'
 import * as uuid from 'uuid'
 
@@ -25,9 +29,6 @@ import {
     sendTestInfo,
 } from '../fixtures/mock-server'
 
-import type { RepoListResponse } from '@sourcegraph/cody-shared'
-import type { RepositoryIdResponse } from '@sourcegraph/cody-shared/src/sourcegraph-api/graphql/client'
-import { resolveCliArgsFromVSCodeExecutablePath } from '@vscode/test-electron'
 import { closeSidebar, expectAuthenticated, focusSidebar } from './common'
 import { installVsCode } from './install-deps'
 import { buildCustomCommandConfigFile } from './utils/buildCustomCommands'
@@ -73,6 +74,9 @@ export const getAssetsDir = (testName: string): string =>
 
 export const testAssetsTmpDir = (testName: string, label: string): string =>
     path.join(getAssetsDir(testName), `temp-${label}`)
+
+export const getTmpLogFile = (testTitle: string): string =>
+    path.join(testAssetsTmpDir(testTitle, 'log'), 'logger.log')
 
 export interface OpenVSCodeOptions {
     // A list of extensions to install or uninstall before starting VSCode. These can
@@ -174,7 +178,7 @@ export const test = base
                 dotcomUrlOverride = { CODY_OVERRIDE_DOTCOM_URL: dotcomUrl }
             }
 
-            const tmpLogFile = path.join(testAssetsTmpDir(testInfo.title, 'log'), 'logger.log')
+            const tmpLogFile = getTmpLogFile(testInfo.title)
             await mkdir(path.dirname(tmpLogFile), { recursive: true })
             await writeFile(tmpLogFile, '')
             console.error('Cody output channel:', tmpLogFile)
@@ -618,4 +622,25 @@ export function mockEnterpriseRepoMapping(server: MockServer, repoName: string):
         } satisfies RepositoryIdResponse,
     })
     server.onGraphQl('ResolveRepoName').replyJson({ data: { repository: { name: repoName } } })
+}
+
+const STABILIZED_NUMBER_VALUE_FOR_SNAPSHOT = 9999
+
+/**
+ * Stabilizes metadata values in telemetry event parameters for consistent snapshot testing.
+ * For specified keys, replaces numeric values with '9999' and other values with 'stabilized_value_for_snapshot'.
+ */
+export function stabilizeMetadataValues(keys: string[], event?: TelemetryEventInput | null) {
+    if (!event?.parameters?.metadata) {
+        return
+    }
+
+    for (const param of event.parameters.metadata) {
+        if (keys.includes(param.key)) {
+            param.value =
+                typeof param.value === 'number'
+                    ? STABILIZED_NUMBER_VALUE_FOR_SNAPSHOT
+                    : 'stabilized_value_for_snapshot'
+        }
+    }
 }

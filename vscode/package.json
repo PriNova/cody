@@ -3,11 +3,11 @@
   "name": "cody-ai",
   "private": true,
   "displayName": "Cody: AI Coding Assistant with Autocomplete & Chat",
-  "version": "1.40.0",
+  "version": "1.40.2",
   "publisher": "sourcegraph",
   "license": "Apache-2.0",
   "icon": "resources/cody.png",
-  "description": "AI coding assistant that uses search and codebase context to help you write code faster. Cody brings autocomplete, chat, and commands to VS Code, so you can generate code, write unit tests, create docs, and explain complex code using AI. Choose from the latest LLMs, including GPT-4o and Claude 3.",
+  "description": "AI coding assistant that uses search and codebase context to help you write code faster. Cody brings autocomplete, chat, and commands to VS Code, so you can generate code, write unit tests, create docs, and explain complex code using AI. Choose from the latest LLMs, including GPT-4o and Claude 3.5 Sonnet.",
   "scripts": {
     "build:root": "pnpm -C .. run -s build",
     "postinstall": "pnpm download-wasm && pnpm copy-win-ca-roots",
@@ -575,6 +575,13 @@
         "title": "Copy Cody Extension Version"
       },
       {
+        "command": "cody.debug.logCharacterCounters",
+        "title": "[Internal] Log character logger counters",
+        "category": "Cody Debug",
+        "group": "Debug",
+        "when": "cody.activated"
+      },
+      {
         "command": "cody.test.set-context-filters",
         "title": "[Internal] Set Context Filters Overwrite",
         "enablement": "cody.activated && cody.devOrTest"
@@ -588,6 +595,11 @@
         "command": "cody.command.insertCodeToNewFile",
         "title": "Save Code to New File...",
         "enablement": "cody.activated"
+      },
+      {
+        "command": "cody.openWorkflowEditor",
+        "title": "Open Workflow Editor",
+        "category": "Cody"
       }
     ],
     "keybindings": [
@@ -603,12 +615,12 @@
       },
       {
         "command": "cody.chat.new",
-        "key": "shift+alt+/",
+        "key": "shift+ctrl+/",
         "when": "cody.activated"
       },
       {
         "command": "cody.chat.new",
-        "key": "shift+alt+l",
+        "key": "shift+ctrl+l",
         "when": "cody.activated"
       },
       {
@@ -645,12 +657,12 @@
       },
       {
         "command": "cody.mention.selection",
-        "key": "alt+l",
+        "key": "shift+alt+l",
         "when": "cody.activated && editorTextFocus && editorHasSelection"
       },
       {
         "command": "cody.mention.selection",
-        "key": "alt+/",
+        "key": "shift+alt+/",
         "when": "cody.activated && editorTextFocus && editorHasSelection"
       },
       {
@@ -1240,11 +1252,6 @@
             }
           }
         },
-        "cody.autocomplete.experimental.preloadDebounceInterval": {
-          "type": "number",
-          "default": 0,
-          "markdownDescription": "Changes the preload debounce interval for autocomplete requests triggered on cursor movement."
-        },
         "openctx.enable": {
           "type": "boolean",
           "markdownDescription": "Enable OpenCtx providers for Cody.",
@@ -1399,6 +1406,7 @@
     "@radix-ui/react-collapsible": "^1.1.0",
     "@radix-ui/react-dialog": "^1.0.5",
     "@radix-ui/react-form": "^0.1.0",
+    "@radix-ui/react-label": "^2.1.0",
     "@radix-ui/react-popover": "^1.0.7",
     "@radix-ui/react-progress": "^1.1.0",
     "@radix-ui/react-slot": "^1.0.2",
@@ -1416,6 +1424,7 @@
     "@types/react-dom": "18.2.25",
     "@vscode/codicons": "^0.0.35",
     "@vscode/webview-ui-toolkit": "^1.2.2",
+    "@xyflow/react": "^12.3.4",
     "agent-base": "^7.1.1",
     "async-mutex": "^0.4.0",
     "axios": "^1.3.6",
@@ -1462,7 +1471,8 @@
     "uuid": "^9.0.0",
     "vscode-languageserver-textdocument": "^1.0.8",
     "vscode-uri": "^3.0.8",
-    "wink-nlp-utils": "^2.1.0"
+    "wink-nlp-utils": "^2.1.0",
+    "fast-myers-diff": "^3.2.0"
   },
   "devDependencies": {
     "7zip-min": "^1.4.5",
