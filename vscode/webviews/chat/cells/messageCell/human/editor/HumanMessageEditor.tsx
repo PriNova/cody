@@ -128,6 +128,21 @@ export const HumanMessageEditor: FunctionComponent<{
         return unregister
     }, [])
 
+    // Move token counter outside callback for stability
+    const tokenCounter = useMemo(async () => await getTokenCounterUtils(), [])
+
+    // Create stable debounced function outside main callback
+    const debouncedCount = useMemo(
+        () =>
+            debounce(async (text: string, addedTokens: number) => {
+                const counter = await tokenCounter
+                const tokenCount = await counter.countTokens(text)
+                setTokenCount(tokenCount + addedTokens)
+            }, 300), // Reduced debounce time for better responsiveness
+        [tokenCounter]
+    )
+
+    // Replace the current onChange implementation with:
     const onEditorChange = useCallback(
         async (value: SerializedPromptEditorValue): Promise<void> => {
             onChange?.(value)
@@ -136,14 +151,13 @@ export const HumanMessageEditor: FunctionComponent<{
             // Get pure text without @-mentions
             const pureText = inputTextWithoutContextChipsFromPromptEditorState(value.editorState)
 
-            // Add token counting
-            const count = debounce(async text => {
-                const tokenCount = await (await getTokenCounterUtils()).countTokens(pureText)
-                setTokenCount(tokenCount)
-            }, 1000)
-            count(value.text)
+            // Include context items token count
+            const contextTokens =
+                value.contextItems?.reduce((acc, item) => acc + (item.size || 0), 0) || 0
+
+            debouncedCount(pureText, contextTokens)
         },
-        [onChange]
+        [onChange, debouncedCount]
     )
 
     const submitState: SubmitButtonState = isPendingPriorResponse

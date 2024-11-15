@@ -24,6 +24,7 @@ import {
     type MutableRefObject,
     memo,
     useCallback,
+    useEffect,
     useImperativeHandle,
     useMemo,
     useRef,
@@ -121,30 +122,47 @@ export const Transcript: FC<TranscriptProps> = props => {
 
     const [transcriptTokens, setTranscriptTokens] = useState<number>()
 
-    useMemo(() => {
-        const calculateTranscriptTokens = async () => {
-            const tokenCounter = await getTokenCounterUtils()
+    // Replace the existing transcript token calculation in TranscriptInteraction
+    useEffect(() => {
+        let mounted = true
+        const abortController = new AbortController()
 
-            // Calculate history tokens from previous messages
-            const historyTokens = await Promise.all(
-                transcript.map(msg => tokenCounter.countTokens(msg.text?.toString() || ''))
-            ).then(counts => counts.reduce((a, b) => a + b, 0))
+        const calculateTokens = async () => {
+            try {
+                const tokenCounter = await getTokenCounterUtils()
 
-            // Calculate tokens from context files
-            const contextFileTokens = await Promise.all(
-                transcript.flatMap(msg =>
-                    (msg.contextFiles || []).map(item => tokenCounter.countTokens(item.content || ''))
+                // Calculate history tokens from previous messages
+                const messageTokens = await Promise.all(
+                    transcript.map(msg => tokenCounter.countTokens(msg.text?.toString() || ''))
                 )
-            ).then(counts => counts.reduce((a, b) => a + b, 0))
 
-            // Add context file tokens to history tokens
-            const totalTokens = historyTokens + contextFileTokens
+                // Calculate context file tokens
+                const contextTokens = await Promise.all(
+                    transcript.flatMap(msg =>
+                        (msg.contextFiles || []).map(item =>
+                            tokenCounter.countTokens(item.content || '')
+                        )
+                    )
+                )
 
-            // Update state
-            setTranscriptTokens(totalTokens)
+                if (mounted) {
+                    const total = [...messageTokens, ...contextTokens].reduce((a, b) => a + b, 0)
+                    setTranscriptTokens(total)
+                }
+            } catch (error) {
+                console.error('Error calculating tokens:', error)
+                if (mounted) {
+                    setTranscriptTokens(undefined)
+                }
+            }
         }
 
-        calculateTranscriptTokens()
+        calculateTokens()
+
+        return () => {
+            mounted = false
+            abortController.abort()
+        }
     }, [transcript])
 
     return (
