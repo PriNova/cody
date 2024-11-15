@@ -134,10 +134,10 @@ export const HumanMessageEditor: FunctionComponent<{
     // Create stable debounced function outside main callback
     const debouncedCount = useMemo(
         () =>
-            debounce(async (text: string, addedTokens: number) => {
+            debounce(async (text: string) => {
                 const counter = await tokenCounter
-                const tokenCount = await counter.countTokens(text)
-                setTokenCount(tokenCount + addedTokens)
+                //const tokenCount = counter.encode(text).length
+                setTokenCount(counter.encode(text).length)
             }, 300), // Reduced debounce time for better responsiveness
         [tokenCounter]
     )
@@ -151,11 +151,7 @@ export const HumanMessageEditor: FunctionComponent<{
             // Get pure text without @-mentions
             const pureText = inputTextWithoutContextChipsFromPromptEditorState(value.editorState)
 
-            // Include context items token count
-            const contextTokens =
-                value.contextItems?.reduce((acc, item) => acc + (item.size || 0), 0) || 0
-
-            debouncedCount(pureText, contextTokens)
+            await debouncedCount(pureText)
         },
         [onChange, debouncedCount]
     )

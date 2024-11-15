@@ -121,49 +121,40 @@ export const Transcript: FC<TranscriptProps> = props => {
     )
 
     const [transcriptTokens, setTranscriptTokens] = useState<number>()
+    const tokenCounter = useMemo(async () => await getTokenCounterUtils(), [])
 
-    // Replace the existing transcript token calculation in TranscriptInteraction
-    useEffect(() => {
-        let mounted = true
-        const abortController = new AbortController()
-
-        const calculateTokens = async () => {
-            try {
-                const tokenCounter = await getTokenCounterUtils()
+    // Create stable debounced calculation function
+    const debouncedCalculate = useMemo(
+        () =>
+            debounce(async (messages: ChatMessage[]) => {
+                const counter = await tokenCounter
 
                 // Calculate history tokens from previous messages
                 const messageTokens = await Promise.all(
-                    transcript.map(msg => tokenCounter.countTokens(msg.text?.toString() || ''))
+                    messages.map(msg => counter.encode(msg.text?.toString() || '').length)
                 )
 
                 // Calculate context file tokens
                 const contextTokens = await Promise.all(
-                    transcript.flatMap(msg =>
-                        (msg.contextFiles || []).map(item =>
-                            tokenCounter.countTokens(item.content || '')
-                        )
+                    messages.flatMap(msg =>
+                        (msg.contextFiles || []).map(item => counter.encode(item.content || '').length)
                     )
                 )
 
-                if (mounted) {
-                    const total = [...messageTokens, ...contextTokens].reduce((a, b) => a + b, 0)
-                    setTranscriptTokens(total)
-                }
-            } catch (error) {
-                console.error('Error calculating tokens:', error)
-                if (mounted) {
-                    setTranscriptTokens(undefined)
-                }
-            }
-        }
+                const total = [...messageTokens, ...contextTokens].reduce((a, b) => a + b, 0)
+                setTranscriptTokens(total)
+            }, 300),
+        [tokenCounter]
+    )
 
-        calculateTokens()
+    // Replace the existing transcript token calculation in TranscriptInteraction
+    useEffect(() => {
+        debouncedCalculate(transcript)
 
         return () => {
-            mounted = false
-            abortController.abort()
+            debouncedCalculate.cancel()
         }
-    }, [transcript])
+    }, [transcript, debouncedCalculate])
 
     return (
         <div
