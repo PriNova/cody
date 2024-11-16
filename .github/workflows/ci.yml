@@ -1,16 +1,16 @@
 name: ci
 
 on:
-  #push:
-  #  branches:
-  #    - main
-  #pull_request:
-  #  types: [opened, reopened, synchronize, ready_for_review]
+  push:
+    branches:
+      - dev
+  pull_request:
+    types: [opened, reopened, synchronize, ready_for_review]
   workflow_dispatch:
 
 jobs:
   # Sets a variable that is used to determine the matrix to run fast tests (unit & integration) on.
-  # Everything runs on ubuntu and windows, only commits to main run on macos.
+  # Everything runs on ubuntu and windows, only commits to dev run on macos.
   fast_tests_matrix_prep:
     runs-on: ubuntu-latest
     outputs:
@@ -18,7 +18,7 @@ jobs:
     steps:
       - id: set-matrix
         run: |
-          if [ "$GITHUB_EVENT_NAME" == "push" ] && [ "$GITHUB_REF" == "refs/heads/main" ]; then
+          if [ "$GITHUB_EVENT_NAME" == "push" ] && [ "$GITHUB_REF" == "refs/heads/dev" ]; then
             echo 'matrix=["ubuntu","windows","macos"]' >> $GITHUB_OUTPUT
           else
             echo 'matrix=["ubuntu","windows"]' >> $GITHUB_OUTPUT
@@ -49,14 +49,6 @@ jobs:
         with:
           node-version: ${{ matrix.node }}
       - uses: pnpm/action-setup@fe02b34f77f8bc703788d5817da081398fad5dd2 # SECURITY: pin third-party action hashes
-      - id: auth
-        uses: google-github-actions/auth@v2
-        # Skip auth if PR is from a fork
-        if: ${{ !github.event.pull_request.head.repo.fork }}
-        with:
-          workload_identity_provider: ${{ secrets.DATA_TEAM_PROVIDER_NAME }}
-          service_account: ${{ secrets.DATA_TEAM_SA_EMAIL }}
-      - uses: google-github-actions/setup-gcloud@v0
       - run: echo "STORE_PATH=$(pnpm store path)" >> $GITHUB_OUTPUT
         shell: bash
         id: pnpm-cache
@@ -102,7 +94,7 @@ jobs:
         if: matrix.runner == 'windows' || matrix.runner == 'macos'
 
   # Sets a variable that is used to determine the matrix to run slow tests (e2e) on.
-  # Everything runs on ubuntu, only commits to main run on macos and windows.
+  # Everything runs on ubuntu, only commits to dev run on macos and windows.
   slow_tests_matrix_prep:
     runs-on: ubuntu-latest
     outputs:
@@ -110,7 +102,7 @@ jobs:
     steps:
       - id: set-matrix
         run: |
-          if [ "$GITHUB_EVENT_NAME" == "push" ] && [ "$GITHUB_REF" == "refs/heads/main" ]; then
+          if [ "$GITHUB_EVENT_NAME" == "push" ] && [ "$GITHUB_REF" == "refs/heads/dev" ]; then
             echo 'matrix=[{"runner":"ubuntu"},{"runner":"windows"},{"runner":"macos"}]' >> $GITHUB_OUTPUT
           else
             echo 'matrix=[{"runner":"ubuntu","shard":"1/5"},{"runner":"ubuntu","shard":"2/5"},{"runner":"ubuntu","shard":"3/5"},{"runner":"ubuntu","shard":"4/5"},{"runner":"ubuntu","shard":"5/5"}]' >> $GITHUB_OUTPUT
@@ -133,14 +125,6 @@ jobs:
         with:
           node-version-file: .tool-versions
       - uses: pnpm/action-setup@fe02b34f77f8bc703788d5817da081398fad5dd2 # SECURITY: pin third-party action hashes
-      - id: auth
-        uses: google-github-actions/auth@v2
-        # Skip auth if PR is from a fork
-        if: ${{ !github.event.pull_request.head.repo.fork }}
-        with:
-          workload_identity_provider: ${{ secrets.DATA_TEAM_PROVIDER_NAME }}
-          service_account: ${{ secrets.DATA_TEAM_SA_EMAIL }}
-      - uses: google-github-actions/setup-gcloud@v2
       - run: echo "STORE_PATH=$(pnpm store path)" >> $GITHUB_OUTPUT
         shell: bash
         id: pnpm-cache
@@ -154,29 +138,15 @@ jobs:
       - run: GITHUB_REF=$BRANCH_NAME xvfb-run -a pnpm -C vscode run test:e2e --shard=${{ matrix.shard }}
         if: matrix.runner == 'ubuntu'
         env:
-          BUILDKITE_ANALYTICS_TOKEN: ${{ secrets.BUILDKITE_ANALYTICS_TOKEN }}
-          # This is required because the test collector from Buildkite is imprecise when it
-          # comes to infer the branch name on GitHub action.
           BRANCH_NAME: ${{ github.head_ref || github.ref_name }}
       - run: GITHUB_REF=$BRANCH_NAME pnpm -C vscode run test:e2e
         if: matrix.runner == 'macos'
         env:
-          BUILDKITE_ANALYTICS_TOKEN: ${{ secrets.BUILDKITE_ANALYTICS_TOKEN }}
-          # This is required because the test collector from Buildkite is imprecise when it
-          # comes to infer the branch name on GitHub action.
           BRANCH_NAME: ${{ github.head_ref || github.ref_name }}
       - run: $env:GITHUB_REF=$env:BRANCH_NAME; pnpm -C vscode run test:e2e
         if: matrix.runner == 'windows'
         env:
-          BUILDKITE_ANALYTICS_TOKEN: ${{ secrets.BUILDKITE_ANALYTICS_TOKEN }}
-          # This is required because the test collector from Buildkite is imprecise when it
-          # comes to infer the branch name on GitHub action.
           BRANCH_NAME: ${{ github.head_ref || github.ref_name }}
-      - uses: actions/upload-artifact@v4
-        if: ${{ failure() }}
-        with:
-          name: playwright-recordings ${{ matrix.runner }}
-          path: playwright/
 
   build:
     runs-on: ubuntu-latest
@@ -217,4 +187,4 @@ jobs:
         shell: bash
       - run: pnpm run build
       - run: pnpm -C vscode run build
-      - run: CODY_RELEASE_TYPE=stable pnpm -C vscode run release:dry-run
+      - run: CODY_RELEASE_TYPE=insiders pnpm -C vscode run release:dry-run
