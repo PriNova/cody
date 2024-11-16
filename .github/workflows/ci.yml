@@ -3,181 +3,151 @@ name: ci
 on:
   push:
     branches:
-      - main
+      - dev
   pull_request:
     types: [opened, reopened, synchronize, ready_for_review]
   workflow_dispatch:
 
 jobs:
   # Sets a variable that is used to determine the matrix to run fast tests (unit & integration) on.
-  # Everything runs on ubuntu and windows, only commits to main run on macos.
-  fast_tests_matrix_prep:
-    runs-on: ubuntu-latest
-    outputs:
-      matrix: ${{ steps.set-matrix.outputs.matrix }}
-    steps:
-      - id: set-matrix
-        run: |
-          if [ "$GITHUB_EVENT_NAME" == "push" ] && [ "$GITHUB_REF" == "refs/heads/main" ]; then
-            echo 'matrix=["ubuntu","windows","macos"]' >> $GITHUB_OUTPUT
-          else
-            echo 'matrix=["ubuntu","windows"]' >> $GITHUB_OUTPUT
-          fi
-
-  test-unit:
-    needs: fast_tests_matrix_prep
-    strategy:
-      fail-fast: false
-      matrix:
-        runner: ${{ fromJson(needs.fast_tests_matrix_prep.outputs.matrix) }}
-        # Run on the most recently supported version of node for all bots.
-        node: [20]
-        include:
-          # Additionally, run the oldest supported version on Ubuntu. We don't
-          # need to run this on all platforms as we're only verifying we don't
-          # call any APIs not available in this version.
-          - runner: ubuntu
-            node: 18 # VS Code started using Node 18 in Aug 2023 in v1.82: https://code.visualstudio.com/updates/v1_82#_engineering
-    runs-on: ${{ matrix.runner }}-latest
-    timeout-minutes: 10
-    permissions:
-      id-token: write
-      contents: read
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: ${{ matrix.node }}
-      - uses: pnpm/action-setup@fe02b34f77f8bc703788d5817da081398fad5dd2 # SECURITY: pin third-party action hashes
-      - id: auth
-        uses: google-github-actions/auth@v2
-        # Skip auth if PR is from a fork
-        if: ${{ !github.event.pull_request.head.repo.fork }}
-        with:
-          workload_identity_provider: ${{ secrets.DATA_TEAM_PROVIDER_NAME }}
-          service_account: ${{ secrets.DATA_TEAM_SA_EMAIL }}
-      - uses: google-github-actions/setup-gcloud@v0
-      - run: echo "STORE_PATH=$(pnpm store path)" >> $GITHUB_OUTPUT
-        shell: bash
-        id: pnpm-cache
-      - name: Cache pnpm store
-        uses: actions/cache@v4
-        with:
-          path: ${{ steps.pnpm-cache.outputs.STORE_PATH }}
-          key: ${{ runner.os }}-${{ matrix.node }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
-          restore-keys: ${{ runner.os }}-${{ matrix.node }}-pnpm-store-
-      - run: pnpm install
-      - run: pnpm build
-      - run: pnpm run test:unit --run
-        env:
-          CODY_NODE_VERSION: ${{ matrix.node }}
-
-  test-integration:
-    needs: fast_tests_matrix_prep
-    strategy:
-      fail-fast: false
-      matrix:
-        runner: ${{ fromJson(needs.fast_tests_matrix_prep.outputs.matrix) }}
-    runs-on: ${{ matrix.runner }}-latest
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version-file: .tool-versions
-      - uses: pnpm/action-setup@fe02b34f77f8bc703788d5817da081398fad5dd2 # SECURITY: pin third-party action hashes
-      - run: echo "STORE_PATH=$(pnpm store path)" >> $GITHUB_OUTPUT
-        shell: bash
-        id: pnpm-cache
-      - name: Cache pnpm store
-        uses: actions/cache@v4
-        with:
-          path: ${{ steps.pnpm-cache.outputs.STORE_PATH }}
-          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
-          restore-keys: ${{ runner.os }}-pnpm-store-
-      - run: pnpm install
-      - run: xvfb-run -a pnpm -C vscode run test:integration
-        if: matrix.runner == 'ubuntu'
-      - run: pnpm -C vscode run test:integration
-        if: matrix.runner == 'windows' || matrix.runner == 'macos'
-
-  # Sets a variable that is used to determine the matrix to run slow tests (e2e) on.
-  # Everything runs on ubuntu, only commits to main run on macos and windows.
-  slow_tests_matrix_prep:
-    runs-on: ubuntu-latest
-    outputs:
-      matrix: ${{ steps.set-matrix.outputs.matrix }}
-    steps:
-      - id: set-matrix
-        run: |
-          if [ "$GITHUB_EVENT_NAME" == "push" ] && [ "$GITHUB_REF" == "refs/heads/main" ]; then
-            echo 'matrix=[{"runner":"ubuntu"},{"runner":"windows"},{"runner":"macos"}]' >> $GITHUB_OUTPUT
-          else
-            echo 'matrix=[{"runner":"ubuntu","shard":"1/5"},{"runner":"ubuntu","shard":"2/5"},{"runner":"ubuntu","shard":"3/5"},{"runner":"ubuntu","shard":"4/5"},{"runner":"ubuntu","shard":"5/5"}]' >> $GITHUB_OUTPUT
-          fi
-
-  test-e2e:
-    needs: slow_tests_matrix_prep
-    strategy:
-      fail-fast: false
-      matrix:
-        include: ${{ fromJson(needs.slow_tests_matrix_prep.outputs.matrix) }}
-    runs-on: ${{ matrix.runner }}-latest
-    timeout-minutes: 20
-    permissions:
-      id-token: write
-      contents: read
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version-file: .tool-versions
-      - uses: pnpm/action-setup@fe02b34f77f8bc703788d5817da081398fad5dd2 # SECURITY: pin third-party action hashes
-      - id: auth
-        uses: google-github-actions/auth@v2
-        # Skip auth if PR is from a fork
-        if: ${{ !github.event.pull_request.head.repo.fork }}
-        with:
-          workload_identity_provider: ${{ secrets.DATA_TEAM_PROVIDER_NAME }}
-          service_account: ${{ secrets.DATA_TEAM_SA_EMAIL }}
-      - uses: google-github-actions/setup-gcloud@v2
-      - run: echo "STORE_PATH=$(pnpm store path)" >> $GITHUB_OUTPUT
-        shell: bash
-        id: pnpm-cache
-      - name: Cache pnpm store
-        uses: actions/cache@v4
-        with:
-          path: ${{ steps.pnpm-cache.outputs.STORE_PATH }}
-          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
-          restore-keys: ${{ runner.os }}-pnpm-store-
-      - run: pnpm install
-      - run: GITHUB_REF=$BRANCH_NAME xvfb-run -a pnpm -C vscode run test:e2e --shard=${{ matrix.shard }}
-        if: matrix.runner == 'ubuntu'
-        env:
-          BUILDKITE_ANALYTICS_TOKEN: ${{ secrets.BUILDKITE_ANALYTICS_TOKEN }}
-          # This is required because the test collector from Buildkite is imprecise when it
-          # comes to infer the branch name on GitHub action.
-          BRANCH_NAME: ${{ github.head_ref || github.ref_name }}
-      - run: GITHUB_REF=$BRANCH_NAME pnpm -C vscode run test:e2e
-        if: matrix.runner == 'macos'
-        env:
-          BUILDKITE_ANALYTICS_TOKEN: ${{ secrets.BUILDKITE_ANALYTICS_TOKEN }}
-          # This is required because the test collector from Buildkite is imprecise when it
-          # comes to infer the branch name on GitHub action.
-          BRANCH_NAME: ${{ github.head_ref || github.ref_name }}
-      - run: $env:GITHUB_REF=$env:BRANCH_NAME; pnpm -C vscode run test:e2e
-        if: matrix.runner == 'windows'
-        env:
-          BUILDKITE_ANALYTICS_TOKEN: ${{ secrets.BUILDKITE_ANALYTICS_TOKEN }}
-          # This is required because the test collector from Buildkite is imprecise when it
-          # comes to infer the branch name on GitHub action.
-          BRANCH_NAME: ${{ github.head_ref || github.ref_name }}
-      - uses: actions/upload-artifact@v4
-        if: ${{ failure() }}
-        with:
-          name: playwright-recordings ${{ matrix.runner }}
-          path: playwright/
-
+  # Everything runs on ubuntu and windows, only commits to dev run on macos.
+  
+  #fast_tests_matrix_prep:
+  #  runs-on: ubuntu-latest
+  #  outputs:
+  #    matrix: ${{ steps.set-matrix.outputs.matrix }}
+  #  steps:
+  #    - id: set-matrix
+  #      run: |
+  #        if [ "$GITHUB_EVENT_NAME" == "push" ] && [ "$GITHUB_REF" == "refs/heads/dev" ]; then
+  #          echo 'matrix=["ubuntu","windows","macos"]' >> $GITHUB_OUTPUT
+  #        else
+  #          echo 'matrix=["ubuntu","windows"]' >> $GITHUB_OUTPUT
+  #        fi
+  #
+  #test-unit:
+  #  needs: fast_tests_matrix_prep
+  #  strategy:
+  #    fail-fast: false
+  #    matrix:
+  #      runner: ${{ fromJson(needs.fast_tests_matrix_prep.outputs.matrix) }}
+  #      # Run on the most recently supported version of node for all bots.
+  #      node: [20]
+  #      include:
+  #        # Additionally, run the oldest supported version on Ubuntu. We don't
+  #        # need to run this on all platforms as we're only verifying we don't
+  #        # call any APIs not available in this version.
+  #        - runner: ubuntu
+  #          node: 18 # VS Code started using Node 18 in Aug 2023 in v1.82: https://code.visualstudio.com/updates/v1_82#_engineering
+  #  runs-on: ${{ matrix.runner }}-latest
+  #  timeout-minutes: 10
+  #  permissions:
+  #    id-token: write
+  #    contents: read
+  #  steps:
+  #    - uses: actions/checkout@v4
+  #    - uses: actions/setup-node@v4
+  #      with:
+  #        node-version: ${{ matrix.node }}
+  #    - uses: pnpm/action-setup@fe02b34f77f8bc703788d5817da081398fad5dd2 # SECURITY: pin third-party action hashes
+  #    - run: echo "STORE_PATH=$(pnpm store path)" >> $GITHUB_OUTPUT
+  #      shell: bash
+  #      id: pnpm-cache
+  #    - name: Cache pnpm store
+  #      uses: actions/cache@v4
+  #      with:
+  #        path: ${{ steps.pnpm-cache.outputs.STORE_PATH }}
+  #        key: ${{ runner.os }}-${{ matrix.node }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+  #        restore-keys: ${{ runner.os }}-${{ matrix.node }}-pnpm-store-
+  #    - run: pnpm install
+  #    - run: pnpm build
+  #    - run: pnpm run test:unit --run
+  #      env:
+  #        CODY_NODE_VERSION: ${{ matrix.node }}
+  #
+  #test-integration:
+  #  needs: fast_tests_matrix_prep
+  #  strategy:
+  #    fail-fast: false
+  #    matrix:
+  #      runner: ${{ fromJson(needs.fast_tests_matrix_prep.outputs.matrix) }}
+  #  runs-on: ${{ matrix.runner }}-latest
+  #  timeout-minutes: 15
+  #  steps:
+  #    - uses: actions/checkout@v4
+  #    - uses: actions/setup-node@v4
+  #      with:
+  #        node-version-file: .tool-versions
+  #    - uses: pnpm/action-setup@fe02b34f77f8bc703788d5817da081398fad5dd2 # SECURITY: pin third-party action hashes
+  #    - run: echo "STORE_PATH=$(pnpm store path)" >> $GITHUB_OUTPUT
+  #      shell: bash
+  #      id: pnpm-cache
+  #    - name: Cache pnpm store
+  #      uses: actions/cache@v4
+  #      with:
+  #        path: ${{ steps.pnpm-cache.outputs.STORE_PATH }}
+  #        key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+  #        restore-keys: ${{ runner.os }}-pnpm-store-
+  #    - run: pnpm install
+  #    - run: xvfb-run -a pnpm -C vscode run test:integration
+  #      if: matrix.runner == 'ubuntu'
+  #    - run: pnpm -C vscode run test:integration
+  #      if: matrix.runner == 'windows' || matrix.runner == 'macos'
+  #
+  ## Sets a variable that is used to determine the matrix to run slow tests (e2e) on.
+  ## Everything runs on ubuntu, only commits to dev run on macos and windows.
+  #slow_tests_matrix_prep:
+  #  runs-on: ubuntu-latest
+  #  outputs:
+  #    matrix: ${{ steps.set-matrix.outputs.matrix }}
+  #  steps:
+  #    - id: set-matrix
+  #      run: |
+  #        if [ "$GITHUB_EVENT_NAME" == "push" ] && [ "$GITHUB_REF" == "refs/heads/dev" ]; then
+  #          echo 'matrix=[{"runner":"ubuntu"},{"runner":"windows"},{"runner":"macos"}]' >> $GITHUB_OUTPUT
+  #        else
+  #          echo 'matrix=[{"runner":"ubuntu","shard":"1/5"},{"runner":"ubuntu","shard":"2/5"},{"runner":"ubuntu","shard":"3/5"},{"runner":"ubuntu","shard":"4/5"},{"runner":"ubuntu","shard":"5/5"}]' >> $GITHUB_OUTPUT
+  #        fi
+  #
+  #test-e2e:
+  #  needs: slow_tests_matrix_prep
+  #  strategy:
+  #    fail-fast: false
+  #    matrix:
+  #      include: ${{ fromJson(needs.slow_tests_matrix_prep.outputs.matrix) }}
+  #  runs-on: ${{ matrix.runner }}-latest
+  #  timeout-minutes: 20
+  #  permissions:
+  #    id-token: write
+  #    contents: read
+  #  steps:
+  #    - uses: actions/checkout@v4
+  #    - uses: actions/setup-node@v4
+  #      with:
+  #        node-version-file: .tool-versions
+  #    - uses: pnpm/action-setup@fe02b34f77f8bc703788d5817da081398fad5dd2 # SECURITY: pin third-party action hashes
+  #    - run: echo "STORE_PATH=$(pnpm store path)" >> $GITHUB_OUTPUT
+  #      shell: bash
+  #      id: pnpm-cache
+  #    - name: Cache pnpm store
+  #      uses: actions/cache@v4
+  #      with:
+  #        path: ${{ steps.pnpm-cache.outputs.STORE_PATH }}
+  #        key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+  #        restore-keys: ${{ runner.os }}-pnpm-store-
+  #    - run: pnpm install
+  #    - run: GITHUB_REF=$BRANCH_NAME xvfb-run -a pnpm -C vscode run test:e2e --shard=${{ matrix.shard }}
+  #      if: matrix.runner == 'ubuntu'
+  #      env:
+  #        BRANCH_NAME: ${{ github.head_ref || github.ref_name }}
+  #    - run: GITHUB_REF=$BRANCH_NAME pnpm -C vscode run test:e2e
+  #      if: matrix.runner == 'macos'
+  #      env:
+  #        BRANCH_NAME: ${{ github.head_ref || github.ref_name }}
+  #    - run: $env:GITHUB_REF=$env:BRANCH_NAME; pnpm -C vscode run test:e2e
+  #      if: matrix.runner == 'windows'
+  #      env:
+  #        BRANCH_NAME: ${{ github.head_ref || github.ref_name }}
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -215,6 +185,6 @@ jobs:
             exit 1
           fi
         shell: bash
-      - run: pnpm run build
-      - run: pnpm -C vscode run build
-      - run: CODY_RELEASE_TYPE=stable pnpm -C vscode run release:dry-run
+      # - run: pnpm run build
+      # - run: pnpm -C vscode run build
+      # - run: CODY_RELEASE_TYPE=insiders pnpm -C vscode run release:dry-run

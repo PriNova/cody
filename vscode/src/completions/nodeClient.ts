@@ -286,7 +286,7 @@ export class SourcegraphNodeCompletionsClient extends SourcegraphCompletionsClie
             span.setAttributes({
                 fast: params.fast,
                 maxTokensToSample: params.maxTokensToSample,
-                temperature:  params.temperature,
+                temperature: params.temperature,
                 topK: params.topK,
                 topP: params.topP,
                 model: params.model,

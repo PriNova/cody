@@ -1,15 +1,16 @@
 name: scip-typescript
 on:
-  push:
-    branches:
-      - main
-  pull_request:
-    types: [opened, reopened, synchronize, ready_for_review]
-    paths:
-      - '**.ts'
-      - '**.tsx'
-      - '**.js'
-
+  #push:
+  #  branches:
+  #    - main
+  #pull_request:
+  #  types: [opened, reopened, synchronize, ready_for_review]
+  #  paths:
+  #    - '**.ts'
+  #    - '**.tsx'
+  #    - '**.js'
+  workflow_dispatch:
+  
 jobs:
   scip-typescript:
     if: github.repository == 'sourcegraph/cody'
