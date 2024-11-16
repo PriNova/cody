@@ -153,7 +153,9 @@ export const AssistantMessageCell: FunctionComponent<{
                                             type="button"
                                             className="tw-flex tw-items-center tw-gap-2 tw-text-sm tw-text-muted-foreground hover:tw-text-foreground"
                                             onClick={() => {
-                                                navigator.clipboard.writeText(message.text?.toString() || '')
+                                                navigator.clipboard.writeText(
+                                                    message.text?.toString() || ''
+                                                )
                                                 copyButtonOnSubmit?.(message.text?.toString() || '')
                                             }}
                                             title="Copy message to clipboard"
