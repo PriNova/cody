@@ -16,13 +16,14 @@ import type React from 'react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { WorkflowFromExtension, WorkflowToExtension } from '../services/WorkflowProtocol'
 import { CustomOrderedEdge, type Edge } from './CustomOrderedEdge'
+import styles from './Flow.module.css'
 import { WorkflowSidebar } from './WorkflowSidebar'
 import { NodeType, type WorkflowNode, createNode, defaultWorkflow, nodeTypes } from './nodes/Nodes'
 
 export const Flow: React.FC<{
     vscodeAPI: GenericVSCodeWrapper<WorkflowToExtension, WorkflowFromExtension>
 }> = ({ vscodeAPI }) => {
-    const { getViewport } = useReactFlow()
+    const flowInstance = useReactFlow()
     const [nodes, setNodes] = useState(defaultWorkflow.nodes)
     const [edges, setEdges] = useState(defaultWorkflow.edges)
     const [selectedNode, setSelectedNode] = useState<WorkflowNode | null>(null)
@@ -101,9 +102,13 @@ export const Flow: React.FC<{
     const onNodeDragStart = useCallback((event: React.MouseEvent, node: WorkflowNode) => {
         if (event.shiftKey) {
             // Create new node with offset position where the drag started
-            const newNode = createNode(node.type, node.data.label, {
-                x: node.position.x,
-                y: node.position.y,
+            const newNode = createNode({
+                type: node.type,
+                title: node.data.title,
+                position: {
+                    x: node.position.x,
+                    y: node.position.y,
+                },
             })
 
             // Copy over the specific data based on node type
@@ -151,17 +156,29 @@ export const Flow: React.FC<{
         [selectedNode]
     )
 
-    const handleAddNode = useCallback(
+    const onNodeAdd = useCallback(
         (nodeLabel: string, nodeType: NodeType) => {
-            const { x, y, zoom } = getViewport()
-            const position = { x: -x / 2 + 100 * zoom, y: -y / 2 + 100 * zoom }
-            const newNode = createNode(nodeType, nodeLabel, position)
-            if (nodeType === NodeType.PREVIEW || nodeType === NodeType.INPUT) {
+            const flowElement = document.querySelector('.react-flow')
+            const flowBounds = flowElement?.getBoundingClientRect()
+
+            const centerPosition = flowInstance.screenToFlowPosition({
+                x: flowBounds ? flowBounds.x + flowBounds.width / 2 : 0,
+                y: flowBounds ? flowBounds.y + flowBounds.height / 2 : 0,
+            })
+
+            const newNode = createNode({
+                type: nodeType,
+                title: nodeLabel,
+                position: centerPosition,
+            })
+
+            if ([NodeType.PREVIEW, NodeType.INPUT].includes(nodeType)) {
                 newNode.data.content = ''
             }
+
             setNodes(nodes => [...nodes, newNode])
         },
-        [getViewport]
+        [flowInstance]
     )
 
     const onExecute = useCallback(() => {
@@ -436,7 +453,7 @@ export const Flow: React.FC<{
                 className="tw-border-r tw-border-solid tw-border-[var(--vscode-panel-border)] tw-bg-[var(--vscode-sideBar-background)]"
             >
                 <WorkflowSidebar
-                    onNodeAdd={handleAddNode}
+                    onNodeAdd={onNodeAdd}
                     selectedNode={selectedNode}
                     onNodeUpdate={onNodeUpdate}
                     onSave={onSave}
@@ -472,7 +489,7 @@ export const Flow: React.FC<{
                         fitView
                     >
                         <Background />
-                        <Controls />
+                        <Controls className={styles.controls} />
                     </ReactFlow>
                 </div>
             </div>

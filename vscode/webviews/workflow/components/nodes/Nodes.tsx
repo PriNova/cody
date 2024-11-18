@@ -15,7 +15,7 @@ export enum NodeType {
 // Shared node props interface
 interface BaseNodeProps {
     data: {
-        label: string
+        title: string
         moving?: boolean
         executing?: boolean
         error?: boolean
@@ -28,7 +28,7 @@ export interface WorkflowNode {
     id: string
     type: NodeType
     data: {
-        label: string
+        title: string
         command?: string
         prompt?: string
         input?: string
@@ -45,19 +45,29 @@ export interface WorkflowNode {
  * Creates a new workflow node with the specified type, label, and position.
  *
  * @param {NodeType} type - The type of the node.
- * @param {string} label - The label of the node.
+ * @param {string} title - The label of the node.
  * @param {{ x: number; y: number }} position - The position of the node.
  * @returns {WorkflowNode} - The new workflow node.
  */
-export const createNode = (
-    type: NodeType,
-    label: string,
+export const createNode = ({
+    type,
+    title,
+    position,
+    command,
+    prompt,
+    content,
+}: {
+    type: NodeType
+    title: string
     position: { x: number; y: number }
-): WorkflowNode => ({
+    command?: string
+    prompt?: string
+    content?: string
+}): WorkflowNode => ({
     id: uuidv4(),
     type,
     data: {
-        label,
+        title: title,
         command: type === NodeType.CLI ? '' : undefined,
         prompt: type === NodeType.LLM ? '' : undefined,
         content: type === NodeType.PREVIEW || type === NodeType.INPUT ? '' : undefined,
@@ -89,9 +99,24 @@ export const createEdge = (sourceNode: WorkflowNode, targetNode: WorkflowNode): 
  */
 export const defaultWorkflow = (() => {
     const nodes = [
-        createNode(NodeType.CLI, 'Git Diff', { x: 0, y: 0 }),
-        createNode(NodeType.LLM, 'Cody Generate Commit Message', { x: 0, y: 100 }),
-        createNode(NodeType.CLI, 'Git Commit', { x: 0, y: 200 }),
+        createNode({
+            type: NodeType.CLI,
+            title: 'Git Diff',
+            position: { x: 0, y: 0 },
+            command: 'git diff',
+        }),
+        createNode({
+            type: NodeType.LLM,
+            title: 'Cody Generate Commit Message',
+            position: { x: 0, y: 100 },
+            prompt: 'Generate a commit message for the following git diff: ${1}',
+        }),
+        createNode({
+            type: NodeType.CLI,
+            title: 'Git Commit',
+            position: { x: 0, y: 200 },
+            command: 'git commit -m "${1}"',
+        }),
     ]
 
     return {
@@ -166,7 +191,7 @@ export const PreviewNode: React.FC<BaseNodeProps> = ({ data, selected }) => (
     <div style={getNodeStyle(NodeType.PREVIEW, data.moving, selected, data.executing, data.error)}>
         <Handle type="target" position={Position.Top} />
         <div className="tw-flex tw-flex-col tw-gap-2">
-            <span>{data.label}</span>
+            <span>{data.title}</span>
             <Textarea
                 className="tw-w-full tw-h-24 tw-p-2 tw-rounded nodrag tw-resize tw-border-2 tw-border-solid tw-border-[var(--xy-node-border-default)]"
                 style={{
@@ -187,7 +212,7 @@ export const InputNode: React.FC<BaseNodeProps> = ({ data, selected }) => (
     <div style={getNodeStyle(NodeType.INPUT, data.moving, selected, data.executing, data.error)}>
         <Handle type="target" position={Position.Top} />
         <div className="tw-flex tw-flex-col tw-gap-2">
-            <span>{data.label}</span>
+            <span>{data.title}</span>
             <Textarea
                 className="tw-w-full tw-h-24 tw-p-2 tw-rounded nodrag tw-resize tw-border-2 tw-border-solid tw-border-[var(--xy-node-border-default)]"
                 style={{
@@ -208,7 +233,7 @@ export const CLINode: React.FC<BaseNodeProps> = ({ data, selected }) => (
     <div style={getNodeStyle(NodeType.CLI, data.moving, selected, data.executing, data.error)}>
         <Handle type="target" position={Position.Top} />
         <div className="tw-flex tw-items-center">
-            <span>{data.label}</span>
+            <span>{data.title}</span>
         </div>
         <Handle type="source" position={Position.Bottom} />
     </div>
@@ -218,7 +243,7 @@ export const CodyLLMNode: React.FC<BaseNodeProps> = ({ data, selected }) => (
     <div style={getNodeStyle(NodeType.LLM, data.moving, selected, data.executing, data.error)}>
         <Handle type="target" position={Position.Top} />
         <div className="tw-flex tw-items-center">
-            <span>{data.label}</span>
+            <span>{data.title}</span>
         </div>
         <Handle type="source" position={Position.Bottom} />
     </div>

@@ -160,7 +160,7 @@ async function executeLLMNode(
     abortSignal: AbortSignal
 ): Promise<string> {
     if (!node.data.prompt) {
-        throw new Error(`No prompt specified for LLM node ${node.id} with ${node.data.label}`)
+        throw new Error(`No prompt specified for LLM node ${node.id} with ${node.data.title}`)
     }
 
     const timeout = new Promise<never>((_, reject) => {

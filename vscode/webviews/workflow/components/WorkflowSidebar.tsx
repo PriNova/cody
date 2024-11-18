@@ -1,4 +1,5 @@
 import type React from 'react'
+import { useEffect, useState } from 'react'
 import {
     Accordion,
     AccordionContent,
@@ -38,6 +39,17 @@ export const WorkflowSidebar: React.FC<WorkflowSidebarProps> = ({
             onSave()
         }
     }
+
+    const [propertyEditorOpen, setPropertyEditorOpen] = useState<string | undefined>(undefined)
+
+    useEffect(() => {
+        if (selectedNode) {
+            setPropertyEditorOpen('property_editor')
+        }
+        if (!selectedNode) {
+            setPropertyEditorOpen(undefined)
+        }
+    }, [selectedNode])
 
     return (
         <div className="tw-w-full tw-border-r tw-border-border tw-h-full tw-bg-sidebar-background tw-p-4">
@@ -127,7 +139,12 @@ export const WorkflowSidebar: React.FC<WorkflowSidebarProps> = ({
                     </AccordionContent>
                 </AccordionItem>
             </Accordion>
-            <Accordion type="single" collapsible>
+            <Accordion
+                type="single"
+                value={propertyEditorOpen}
+                onValueChange={setPropertyEditorOpen}
+                collapsible
+            >
                 <div className="tw-my-4 tw-border-t tw-border-border" />
                 <AccordionItem value="property_editor">
                     <AccordionTrigger>Property Editor</AccordionTrigger>

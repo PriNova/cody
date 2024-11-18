@@ -11,13 +11,13 @@ test('workflow executes correctly with UUID node IDs', () => {
         {
             id: id1,
             type: 'cli' as NodeType,
-            data: { label: 'CLI Node', command: 'echo "hello"' },
+            data: { title: 'CLI Node', command: 'echo "hello"' },
             position: { x: 0, y: 0 },
         },
         {
             id: id2,
             type: 'preview' as NodeType,
-            data: { label: 'Preview Node' },
+            data: { title: 'Preview Node' },
             position: { x: 0, y: 0 },
         },
     ]
@@ -37,19 +37,19 @@ test('topology sort maintains order with UUID nodes', () => {
         {
             id: id1,
             type: 'cli' as NodeType,
-            data: { label: 'First CLI' },
+            data: { title: 'First CLI' },
             position: { x: 0, y: 0 },
         },
         {
             id: id2,
             type: 'llm' as NodeType,
-            data: { label: 'LLM Node' },
+            data: { title: 'LLM Node' },
             position: { x: 0, y: 0 },
         },
         {
             id: id3,
             type: 'preview' as NodeType,
-            data: { label: 'Preview' },
+            data: { title: 'Preview' },
             position: { x: 0, y: 0 },
         },
     ]

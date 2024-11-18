@@ -14,15 +14,15 @@ export const PropertyEditor: React.FC<PropertyEditorProps> = ({ node, onUpdate }
     return (
         <div className="tw-flex tw-flex-col tw-gap-4">
             <div>
-                <Label htmlFor="node-label">Node ID: {node.id}</Label>
+                <Label htmlFor="node-title">Node ID: {node.id}</Label>
             </div>
             <div>
-                <Label htmlFor="node-label">Label</Label>
+                <Label htmlFor="node-title">Title</Label>
                 <Input
-                    id="node-label"
-                    value={node.data.label}
+                    id="node-title"
+                    value={node.data.title}
                     onChange={(e: { target: { value: any } }) =>
-                        onUpdate(node.id, { label: e.target.value })
+                        onUpdate(node.id, { title: e.target.value })
                     }
                 />
             </div>
