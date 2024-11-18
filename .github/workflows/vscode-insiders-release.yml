@@ -29,9 +29,6 @@ jobs:
       # Replace the Create Release step with this
       - name: Create/Update Release
         uses: softprops/action-gh-release@v1
-      # Replace the Create Release step with this
-      - name: Create/Update Release
-        uses: softprops/action-gh-release@v1
         with:
           files: ./vscode/dist/cody-custom.vsix
           name: Release ${{ github.ref_name }}
