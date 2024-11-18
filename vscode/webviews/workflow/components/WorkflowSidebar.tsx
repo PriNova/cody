@@ -7,6 +7,7 @@ import {
     AccordionTrigger,
 } from '../../components/shadcn/ui/accordion'
 import { Button } from '../../components/shadcn/ui/button'
+import { HelpModal } from './HelpModal'
 import { PropertyEditor } from './PropertyEditor'
 import { NodeType, type WorkflowNode } from './nodes/Nodes'
 
@@ -41,6 +42,7 @@ export const WorkflowSidebar: React.FC<WorkflowSidebarProps> = ({
     }
 
     const [propertyEditorOpen, setPropertyEditorOpen] = useState<string | undefined>(undefined)
+    const [isHelpOpen, setIsHelpOpen] = useState(false)
 
     useEffect(() => {
         if (selectedNode) {
@@ -165,6 +167,13 @@ export const WorkflowSidebar: React.FC<WorkflowSidebarProps> = ({
                     </AccordionContent>
                 </AccordionItem>
             </Accordion>
+            <div className="tw-mt-4">
+                <Button variant="secondary" className="tw-w-full" onClick={() => setIsHelpOpen(true)}>
+                    Show Help
+                </Button>
+            </div>
+
+            <HelpModal isOpen={isHelpOpen} onClose={() => setIsHelpOpen(false)} />
         </div>
     )
 }

@@ -17,6 +17,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { WorkflowFromExtension, WorkflowToExtension } from '../services/WorkflowProtocol'
 import { CustomOrderedEdge, type Edge } from './CustomOrderedEdge'
 import styles from './Flow.module.css'
+import { HelpModal } from './HelpModal'
 import { WorkflowSidebar } from './WorkflowSidebar'
 import { NodeType, type WorkflowNode, createNode, defaultWorkflow, nodeTypes } from './nodes/Nodes'
 
@@ -39,6 +40,8 @@ export const Flow: React.FC<{
     const [startWidth, setStartWidth] = useState(0)
     const [abortController, setAbortController] = useState<AbortController | null>(null)
     const [interruptedNodeIds, setInterruptedNodeIds] = useState<Set<string>>(new Set())
+
+    const [isHelpOpen, setIsHelpOpen] = useState(false)
 
     const edgeTypes = {
         'ordered-edge': CustomOrderedEdge,
@@ -484,12 +487,23 @@ export const Flow: React.FC<{
                         onConnect={onConnect}
                         onNodeClick={onNodeClick}
                         onNodeDragStart={onNodeDragStart}
+                        deleteKeyCode={['Backspace', 'Delete']}
                         nodeTypes={nodeTypes}
                         edgeTypes={edgeTypes}
                         fitView
                     >
                         <Background />
-                        <Controls className={styles.controls} />
+                        <Controls className={styles.controls}>
+                            <button
+                                type="button"
+                                className="react-flow__controls-button"
+                                onClick={() => setIsHelpOpen(true)}
+                                title="Help"
+                            >
+                                ?
+                            </button>
+                        </Controls>
+                        <HelpModal isOpen={isHelpOpen} onClose={() => setIsHelpOpen(false)} />
                     </ReactFlow>
                 </div>
             </div>
