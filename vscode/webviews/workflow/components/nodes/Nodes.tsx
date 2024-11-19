@@ -53,9 +53,9 @@ export const createNode = ({
     type,
     title,
     position,
-    command,
-    prompt,
-    content,
+    command = '', // provide defaults
+    prompt = '',
+    content = '',
 }: {
     type: NodeType
     title: string
@@ -67,10 +67,10 @@ export const createNode = ({
     id: uuidv4(),
     type,
     data: {
-        title: title,
-        command: type === NodeType.CLI ? '' : undefined,
-        prompt: type === NodeType.LLM ? '' : undefined,
-        content: type === NodeType.PREVIEW || type === NodeType.INPUT ? '' : undefined,
+        title,
+        command: type === NodeType.CLI ? command : undefined,
+        prompt: type === NodeType.LLM ? prompt : undefined,
+        content: type === NodeType.PREVIEW || type === NodeType.INPUT ? content : undefined,
     },
     position,
 })
