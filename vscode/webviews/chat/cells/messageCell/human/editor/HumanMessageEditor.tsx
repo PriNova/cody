@@ -481,6 +481,7 @@ export const HumanMessageEditor: FunctionComponent<{
                     tokenCount={tokenCount + tokenAdded}
                     contextWindow={totalContextWindow}
                     transcriptTokens={transcriptTokens}
+                    isLastInteraction={isLastInteraction}
                 />
             )}
         </div>

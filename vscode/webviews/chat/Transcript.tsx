@@ -186,7 +186,7 @@ export const Transcript: FC<TranscriptProps> = props => {
                     smartApplyEnabled={smartApplyEnabled}
                     editorRef={i === interactions.length - 1 ? lastHumanEditorRef : undefined}
                     onAddToFollowupChat={onAddToFollowupChat}
-                    transcriptTokens={i === interactions.length - 1 ? transcriptTokens : undefined}
+                    transcriptTokens={transcriptTokens}
                 />
             ))}
         </div>

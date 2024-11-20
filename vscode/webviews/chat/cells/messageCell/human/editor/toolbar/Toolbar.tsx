@@ -38,6 +38,7 @@ export const Toolbar: FunctionComponent<{
     tokenCount?: number
     contextWindow?: number
     transcriptTokens?: number
+    isLastInteraction?: boolean
 }> = ({
     userInfo,
     isEditorFocused,
@@ -54,6 +55,7 @@ export const Toolbar: FunctionComponent<{
     tokenCount,
     contextWindow,
     transcriptTokens,
+    isLastInteraction,
 }) => {
     /**
      * If the user clicks in a gap or on the toolbar outside of any of its buttons, report back to
@@ -101,9 +103,16 @@ export const Toolbar: FunctionComponent<{
                     className="tw-mr-1"
                 />
 
-                {tokenCount !== undefined && contextWindow && (
-                    <TokenDisplay current={tokenCount} total={transcriptTokens} limit={contextWindow} />
-                )}
+                {tokenCount !== undefined &&
+                    contextWindow &&
+                    transcriptTokens !== undefined &&
+                    isLastInteraction && (
+                        <TokenDisplay
+                            current={tokenCount}
+                            total={transcriptTokens}
+                            limit={contextWindow}
+                        />
+                    )}
             </div>
             <div className="tw-flex-1 tw-flex tw-justify-end">
                 <SubmitButton
