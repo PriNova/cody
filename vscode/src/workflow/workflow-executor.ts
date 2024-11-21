@@ -1,5 +1,3 @@
-import { spawn } from 'node:child_process'
-import type { ChildProcess } from 'node:child_process'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import { type ChatClient, type Message, PromptString } from '@sourcegraph/cody-shared'
@@ -7,13 +5,11 @@ import * as vscode from 'vscode'
 import type { Edge } from '../../webviews/workflow/components/CustomOrderedEdge'
 import type { WorkflowNode } from '../../webviews/workflow/components/nodes/Nodes'
 import type { WorkflowFromExtension } from '../../webviews/workflow/services/WorkflowProtocol'
+import { PersistentShell } from '../commands/context/shell'
 
 interface ExecutionContext {
     nodeOutputs: Map<string, string>
-    //signal: AbortSignal
 }
-
-let activeProcess: ChildProcess | null = null
 
 /**
  * Performs a topological sort on the given workflow nodes and edges, returning the sorted nodes.
@@ -76,13 +72,16 @@ export function topologicalSort(nodes: WorkflowNode[], edges: Edge[]): WorkflowN
  * @returns The output of the shell command.
  * @throws {Error} If the shell is not available, the workspace is not trusted, or the command fails to execute.
  */
-async function executeCLINode(node: WorkflowNode, abortSignal: AbortSignal): Promise<string> {
+async function executeCLINode(
+    node: WorkflowNode,
+    abortSignal: AbortSignal,
+    persistentShell: PersistentShell
+): Promise<string> {
     if (!vscode.env.shell || !vscode.workspace.isTrusted) {
         throw new Error('Shell command is not supported in your current workspace.')
     }
 
     const homeDir = os.homedir() || process.env.HOME || process.env.USERPROFILE || ''
-    const cwd = vscode.workspace.workspaceFolders?.[0]?.uri?.path
 
     const filteredCommand = node.data.command?.replaceAll(/(\s~\/)/g, ` ${homeDir}${path.sep}`) || ''
 
@@ -92,57 +91,13 @@ async function executeCLINode(node: WorkflowNode, abortSignal: AbortSignal): Pro
     }
 
     return new Promise((resolve, reject) => {
-        const shell = process.platform === 'win32' ? 'cmd' : 'bash'
-        const shellFlag = process.platform === 'win32' ? '/c' : '-c'
-
-        activeProcess = spawn(shell, [shellFlag, filteredCommand], { cwd })
-        let stdout = ''
-        let stderr = ''
-
-        activeProcess.stdout?.on('data', data => {
-            stdout += data.toString()
-        })
-
-        activeProcess.stderr?.on('data', data => {
-            stderr += data.toString()
-        })
-
-        activeProcess.on('close', code => {
-            activeProcess = null
-            if (code === 0) {
-                resolve(stdout.replace(/\n$/, ''))
-            } else {
-                reject(new Error(stderr || `Process exited with code ${code}`))
-            }
-        })
-
-        activeProcess.on('error', error => {
-            activeProcess = null
-            reject(error)
-        })
-
         // Handle abortion
         abortSignal.addEventListener('abort', () => {
-            if (activeProcess) {
-                if (process.platform === 'win32') {
-                    spawn('taskkill', ['/pid', activeProcess.pid?.toString() || '', '/f', '/t'])
-                } else {
-                    try {
-                        // Try to kill process group first
-                        process.kill(-activeProcess.pid!, 'SIGTERM')
-                    } catch {
-                        // If process group kill fails, try killing single process without logging error
-                        try {
-                            process.kill(activeProcess.pid!, 'SIGTERM')
-                        } catch {
-                            // Process already terminated, ignore error
-                        }
-                    }
-                }
-                activeProcess = null
-                reject(new Error('CLI command execution aborted'))
-            }
+            persistentShell.dispose()
+            reject(new Error('CLI command execution aborted'))
         })
+        const output: PromiseLike<string> = persistentShell.execute(filteredCommand)
+        resolve(output)
     })
 }
 
@@ -227,11 +182,11 @@ async function executeLLMNode(
 }
 
 async function executePreviewNode(input: string): Promise<string> {
-    return input
+    return input.trim()
 }
 
 async function executeInputNode(input: string): Promise<string> {
-    return input
+    return input.trim()
 }
 
 /**
@@ -272,13 +227,8 @@ function combineParentOutputsByConnectionOrder(
             if (output === undefined) {
                 return ''
             }
-            if (nodeType === 'cli') {
-                return sanitizeForShell(output)
-            }
-            if (nodeType === 'llm') {
-                return sanitizeForPrompt(output)
-            }
-            return output
+            // Normalize line endings and collapse multiple newlines
+            return output.replace(/\r\n/g, '\n').trim()
         })
         .filter(output => output !== undefined)
 }
@@ -299,111 +249,110 @@ export async function executeWorkflow(
     chatClient: ChatClient,
     abortController: AbortSignal
 ): Promise<void> {
-    //const abortController = new AbortController()
     const context: ExecutionContext = {
         nodeOutputs: new Map(),
-        //signal: abortController.signal,
     }
 
     const sortedNodes = topologicalSort(nodes, edges)
+    const persistentShell = new PersistentShell()
 
     webview.postMessage({
         type: 'execution_started',
     } as WorkflowFromExtension)
 
     for (const node of sortedNodes) {
-        try {
-            webview.postMessage({
-                type: 'node_execution_status',
-                data: { nodeId: node.id, status: 'running' },
-            } as WorkflowFromExtension)
+        webview.postMessage({
+            type: 'node_execution_status',
+            data: { nodeId: node.id, status: 'running' },
+        } as WorkflowFromExtension)
 
-            let result: string
-            switch (node.type) {
-                case 'cli': {
+        let result: string
+        switch (node.type) {
+            case 'cli': {
+                try {
                     const inputs = combineParentOutputsByConnectionOrder(
                         node.id,
                         edges,
                         context,
                         node.type
-                    )
+                    ).map(output => sanitizeForShell(output))
                     const command = node.data.command
                         ? replaceIndexedInputs(node.data.command, inputs)
                         : ''
                     result = await executeCLINode(
                         { ...node, data: { ...node.data, command } },
-                        abortController
+                        abortController,
+                        persistentShell
                     )
-                    break
-                }
-                case 'llm': {
-                    const inputs = combineParentOutputsByConnectionOrder(
-                        node.id,
-                        edges,
-                        context,
-                        node.type
-                    )
-                    const prompt = node.data.prompt ? replaceIndexedInputs(node.data.prompt, inputs) : ''
-                    result = await executeLLMNode(
-                        { ...node, data: { ...node.data, prompt } },
-                        chatClient,
-                        abortController
-                    )
-                    break
-                }
-                case 'preview': {
-                    const inputs = combineParentOutputsByConnectionOrder(
-                        node.id,
-                        edges,
-                        context,
-                        node.type
-                    )
-                    result = await executePreviewNode(inputs.join('\n'))
-                    break
-                }
+                } catch (error: unknown) {
+                    persistentShell.dispose()
+                    const errorMessage = error instanceof Error ? error.message : String(error)
+                    const status =
+                        errorMessage === 'CLI command execution aborted' ? 'interrupted' : 'error'
 
-                case 'text-format': {
-                    const inputs = combineParentOutputsByConnectionOrder(
-                        node.id,
-                        edges,
-                        context,
-                        node.type
-                    )
-                    const text = node.data.content ? replaceIndexedInputs(node.data.content, inputs) : ''
-                    result = await executeInputNode(text)
-                    break
+                    void vscode.window.showErrorMessage(`CLI Node Error: ${errorMessage}`)
+
+                    webview.postMessage({
+                        type: 'node_execution_status',
+                        data: { nodeId: node.id, status, result: errorMessage },
+                    } as WorkflowFromExtension)
+
+                    webview.postMessage({
+                        type: 'execution_completed',
+                    } as WorkflowFromExtension)
+
+                    return
                 }
-                default:
-                    throw new Error(`Unknown node type: ${node.type}`)
+                break
+            }
+            case 'llm': {
+                const inputs = combineParentOutputsByConnectionOrder(
+                    node.id,
+                    edges,
+                    context,
+                    node.type
+                ).map(input => sanitizeForPrompt(input))
+                const prompt = node.data.prompt ? replaceIndexedInputs(node.data.prompt, inputs) : ''
+                result = await executeLLMNode(
+                    { ...node, data: { ...node.data, prompt } },
+                    chatClient,
+                    abortController
+                )
+                break
+            }
+            case 'preview': {
+                const inputs = combineParentOutputsByConnectionOrder(node.id, edges, context, node.type)
+                result = await executePreviewNode(inputs.join('\n'))
+                break
             }
 
-            context.nodeOutputs.set(node.id, result)
-            webview.postMessage({
-                type: 'node_execution_status',
-                data: { nodeId: node.id, status: 'completed', result },
-            } as WorkflowFromExtension)
-        } catch (error: unknown) {
-            const errorMessage = error instanceof Error ? error.message : String(error)
-            const status = errorMessage === 'CLI command execution aborted' ? 'interrupted' : 'error'
-
-            webview.postMessage({
-                type: 'node_execution_status',
-                data: { nodeId: node.id, status, result: errorMessage },
-            } as WorkflowFromExtension)
-
-            webview.postMessage({
-                type: 'execution_completed',
-            } as WorkflowFromExtension)
+            case 'text-format': {
+                const inputs = combineParentOutputsByConnectionOrder(node.id, edges, context, node.type)
+                const text = node.data.content ? replaceIndexedInputs(node.data.content, inputs) : ''
+                result = await executeInputNode(text)
+                break
+            }
+            default:
+                persistentShell.dispose()
+                throw new Error(`Unknown node type: ${node.type}`)
         }
+
+        context.nodeOutputs.set(node.id, result)
+        webview.postMessage({
+            type: 'node_execution_status',
+            data: { nodeId: node.id, status: 'completed', result },
+        } as WorkflowFromExtension)
     }
 
+    persistentShell.dispose()
     webview.postMessage({
         type: 'execution_completed',
     } as WorkflowFromExtension)
 }
 
 function sanitizeForShell(input: string): string {
-    return input.replace(/(["\\'$`])/g, '\\$1').replace(/\n/g, ' ')
+    // Escape special characters but preserve actual newlines
+    return input.replace(/(["\\'$`])/g, '\\$1') //.replace(/\r\n/g, '\n') // Normalize CRLF to LF
 }
 
 function sanitizeForPrompt(input: string): string {
