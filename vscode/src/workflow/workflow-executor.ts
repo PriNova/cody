@@ -1,6 +1,6 @@
 import * as os from 'node:os'
 import * as path from 'node:path'
-import { type ChatClient, type Message, PromptString } from '@sourcegraph/cody-shared'
+import { type ChatClient, type Message, PromptString, getSimplePreamble } from '@sourcegraph/cody-shared'
 import * as vscode from 'vscode'
 import type { Edge } from '../../webviews/workflow/components/CustomOrderedEdge'
 import type { WorkflowNode } from '../../webviews/workflow/components/nodes/Nodes'
@@ -123,7 +123,13 @@ async function executeLLMNode(
     })
 
     try {
+        const preamble = getSimplePreamble(
+            'anthropic::2024-10-22::claude-3-5-sonnet-latest',
+            1,
+            'Default'
+        )
         const messages: Message[] = [
+            ...preamble,
             {
                 speaker: 'human',
                 text: PromptString.unsafe_fromUserQuery(node.data.prompt),
@@ -137,7 +143,7 @@ async function executeLLMNode(
                     messages,
                     {
                         stream: false,
-                        maxTokensToSample: 1000,
+                        maxTokensToSample: 4000,
                         model: 'anthropic::2024-10-22::claude-3-5-sonnet-latest',
                     },
                     abortSignal
