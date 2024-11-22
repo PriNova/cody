@@ -90,15 +90,13 @@ async function executeCLINode(
         throw new Error('Cody cannot execute this command')
     }
 
-    return new Promise((resolve, reject) => {
-        // Handle abortion
-        abortSignal.addEventListener('abort', () => {
-            persistentShell.dispose()
-            reject(new Error('CLI command execution aborted'))
-        })
-        const output: PromiseLike<string> = persistentShell.execute(filteredCommand)
-        resolve(output)
-    })
+    try {
+        return await persistentShell.execute(filteredCommand, abortSignal)
+    } catch (error: unknown) {
+        persistentShell.dispose()
+        const errorMessage = error instanceof Error ? error.message : String(error)
+        throw new Error(`CLI Node execution failed: ${errorMessage}`) // Re-throw for handling in executeWorkflow
+    }
 }
 
 /**
@@ -112,7 +110,7 @@ async function executeCLINode(
 async function executeLLMNode(
     node: WorkflowNode,
     chatClient: ChatClient,
-    abortSignal: AbortSignal
+    abortSignal?: AbortSignal
 ): Promise<string> {
     if (!node.data.prompt) {
         throw new Error(`No prompt specified for LLM node ${node.id} with ${node.data.title}`)
@@ -293,8 +291,7 @@ export async function executeWorkflow(
                 } catch (error: unknown) {
                     persistentShell.dispose()
                     const errorMessage = error instanceof Error ? error.message : String(error)
-                    const status =
-                        errorMessage === 'CLI command execution aborted' ? 'interrupted' : 'error'
+                    const status = errorMessage.includes('aborted') ? 'interrupted' : 'error'
 
                     void vscode.window.showErrorMessage(`CLI Node Error: ${errorMessage}`)
 

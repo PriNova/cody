@@ -67,7 +67,6 @@ export const WorkflowSidebar: React.FC<WorkflowSidebarProps> = ({
                     className="tw-w-full"
                     onClick={() => {
                         if (isExecuting && onAbort) {
-                            console.log('WorkflowSidebar: Abort')
                             onAbort()
                         } else if (onExecute) {
                             onExecute()

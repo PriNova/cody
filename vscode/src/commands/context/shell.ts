@@ -1,4 +1,4 @@
-import { spawn } from 'node:child_process'
+import { type ChildProcess, spawn } from 'node:child_process'
 import {
     type ContextItem,
     ContextItemSource,
@@ -20,7 +20,7 @@ Terminal output from the \`{command}\` command enclosed between <OUTPUT0412> tag
 
 // A persistent shell session that maintains state between commands
 export class PersistentShell {
-    private shell: ReturnType<typeof spawn> | null = null
+    private shell: ChildProcess | null = null
     private stdoutBuffer = ''
     private stderrBuffer = ''
 
@@ -47,7 +47,7 @@ export class PersistentShell {
         })
     }
 
-    async execute(cmd: string): Promise<string> {
+    async execute(cmd: string, abortSignal?: AbortSignal): Promise<string> {
         return new Promise((resolve, reject) => {
             // Remove the sanitization that replaces newlines
             // const sanitizedInput = cmd.replace(/\n/g, '\\n')
@@ -89,6 +89,14 @@ export class PersistentShell {
                         reject(error)
                     }
                 }
+
+                if (abortSignal?.aborted) {
+                    clearInterval(checkInterval)
+                    clearTimeout(timeoutId)
+                    this.kill() // Forcefully kill the process
+                    reject(new Error('Command execution aborted'))
+                    return
+                }
             }, 100)
 
             const timeoutId = setTimeout(() => {
@@ -109,6 +117,13 @@ export class PersistentShell {
                 echo "__END_OF_COMMAND_${Date.now()}__"
             \n`)
         })
+    }
+
+    public kill(): void {
+        if (this.shell) {
+            this.shell.kill()
+            this.shell = null
+        }
     }
 
     public dispose(): void {
