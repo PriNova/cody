@@ -241,25 +241,35 @@ export const Flow: React.FC<{
     const onConnect = useCallback((params: any) => setEdges(eds => addEdge(params, eds)), [])
 
     const updateEdgeOrder = useCallback(() => {
-        const sortedNodes = topologicalEdgeSort(nodes, edges)
         const orderMap = new Map<string, number>()
 
-        let sequentialNumber = 1
+        // Group edges by target node
+        const edgesByTarget = new Map<string, Edge[]>()
 
-        // Process edges following the topological order of nodes
-        for (const node of sortedNodes) {
-            // Find all edges that start from this node
-            const sourceEdges = edges.filter(edge => edge.source === node.id)
+        for (const edge of edges) {
+            const targetEdges = edgesByTarget.get(edge.target) || []
+            targetEdges.push(edge)
+            edgesByTarget.set(edge.target, targetEdges)
+        }
 
-            // Assign sequential numbers to each edge
-            for (const edge of sourceEdges) {
-                orderMap.set(edge.id, sequentialNumber++)
+        // For each target node, number its incoming edges
+        for (const targetEdges of edgesByTarget.values()) {
+            // Sort edges based on source node position in topological order
+            const sortedSourceNodes = topologicalEdgeSort(nodes, edges)
+            const sortedEdges = targetEdges.sort((a, b) => {
+                const aIndex = sortedSourceNodes.findIndex(node => node.id === a.source)
+                const bIndex = sortedSourceNodes.findIndex(node => node.id === b.source)
+                return aIndex - bIndex
+            })
+
+            // Assign sequential numbers starting from 1 for each target's edges
+            for (const [index, edge] of sortedEdges.entries()) {
+                orderMap.set(edge.id, index + 1)
             }
         }
 
         setEdgeOrder(orderMap)
     }, [nodes, edges])
-
     useEffect(() => {
         updateEdgeOrder()
     }, [updateEdgeOrder])
