@@ -270,7 +270,7 @@ export class ChatBuilder {
         }
         const result: SerializedChatTranscript = {
             id: this.sessionID,
-            chatTitle: undefined,
+            chatTitle: this.customChatTitle,
             lastInteractionTimestamp: this.sessionID,
             interactions,
         }

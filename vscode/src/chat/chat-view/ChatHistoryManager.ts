@@ -81,6 +81,7 @@ class ChatHistoryManager implements vscode.Disposable {
         if (userHistory?.chat[chatID]) {
             userHistory.chat[chatID].chatTitle = newTitle
             await localStorage.setChatHistory(authStatus, userHistory)
+            this.changeNotifications.next()
         }
     }
 
