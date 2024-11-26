@@ -646,7 +646,7 @@ export const Flow: React.FC<{
     // #endregion
 
     return (
-        <div className="tw-flex tw-h-screen tw-border-2 tw-border-solid tw-border-[var(--vscode-panel-border)]">
+        <div className={`tw-flex tw-h-screen tw-border-2 tw-border-solid tw-border-[var(--vscode-panel-border)]  tw-text-[14px]`}>
             <div
                 style={{ width: sidebarWidth + 'px', flexShrink: 0 }}
                 className="tw-border-r tw-border-solid tw-border-[var(--vscode-panel-border)] tw-bg-[var(--vscode-sideBar-background)]"
