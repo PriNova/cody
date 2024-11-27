@@ -1086,8 +1086,8 @@
           "order": 6,
           "type": "number",
           "default": 0.2,
-          "minimum": 0.0,
-          "maximum": 1.0,
+          "minimum": 0,
+          "maximum": 1,
           "description": "Sets the temperature for Cody's chat responses. Higher values make output more random, lower values make it more deterministic."
         },
         "cody.edit.preInstruction": {
@@ -1315,8 +1315,8 @@
       "cody.chat.temperature": {
         "type": "number",
         "default": 0.2,
-        "minimum": 0.0,
-        "maximum": 1.0,
+        "minimum": 0,
+        "maximum": 1,
         "description": "Sets the temperature for Cody's completions. Higher values make output more random, lower values make it more deterministic."
       }
     },
@@ -1414,12 +1414,14 @@
     "@opentelemetry/sdk-trace-node": "^1.18.1",
     "@opentelemetry/semantic-conventions": "^1.18.1",
     "@radix-ui/react-accordion": "^1.2.0",
+    "@radix-ui/react-checkbox": "^1.1.2",
     "@radix-ui/react-collapsible": "^1.1.0",
     "@radix-ui/react-dialog": "^1.0.5",
     "@radix-ui/react-form": "^0.1.0",
     "@radix-ui/react-label": "^2.1.0",
     "@radix-ui/react-popover": "^1.0.7",
     "@radix-ui/react-progress": "^1.1.0",
+    "@radix-ui/react-slider": "^1.2.1",
     "@radix-ui/react-slot": "^1.0.2",
     "@radix-ui/react-tabs": "^1.1.0",
     "@radix-ui/react-tooltip": "^1.0.7",
@@ -1446,6 +1448,7 @@
     "crypto-js": "^4.2.0",
     "detect-indent": "7.0.0",
     "diff": "^5.2.0",
+    "fast-myers-diff": "^3.2.0",
     "fast-xml-parser": "^4.3.2",
     "fzf": "^0.5.2",
     "glob": "^7.2.3",
@@ -1484,8 +1487,7 @@
     "uuid": "^9.0.0",
     "vscode-languageserver-textdocument": "^1.0.8",
     "vscode-uri": "^3.0.8",
-    "wink-nlp-utils": "^2.1.0",
-    "fast-myers-diff": "^3.2.0"
+    "wink-nlp-utils": "^2.1.0"
   },
   "devDependencies": {
     "7zip-min": "^1.4.5",

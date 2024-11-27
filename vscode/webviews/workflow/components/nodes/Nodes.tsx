@@ -1,5 +1,7 @@
+import { TokenCounterUtils } from '@sourcegraph/cody-shared'
 import { Handle, Position } from '@xyflow/react'
 import type React from 'react'
+import { useEffect, useState } from 'react'
 import { v4 as uuidv4 } from 'uuid'
 import { Textarea } from '../../../components/shadcn/ui/textarea'
 import type { Edge } from '../CustomOrderedEdge'
@@ -35,6 +37,9 @@ export interface WorkflowNode {
         input?: string
         output?: string
         content?: string
+        temperature?: number
+        fast?: boolean
+        maxTokens?: number
     }
     position: {
         x: number
@@ -57,6 +62,9 @@ export const createNode = ({
     command = '', // provide defaults
     prompt = '',
     content = '',
+    temperature = 0.0,
+    fast = true,
+    maxTokens = 1000,
 }: {
     type: NodeType
     title: string
@@ -64,6 +72,9 @@ export const createNode = ({
     command?: string
     prompt?: string
     content?: string
+    temperature?: number
+    fast?: boolean
+    maxTokens?: number
 }): WorkflowNode => ({
     id: uuidv4(),
     type,
@@ -72,6 +83,9 @@ export const createNode = ({
         command: type === NodeType.CLI ? command : undefined,
         prompt: type === NodeType.LLM ? prompt : undefined,
         content: type === NodeType.PREVIEW || type === NodeType.INPUT ? content : undefined,
+        temperature: type === NodeType.LLM ? temperature : undefined,
+        fast: type === NodeType.LLM ? fast : undefined,
+        maxTokens: type === NodeType.LLM ? maxTokens : undefined,
     },
     position,
 })
@@ -188,26 +202,45 @@ const getNodeStyle = (
     border: `2px solid ${getBorderColor(type, { error, executing, moving, selected })}`,
 })
 
-export const PreviewNode: React.FC<BaseNodeProps> = ({ data, selected }) => (
-    <div style={getNodeStyle(NodeType.PREVIEW, data.moving, selected, data.executing, data.error)}>
-        <Handle type="target" position={Position.Top} />
-        <div className="tw-flex tw-flex-col tw-gap-2">
-            <span>{data.title}</span>
-            <Textarea
-                className="tw-w-full tw-h-24 tw-p-2 tw-rounded nodrag tw-resize tw-border-2 tw-border-solid tw-border-[var(--xy-node-border-default)]"
-                style={{
-                    color: 'var(--vscode-editor-foreground)',
-                    backgroundColor: 'var(--vscode-input-background)',
-                    outline: 'none',
-                }}
-                value={data.content || ''}
-                readOnly
-                placeholder="Preview content will appear here..."
-            />
+export const PreviewNode: React.FC<BaseNodeProps> = ({ data, selected }) => {
+    const [tokenCount, setTokenCount] = useState<number>(0)
+    // Calculate token count when content changes
+    useEffect(() => {
+        const calculateTokens = async () => {
+            if (data.content) {
+                const count = await TokenCounterUtils.encode(data.content)
+                setTokenCount(count.length)
+            } else {
+                setTokenCount(0)
+            }
+        }
+        void calculateTokens()
+    }, [data.content])
+
+    return (
+        <div style={getNodeStyle(NodeType.PREVIEW, data.moving, selected, data.executing, data.error)}>
+            <Handle type="target" position={Position.Top} />
+            <div className="tw-flex tw-flex-col tw-gap-2">
+                <div className="tw-flex tw-justify-between tw-items-center">
+                    <span>{data.title}</span>
+                    <span className="tw-text-sm tw-opacity-70">Tokens: {tokenCount}</span>
+                </div>
+                <Textarea
+                    className="tw-w-full tw-h-24 tw-p-2 tw-rounded nodrag tw-resize tw-border-2 tw-border-solid tw-border-[var(--xy-node-border-default)]"
+                    style={{
+                        color: 'var(--vscode-editor-foreground)',
+                        backgroundColor: 'var(--vscode-input-background)',
+                        outline: 'none',
+                    }}
+                    value={data.content || ''}
+                    readOnly
+                    placeholder="Preview content will appear here..."
+                />
+            </div>
+            <Handle type="source" position={Position.Bottom} />
         </div>
-        <Handle type="source" position={Position.Bottom} />
-    </div>
-)
+    )
+}
 
 export const InputNode: React.FC<BaseNodeProps> = ({ data, selected }) => (
     <div style={getNodeStyle(NodeType.INPUT, data.moving, selected, data.executing, data.error)}>
@@ -224,6 +257,16 @@ export const InputNode: React.FC<BaseNodeProps> = ({ data, selected }) => (
                 value={data.content || ''}
                 placeholder="Enter your input text here..."
             />
+        </div>
+        <Handle type="source" position={Position.Bottom} />
+    </div>
+)
+
+export const SearchContextNode: React.FC<BaseNodeProps> = ({ data, selected }) => (
+    <div style={getNodeStyle(NodeType.INPUT, data.moving, selected, data.executing, data.error)}>
+        <Handle type="target" position={Position.Top} />
+        <div className="tw-flex tw-flex-col tw-gap-2">
+            <span>{data.title}</span>
         </div>
         <Handle type="source" position={Position.Bottom} />
     </div>
@@ -255,5 +298,5 @@ export const nodeTypes = {
     [NodeType.LLM]: CodyLLMNode,
     [NodeType.PREVIEW]: PreviewNode,
     [NodeType.INPUT]: InputNode,
-    [NodeType.SEARCH_CONTEXT]: InputNode,
+    [NodeType.SEARCH_CONTEXT]: SearchContextNode,
 }

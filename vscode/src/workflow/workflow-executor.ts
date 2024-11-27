@@ -151,10 +151,10 @@ async function executeLLMNode(
                     messages,
                     {
                         stream: false,
-                        maxTokensToSample: 4000,
-                        fast: true,
+                        maxTokensToSample: node.data.maxTokens ?? 1000,
+                        fast: node.data.fast ?? true,
                         model: 'anthropic::2024-10-22::claude-3-5-sonnet-latest',
-                        temperature: 0.0,
+                        temperature: node.data.temperature ?? 0,
                     },
                     abortSignal
                 )
@@ -218,8 +218,6 @@ async function executeSearchContextNode(
         return ''
     }
     const span = tracer.startSpan('chat.submit')
-    //const structuredMentions = toStructuredMentions([repo])
-    //const roots = await codebaseRootsFromMentions(structuredMentions)
     const context = await contextRetriever.retrieveContext(
         toStructuredMentions([repo]),
         PromptString.unsafe_fromLLMResponse(input),
@@ -228,11 +226,14 @@ async function executeSearchContextNode(
         true
     )
     span.end()
-    const result = context.map(item => {
-        return { path: item.uri.path, source: item.source, title: item.title, range: item.range }
-    })
+    const result = context
+        .map(item => {
+            // Format each context item as path + newline + content
+            return `${item.uri.path}\n${item.content || ''}`
+        })
+        .join('\n\n') // Join multiple items with double newlines
 
-    return JSON.stringify(result.reverse(), null, 2)
+    return result
 }
 
 /**
@@ -381,8 +382,7 @@ export async function executeWorkflow(
 
             case 'search-context': {
                 const inputs = combineParentOutputsByConnectionOrder(node.id, edges, context, node.type)
-                const text = node.data.content ? replaceIndexedInputs(node.data.content, inputs) : ''
-                result = await executeSearchContextNode(text, contextRetriever)
+                result = await executeSearchContextNode(inputs.join('\n'), contextRetriever)
                 break
             }
             default:

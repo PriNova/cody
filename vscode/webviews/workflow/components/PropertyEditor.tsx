@@ -1,7 +1,9 @@
 import type React from 'react'
 import { Button } from '../../components/shadcn/ui/button'
+import { Checkbox } from '../../components/shadcn/ui/checkbox'
 import { Input } from '../../components/shadcn/ui/input'
 import { Label } from '../../components/shadcn/ui/label'
+import { Slider } from '../../components/shadcn/ui/slider'
 import { Textarea } from '../../components/shadcn/ui/textarea'
 import { NodeType, type WorkflowNode } from './nodes/Nodes'
 
@@ -42,20 +44,61 @@ export const PropertyEditor: React.FC<PropertyEditorProps> = ({ node, onUpdate }
             )}
 
             {node.type === NodeType.LLM && (
-                <div>
-                    <Label htmlFor="node-prompt">Prompt</Label>
-                    <Textarea
-                        id="node-prompt"
-                        value={node.data.prompt || ''}
-                        onChange={(e: { target: { value: any } }) =>
-                            onUpdate(node.id, { prompt: e.target.value })
-                        }
-                        placeholder="Enter LLM prompt... (use ${1}, ${2} and so on for positional inputs)"
-                    />
-                </div>
+                <>
+                    <div>
+                        <Label htmlFor="node-prompt">Prompt</Label>
+                        <Textarea
+                            id="node-prompt"
+                            value={node.data.prompt || ''}
+                            onChange={(e: { target: { value: any } }) =>
+                                onUpdate(node.id, { prompt: e.target.value })
+                            }
+                            placeholder="Enter LLM prompt... (use ${1}, ${2} and so on for positional inputs)"
+                        />
+                    </div>
+                    <div>
+                        <Label htmlFor="node-temperature">Temperature</Label>
+                        <Slider
+                            className="tw-p-4"
+                            id="node-temperature"
+                            min={0}
+                            max={1}
+                            step={0.05}
+                            value={[node.data.temperature || 0]}
+                            onValueChange={([value]) => onUpdate(node.id, { temperature: value })}
+                        />
+                        <span className="tw-text-sm tw-text-muted-foreground">
+                            {node.data.temperature || 0}
+                        </span>
+                    </div>
+
+                    <div className="tw-flex tw-items-center tw-space-x-2">
+                        <Checkbox
+                            id="node-fast"
+                            checked={node.data.fast || false}
+                            onCheckedChange={checked => onUpdate(node.id, { fast: checked === true })}
+                        />
+                        <Label htmlFor="node-fast">Fast Mode</Label>
+                    </div>
+                    <div>
+                        <Label htmlFor="node-maxTokens">Maximum Tokens</Label>
+                        <Slider
+                            className="tw-p-4"
+                            id="node-maxTokens"
+                            min={250}
+                            max={4000}
+                            step={250}
+                            value={[node.data.maxTokens || 250]}
+                            onValueChange={([value]) => onUpdate(node.id, { maxTokens: value })}
+                        />
+                        <span className="tw-text-sm tw-text-muted-foreground">
+                            {node.data.maxTokens || 250}
+                        </span>
+                    </div>
+                </>
             )}
 
-            {(node.type === NodeType.INPUT || node.type === NodeType.SEARCH_CONTEXT) && (
+            {node.type === NodeType.INPUT && (
                 <div>
                     <Label htmlFor="node-input">Input Text</Label>
                     <Textarea
