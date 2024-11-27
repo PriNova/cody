@@ -53,6 +53,7 @@ export class PersistentShell {
             // const sanitizedInput = cmd.replace(/\n/g, '\\n')
             const quotesFixed = this.convertQuotes(cmd)
             const command = sanitizeCommand(quotesFixed)
+            console.log('Execute', JSON.stringify(cmd, null, 2))
             if (!this.shell) {
                 const error = new Error('Shell not initialized')
                 void vscode.window.showErrorMessage(error.message)
@@ -244,5 +245,5 @@ const SHELL_ERROR_PATTERNS = {
 
 function sanitizeCommand(command: string): string {
     // Basic sanitization, should be more comprehensive in production
-    return command.trim().replace(/[;&`](?![^"]*"(?:[^"]*"[^"]*")*[^"]*$)/g, '')
+    return command.trim().replace(/(&(?!&)|[;`])(?![^"]*"(?:[^"]*"[^"]*")*[^"]*$)/g, '')
 }

@@ -15,7 +15,7 @@ import type { GenericVSCodeWrapper } from '@sourcegraph/cody-shared'
 import type React from 'react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { WorkflowFromExtension, WorkflowToExtension } from '../services/WorkflowProtocol'
-import { CustomOrderedEdge, type Edge } from './CustomOrderedEdge'
+import { type Edge, edgeTypes } from './CustomOrderedEdge'
 import styles from './Flow.module.css'
 import { HelpModal } from './HelpModal'
 import { WorkflowSidebar } from './WorkflowSidebar'
@@ -34,12 +34,6 @@ export const Flow: React.FC<{
 
     // UI state
     const [isHelpOpen, setIsHelpOpen] = useState(false)
-
-    // Execution state
-
-    const edgeTypes = {
-        'ordered-edge': CustomOrderedEdge,
-    }
 
     // #region 1. Execution State
 
@@ -646,7 +640,11 @@ export const Flow: React.FC<{
     // #endregion
 
     return (
-        <div className={`tw-flex tw-h-screen tw-border-2 tw-border-solid tw-border-[var(--vscode-panel-border)]  tw-text-[14px]`}>
+        <div
+            className={
+                'tw-flex tw-h-screen tw-border-2 tw-border-solid tw-border-[var(--vscode-panel-border)]  tw-text-[14px]'
+            }
+        >
             <div
                 style={{ width: sidebarWidth + 'px', flexShrink: 0 }}
                 className="tw-border-r tw-border-solid tw-border-[var(--vscode-panel-border)] tw-bg-[var(--vscode-sideBar-background)]"

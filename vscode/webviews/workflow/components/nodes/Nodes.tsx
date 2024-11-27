@@ -10,6 +10,7 @@ export enum NodeType {
     LLM = 'llm',
     PREVIEW = 'preview',
     INPUT = 'text-format',
+    SEARCH_CONTEXT = 'search-context',
 }
 
 // Shared node props interface
@@ -254,4 +255,5 @@ export const nodeTypes = {
     [NodeType.LLM]: CodyLLMNode,
     [NodeType.PREVIEW]: PreviewNode,
     [NodeType.INPUT]: InputNode,
+    [NodeType.SEARCH_CONTEXT]: InputNode,
 }

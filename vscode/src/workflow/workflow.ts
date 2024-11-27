@@ -5,6 +5,7 @@ import type {
 } from '../../webviews/workflow/services/WorkflowProtocol'
 
 import type { ChatClient } from '@sourcegraph/cody-shared'
+import type { ContextRetriever } from '../chat/chat-view/ContextRetriever'
 import { executeWorkflow } from './workflow-executor'
 import { handleWorkflowLoad, handleWorkflowSave } from './workflow-io'
 
@@ -18,7 +19,11 @@ import { handleWorkflowLoad, handleWorkflowSave } from './workflow-io'
  * @param chatClient - The Cody chat client for executing the workflow.
  * @returns void
  */
-export function registerWorkflowCommands(context: vscode.ExtensionContext, chatClient: ChatClient) {
+export function registerWorkflowCommands(
+    context: vscode.ExtensionContext,
+    chatClient: ChatClient,
+    contextRetriever: ContextRetriever
+) {
     let activeAbortController: AbortController | null = null
     context.subscriptions.push(
         vscode.commands.registerCommand('cody.openWorkflowEditor', async () => {
@@ -59,7 +64,8 @@ export function registerWorkflowCommands(context: vscode.ExtensionContext, chatC
                                         message.data?.edges || [],
                                         panel.webview,
                                         chatClient,
-                                        activeAbortController.signal
+                                        activeAbortController.signal,
+                                        contextRetriever
                                     )
                                 } finally {
                                     activeAbortController = null

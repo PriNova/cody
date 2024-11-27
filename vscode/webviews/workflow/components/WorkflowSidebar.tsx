@@ -98,7 +98,7 @@ export const WorkflowSidebar: React.FC<WorkflowSidebarProps> = ({
                     </AccordionContent>
                 </AccordionItem>
                 <AccordionItem value="llm">
-                    <AccordionTrigger>Cody LLM Actions</AccordionTrigger>
+                    <AccordionTrigger>Cody AI Actions</AccordionTrigger>
                     <AccordionContent>
                         <div className="tw-flex tw-flex-col tw-gap-2">
                             <Button
@@ -120,7 +120,7 @@ export const WorkflowSidebar: React.FC<WorkflowSidebarProps> = ({
                                 className="tw-w-full"
                                 variant="secondary"
                             >
-                                Add Preview
+                                Preview
                             </Button>
                         </div>
                     </AccordionContent>
@@ -134,7 +134,21 @@ export const WorkflowSidebar: React.FC<WorkflowSidebarProps> = ({
                                 className="tw-w-full"
                                 variant="secondary"
                             >
-                                Add Input Text
+                                Input Text
+                            </Button>
+                        </div>
+                    </AccordionContent>
+                </AccordionItem>
+                <AccordionItem value="context">
+                    <AccordionTrigger>Context Items</AccordionTrigger>
+                    <AccordionContent>
+                        <div className="tw-flex tw-flex-col tw-gap-2">
+                            <Button
+                                onClick={() => onNodeAdd('SearchContext', NodeType.SEARCH_CONTEXT)}
+                                className="tw-w-full"
+                                variant="secondary"
+                            >
+                                Fetch Context
                             </Button>
                         </div>
                     </AccordionContent>

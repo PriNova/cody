@@ -55,7 +55,7 @@ export const PropertyEditor: React.FC<PropertyEditorProps> = ({ node, onUpdate }
                 </div>
             )}
 
-            {node.type === NodeType.INPUT && (
+            {(node.type === NodeType.INPUT || node.type === NodeType.SEARCH_CONTEXT) && (
                 <div>
                     <Label htmlFor="node-input">Input Text</Label>
                     <Textarea

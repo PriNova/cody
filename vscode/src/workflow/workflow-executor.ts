@@ -1,10 +1,20 @@
 import * as os from 'node:os'
 import * as path from 'node:path'
-import { type ChatClient, type Message, PromptString, getSimplePreamble } from '@sourcegraph/cody-shared'
+import {
+    type ChatClient,
+    type Message,
+    PromptString,
+    firstValueFrom,
+    getSimplePreamble,
+    pendingOperation,
+    tracer,
+} from '@sourcegraph/cody-shared'
 import * as vscode from 'vscode'
 import type { Edge } from '../../webviews/workflow/components/CustomOrderedEdge'
 import type { WorkflowNode } from '../../webviews/workflow/components/nodes/Nodes'
 import type { WorkflowFromExtension } from '../../webviews/workflow/services/WorkflowProtocol'
+import { type ContextRetriever, toStructuredMentions } from '../chat/chat-view/ContextRetriever'
+import { getCorpusContextItemsForEditorState } from '../chat/initialContext'
 import { PersistentShell } from '../commands/context/shell'
 
 interface ExecutionContext {
@@ -142,7 +152,9 @@ async function executeLLMNode(
                     {
                         stream: false,
                         maxTokensToSample: 4000,
+                        fast: true,
                         model: 'anthropic::2024-10-22::claude-3-5-sonnet-latest',
+                        temperature: 0.0,
                     },
                     abortSignal
                 )
@@ -191,6 +203,36 @@ async function executePreviewNode(input: string): Promise<string> {
 
 async function executeInputNode(input: string): Promise<string> {
     return input.trim()
+}
+
+async function executeSearchContextNode(
+    input: string,
+    contextRetriever: Pick<ContextRetriever, 'retrieveContext'>
+): Promise<string> {
+    const corpusItems = await firstValueFrom(getCorpusContextItemsForEditorState())
+    if (corpusItems === pendingOperation || corpusItems.length === 0) {
+        return ''
+    }
+    const repo = corpusItems.find(i => i.type === 'tree' || i.type === 'repository')
+    if (!repo) {
+        return ''
+    }
+    const span = tracer.startSpan('chat.submit')
+    //const structuredMentions = toStructuredMentions([repo])
+    //const roots = await codebaseRootsFromMentions(structuredMentions)
+    const context = await contextRetriever.retrieveContext(
+        toStructuredMentions([repo]),
+        PromptString.unsafe_fromLLMResponse(input),
+        span,
+        undefined,
+        true
+    )
+    span.end()
+    const result = context.map(item => {
+        return { path: item.uri.path, source: item.source, title: item.title, range: item.range }
+    })
+
+    return JSON.stringify(result.reverse(), null, 2)
 }
 
 /**
@@ -251,7 +293,8 @@ export async function executeWorkflow(
     edges: Edge[],
     webview: vscode.Webview,
     chatClient: ChatClient,
-    abortController: AbortSignal
+    abortController: AbortSignal,
+    contextRetriever: Pick<ContextRetriever, 'retrieveContext'>
 ): Promise<void> {
     const context: ExecutionContext = {
         nodeOutputs: new Map(),
@@ -333,6 +376,13 @@ export async function executeWorkflow(
                 const inputs = combineParentOutputsByConnectionOrder(node.id, edges, context, node.type)
                 const text = node.data.content ? replaceIndexedInputs(node.data.content, inputs) : ''
                 result = await executeInputNode(text)
+                break
+            }
+
+            case 'search-context': {
+                const inputs = combineParentOutputsByConnectionOrder(node.id, edges, context, node.type)
+                const text = node.data.content ? replaceIndexedInputs(node.data.content, inputs) : ''
+                result = await executeSearchContextNode(text, contextRetriever)
                 break
             }
             default:

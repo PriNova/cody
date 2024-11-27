@@ -293,7 +293,7 @@ const register = async (
     registerOtherCommands(disposables)
     if (clientCapabilities().isVSCode) {
         registerVSCodeOnlyFeatures(chatClient, disposables)
-        registerWorkflowCommands(context, chatClient)
+        registerWorkflowCommands(context, chatClient, contextRetriever)
     }
     if (isExtensionModeDevOrTest) {
         await registerTestCommands(context, disposables)
