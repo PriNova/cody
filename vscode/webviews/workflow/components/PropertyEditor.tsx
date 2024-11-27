@@ -15,6 +15,14 @@ interface PropertyEditorProps {
 export const PropertyEditor: React.FC<PropertyEditorProps> = ({ node, onUpdate }) => {
     return (
         <div className="tw-flex tw-flex-col tw-gap-4">
+            <div className="tw-flex tw-items-center tw-space-x-2">
+                <Checkbox
+                    id="node-active"
+                    checked={node.data.active !== false} // Default to true if undefined
+                    onCheckedChange={checked => onUpdate(node.id, { active: checked === true })}
+                />
+                <Label htmlFor="node-active">Node Active</Label>
+            </div>
             <div>
                 <Label htmlFor="node-title">Node ID: {node.id}</Label>
             </div>
@@ -28,7 +36,6 @@ export const PropertyEditor: React.FC<PropertyEditorProps> = ({ node, onUpdate }
                     }
                 />
             </div>
-
             {node.type === NodeType.CLI && (
                 <div>
                     <Label htmlFor="node-command">Command</Label>
@@ -42,7 +49,6 @@ export const PropertyEditor: React.FC<PropertyEditorProps> = ({ node, onUpdate }
                     />
                 </div>
             )}
-
             {node.type === NodeType.LLM && (
                 <>
                     <div>
@@ -97,7 +103,6 @@ export const PropertyEditor: React.FC<PropertyEditorProps> = ({ node, onUpdate }
                     </div>
                 </>
             )}
-
             {node.type === NodeType.INPUT && (
                 <div>
                     <Label htmlFor="node-input">Input Text</Label>

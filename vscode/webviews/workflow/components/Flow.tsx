@@ -567,32 +567,44 @@ export const Flow: React.FC<{
         executingNodeId: string | null,
         nodeErrors: Map<string, string>,
         nodeResults: Map<string, string>,
-        interruptedNodeIds: Set<string>
+        interruptedNodeIds: Set<string>,
+        edges: Edge[] // Add edges parameter
     ) => {
-        return useMemo(
-            () =>
-                nodes.map(node => ({
-                    ...node,
-                    selected: node.id === selectedNode?.id,
-                    data: {
-                        ...node.data,
-                        moving: node.id === movingNodeId,
-                        executing: node.id === executingNodeId,
-                        interrupted: interruptedNodeIds.has(node.id),
-                        error: nodeErrors.has(node.id),
-                        result: nodeResults.get(node.id),
-                    },
-                })),
-            [
-                nodes,
-                selectedNode,
-                movingNodeId,
-                executingNodeId,
-                nodeErrors,
-                nodeResults,
-                interruptedNodeIds,
-            ]
-        )
+        return useMemo(() => {
+            // Calculate all inactive nodes first
+            const allInactiveNodes = new Set<string>()
+            for (const node of nodes) {
+                if (node.data.active === false) {
+                    const dependentInactiveNodes = getInactiveNodes(nodes, edges, node.id)
+                    for (const id of dependentInactiveNodes) {
+                        allInactiveNodes.add(id)
+                    }
+                }
+            }
+
+            return nodes.map(node => ({
+                ...node,
+                selected: node.id === selectedNode?.id,
+                data: {
+                    ...node.data,
+                    moving: node.id === movingNodeId,
+                    executing: node.id === executingNodeId,
+                    interrupted: interruptedNodeIds.has(node.id),
+                    error: nodeErrors.has(node.id),
+                    result: nodeResults.get(node.id),
+                    active: !allInactiveNodes.has(node.id) && node.data.active !== false,
+                },
+            }))
+        }, [
+            nodes,
+            selectedNode,
+            movingNodeId,
+            executingNodeId,
+            nodeErrors,
+            nodeResults,
+            interruptedNodeIds,
+            edges,
+        ])
     }
 
     const nodesWithState = useNodeStateTransformation(
@@ -602,7 +614,8 @@ export const Flow: React.FC<{
         executingNodeId,
         nodeErrors,
         nodeResults,
-        interruptedNodeIds
+        interruptedNodeIds,
+        edges // Add edges parameter
     )
 
     // #endregion
@@ -760,4 +773,27 @@ function topologicalEdgeSort(nodes: WorkflowNode[], edges: Edge[]): WorkflowNode
     }
 
     return result.map(id => nodes.find(node => node.id === id)!).filter(Boolean)
+}
+
+export function getInactiveNodes(
+    nodes: WorkflowNode[],
+    edges: Edge[],
+    startNodeId: string
+): Set<string> {
+    const inactiveNodes = new Set<string>()
+    const queue = [startNodeId]
+
+    while (queue.length > 0) {
+        const currentId = queue.shift()!
+        inactiveNodes.add(currentId)
+
+        // Find all nodes that depend on the current node
+        for (const edge of edges) {
+            if (edge.source === currentId && !inactiveNodes.has(edge.target)) {
+                queue.push(edge.target)
+            }
+        }
+    }
+
+    return inactiveNodes
 }

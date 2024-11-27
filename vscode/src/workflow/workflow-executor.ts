@@ -11,6 +11,7 @@ import {
 } from '@sourcegraph/cody-shared'
 import * as vscode from 'vscode'
 import type { Edge } from '../../webviews/workflow/components/CustomOrderedEdge'
+import { getInactiveNodes } from '../../webviews/workflow/components/Flow'
 import type { WorkflowNode } from '../../webviews/workflow/components/nodes/Nodes'
 import type { WorkflowFromExtension } from '../../webviews/workflow/services/WorkflowProtocol'
 import { type ContextRetriever, toStructuredMentions } from '../chat/chat-view/ContextRetriever'
@@ -301,6 +302,17 @@ export async function executeWorkflow(
         nodeOutputs: new Map(),
     }
 
+    // Calculate all inactive nodes
+    const allInactiveNodes = new Set<string>()
+    for (const node of nodes) {
+        if (node.data.active === false) {
+            const dependentInactiveNodes = getInactiveNodes(nodes, edges, node.id)
+            for (const id of dependentInactiveNodes) {
+                allInactiveNodes.add(id)
+            }
+        }
+    }
+
     const sortedNodes = topologicalSort(nodes, edges)
     const persistentShell = new PersistentShell()
 
@@ -309,6 +321,10 @@ export async function executeWorkflow(
     } as WorkflowFromExtension)
 
     for (const node of sortedNodes) {
+        if (allInactiveNodes.has(node.id)) {
+            continue
+        }
+
         webview.postMessage({
             type: 'node_execution_status',
             data: { nodeId: node.id, status: 'running' },
@@ -411,6 +427,25 @@ function sanitizeForShell(input: string): string {
 function sanitizeForPrompt(input: string): string {
     return input.replace(/\${/g, '\\${')
 }
+
+/* function getInactiveNodes(nodes: WorkflowNode[], edges: Edge[], startNodeId: string): Set<string> {
+    const inactiveNodes = new Set<string>()
+    const queue = [startNodeId]
+
+    while (queue.length > 0) {
+        const currentId = queue.shift()!
+        inactiveNodes.add(currentId)
+
+        // Find all nodes that depend on the current node
+        for (const edge of edges) {
+            if (edge.source === currentId && !inactiveNodes.has(edge.target)) {
+                queue.push(edge.target)
+            }
+        }
+    }
+
+    return inactiveNodes
+} */
 
 const commandsNotAllowed = [
     'rm',

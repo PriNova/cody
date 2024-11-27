@@ -1,4 +1,4 @@
-import { TokenCounterUtils } from '@sourcegraph/cody-shared'
+import { TokenCounterUtils } from '@sourcegraph/cody-shared/src/token/counter'
 import { Handle, Position } from '@xyflow/react'
 import type React from 'react'
 import { useEffect, useState } from 'react'
@@ -23,6 +23,7 @@ interface BaseNodeProps {
         executing?: boolean
         error?: boolean
         content?: string
+        active?: boolean
     }
     selected?: boolean
 }
@@ -40,6 +41,7 @@ export interface WorkflowNode {
         temperature?: number
         fast?: boolean
         maxTokens?: number
+        active?: boolean
     }
     position: {
         x: number
@@ -86,6 +88,7 @@ export const createNode = ({
         temperature: type === NodeType.LLM ? temperature : undefined,
         fast: type === NodeType.LLM ? fast : undefined,
         maxTokens: type === NodeType.LLM ? maxTokens : undefined,
+        active: true,
     },
     position,
 })
@@ -148,14 +151,19 @@ const getBorderColor = (
         moving,
         selected,
         interrupted,
+        active,
     }: {
         error?: boolean
         executing?: boolean
         moving?: boolean
         selected?: boolean
         interrupted?: boolean
+        active?: boolean
     }
 ) => {
+    if (active === false) {
+        return 'var(--vscode-disabledForeground)'
+    }
     if (interrupted) return 'var(--vscode-charts-orange)'
     if (error) return 'var(--vscode-inputValidation-errorBorder)'
     if (executing) return 'var(--vscode-charts-yellow)'
@@ -191,7 +199,8 @@ const getNodeStyle = (
     moving?: boolean,
     selected?: boolean,
     executing?: boolean,
-    error?: boolean
+    error?: boolean,
+    active?: boolean
 ) => ({
     padding: '0.5rem',
     borderRadius: '0.25rem',
@@ -200,6 +209,7 @@ const getNodeStyle = (
         : 'var(--vscode-dropdown-background)',
     color: 'var(--vscode-dropdown-foreground)',
     border: `2px solid ${getBorderColor(type, { error, executing, moving, selected })}`,
+    opacity: !active ? '0.4' : '1',
 })
 
 export const PreviewNode: React.FC<BaseNodeProps> = ({ data, selected }) => {
@@ -218,7 +228,16 @@ export const PreviewNode: React.FC<BaseNodeProps> = ({ data, selected }) => {
     }, [data.content])
 
     return (
-        <div style={getNodeStyle(NodeType.PREVIEW, data.moving, selected, data.executing, data.error)}>
+        <div
+            style={getNodeStyle(
+                NodeType.PREVIEW,
+                data.moving,
+                selected,
+                data.executing,
+                data.error,
+                data.active
+            )}
+        >
             <Handle type="target" position={Position.Top} />
             <div className="tw-flex tw-flex-col tw-gap-2">
                 <div className="tw-flex tw-justify-between tw-items-center">
@@ -243,7 +262,16 @@ export const PreviewNode: React.FC<BaseNodeProps> = ({ data, selected }) => {
 }
 
 export const InputNode: React.FC<BaseNodeProps> = ({ data, selected }) => (
-    <div style={getNodeStyle(NodeType.INPUT, data.moving, selected, data.executing, data.error)}>
+    <div
+        style={getNodeStyle(
+            NodeType.INPUT,
+            data.moving,
+            selected,
+            data.executing,
+            data.error,
+            data.active
+        )}
+    >
         <Handle type="target" position={Position.Top} />
         <div className="tw-flex tw-flex-col tw-gap-2">
             <span>{data.title}</span>
@@ -263,7 +291,16 @@ export const InputNode: React.FC<BaseNodeProps> = ({ data, selected }) => (
 )
 
 export const SearchContextNode: React.FC<BaseNodeProps> = ({ data, selected }) => (
-    <div style={getNodeStyle(NodeType.INPUT, data.moving, selected, data.executing, data.error)}>
+    <div
+        style={getNodeStyle(
+            NodeType.INPUT,
+            data.moving,
+            selected,
+            data.executing,
+            data.error,
+            data.active
+        )}
+    >
         <Handle type="target" position={Position.Top} />
         <div className="tw-flex tw-flex-col tw-gap-2">
             <span>{data.title}</span>
@@ -274,7 +311,16 @@ export const SearchContextNode: React.FC<BaseNodeProps> = ({ data, selected }) =
 
 // Node Components with shared base props
 export const CLINode: React.FC<BaseNodeProps> = ({ data, selected }) => (
-    <div style={getNodeStyle(NodeType.CLI, data.moving, selected, data.executing, data.error)}>
+    <div
+        style={getNodeStyle(
+            NodeType.CLI,
+            data.moving,
+            selected,
+            data.executing,
+            data.error,
+            data.active
+        )}
+    >
         <Handle type="target" position={Position.Top} />
         <div className="tw-flex tw-items-center">
             <span>{data.title}</span>
@@ -284,7 +330,16 @@ export const CLINode: React.FC<BaseNodeProps> = ({ data, selected }) => (
 )
 
 export const CodyLLMNode: React.FC<BaseNodeProps> = ({ data, selected }) => (
-    <div style={getNodeStyle(NodeType.LLM, data.moving, selected, data.executing, data.error)}>
+    <div
+        style={getNodeStyle(
+            NodeType.LLM,
+            data.moving,
+            selected,
+            data.executing,
+            data.error,
+            data.active
+        )}
+    >
         <Handle type="target" position={Position.Top} />
         <div className="tw-flex tw-items-center">
             <span>{data.title}</span>
