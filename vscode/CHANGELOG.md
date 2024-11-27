@@ -10,6 +10,81 @@ This is a log of all notable changes to Cody for VS Code.
 
 ### Changed
 
+### Uncategorized
+
+## [1.46.0]
+
+### Added
+
+### Fixed
+
+### Changed
+
+- Chat: Update keyboard shortcuts:
+  - Removed `Shift+Ctrl+L` (previously created a new chat) due to conflict with Windows default shortcut
+  - Updated `Shift+Alt+L` to create a new chat when the focus is not in the editor. When the focus is in the editor, the behavior remains unchanged (the current selection is added to the chat context).
+
+### Uncategorized
+- [Backport vscode-v1.46.x] Add built-in prompts related fields to prompt select analytic event  [pull/6181](https://github.com/sourcegraph/cody/pulls/6181)
+- [Backport vscode-v1.46.x] Fetch standard prompts from remote prompts API  [pull/6166](https://github.com/sourcegraph/cody/pulls/6166)
+- [Backport vscode-v1.46.x] Prompts Picker  [pull/6168](https://github.com/sourcegraph/cody/pulls/6168)
+- [Backport vscode-v1.46.x] VS Code: Release v1.44.0  [pull/6169](https://github.com/sourcegraph/cody/pulls/6169)
+- feat(autoedit): fix cursor jumping issue  [pull/6156](https://github.com/sourcegraph/cody/pulls/6156)
+- only activate autoedits command when experimental setting is enabled  [pull/6157](https://github.com/sourcegraph/cody/pulls/6157)
+- Chat: ensure ScrollDown button only takes it's width  [pull/6143](https://github.com/sourcegraph/cody/pulls/6143)
+- autoedit: Add feature flag to enable/disable autoedit feature  [pull/6145](https://github.com/sourcegraph/cody/pulls/6145)
+- remove ctrl+shift+L shortcut and update shift+alt+L shortcut  [pull/6148](https://github.com/sourcegraph/cody/pulls/6148)
+- Fix various JetBrains styling issues  [pull/6153](https://github.com/sourcegraph/cody/pulls/6153)
+- Autoedits Context Improvements  [pull/6141](https://github.com/sourcegraph/cody/pulls/6141)
+- Better rendering for auto edits  [pull/6132](https://github.com/sourcegraph/cody/pulls/6132)
+- Chat: context cell improvements  [pull/6115](https://github.com/sourcegraph/cody/pulls/6115)
+- Fix inline-edit prompts chat building  [pull/6003](https://github.com/sourcegraph/cody/pulls/6003)
+- Cody Web: Polish cody web Prompts  [pull/6135](https://github.com/sourcegraph/cody/pulls/6135)
+- Simplify protocol's TelemetryEvent  [pull/6144](https://github.com/sourcegraph/cody/pulls/6144)
+- Use font size variable providd by JetBrains in webview  [pull/6134](https://github.com/sourcegraph/cody/pulls/6134)
+- Update backport.yml  [pull/6137](https://github.com/sourcegraph/cody/pulls/6137)
+- fix(release): Update backport action to override team_reviews  [pull/6136](https://github.com/sourcegraph/cody/pulls/6136)
+- autoedit: add speculative decoding  [pull/6130](https://github.com/sourcegraph/cody/pulls/6130)
+- Fix for VSCode Marketplace description getting cut-off  [pull/6098](https://github.com/sourcegraph/cody/pulls/6098)
+- Fix prompt name generation during prompts/commands migration  [pull/6126](https://github.com/sourcegraph/cody/pulls/6126)
+
+## 1.44.0
+
+### Added
+
+### Fixed
+
+### Changed
+
+### Uncategorized
+
+- Network: CA Cert loading fixes [pull/6101](https://github.com/sourcegraph/cody/pull/6101)
+- feat(rel): add backport workflow [pull/6119](https://github.com/sourcegraph/cody/pull/6119)
+- Cody Chat: fixed missing syntax highlighting of CSharp files and load only one copy of highlight.js in the WebView build [pull/6118](https://github.com/sourcegraph/cody/pull/6118)
+- fix rendering issue on the same line for ghost text [pull/6120](https://github.com/sourcegraph/cody/pull/6120)
+- chat input: '@' -> '@ Context' toolbar button [pull/6114](https://github.com/sourcegraph/cody/pull/6114)
+- feat(edit): enable predicted outputs for gpt-4o models [pull/6116](https://github.com/sourcegraph/cody/pull/6116)
+- Edit: prep for the gpt-4o-mini edit a/b test [pull/6110](https://github.com/sourcegraph/cody/pull/6110)
+- Trigger autoedit on the cursor movements [pull/6112](https://github.com/sourcegraph/cody/pull/6112)
+- Remove old test renderer [pull/6113](https://github.com/sourcegraph/cody/pull/6113)
+- Add a command for testing auto-edit examples [pull/6108](https://github.com/sourcegraph/cody/pull/6108)
+- Chat: brought back syntax highlighting for most common languages [pull/5953](https://github.com/sourcegraph/cody/pull/5953)
+- Chat: brought back syntax highlighting for most common languages [pull/5874](https://github.com/sourcegraph/cody/pull/5874)
+- Add a command for testing auto-edit examples [pull/6108](https://github.com/sourcegraph/cody/pull/6108)
+- Fail hard on errors in input context bench CSV, remove unused column [pull/6107](https://github.com/sourcegraph/cody/pull/6107)
+- Add more detailed results to context benchmark [pull/5992](https://github.com/sourcegraph/cody/pull/5992)
+- Edit: collect more analytics data [pull/6095](https://github.com/sourcegraph/cody/pull/6095)
+- fix indentation issue [pull/6103](https://github.com/sourcegraph/cody/pull/6103)
+- Cody Web: Add support running prompts from consumer [pull/6081](https://github.com/sourcegraph/cody/pull/6081)
+- fix recent edits context source [pull/6071](https://github.com/sourcegraph/cody/pull/6071)
+- Hitesh/autoedits improvements [pull/5956](https://github.com/sourcegraph/cody/pull/5956)
+- Agent: disable the flaky edit test [pull/6093](https://github.com/sourcegraph/cody/pull/6093)
+- VS Code: point releases to `./vscode/changelog.md` [pull/6080](https://github.com/sourcegraph/cody/pull/6080)
+- Fix issue with merging configs [pull/6084](https://github.com/sourcegraph/cody/pull/6084)
+- Deep Cody: skip query rewrite for search tool [pull/6082](https://github.com/sourcegraph/cody/pull/6082)
+- chore/build: VSCode Insiders builds are manually triggered and automatically tagged [pull/6083](https://github.com/sourcegraph/cody/pull/6083)
+- Deep Cody: remove TOOL context item after review [pull/6079](https://github.com/sourcegraph/cody/pull/6079)
+
 ## 1.42.0
 Hey Cody users! For those who want to track detailed technical changes, we will be updating this changelog to provide more comprehensive updates on new features, improvements, and fixes. For major releases and announcements, check out our [public changelog](https://sourcegraph.com/changelog).
 

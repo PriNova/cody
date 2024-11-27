@@ -3,7 +3,7 @@
   "name": "cody-ai",
   "private": true,
   "displayName": "Cody: AI Coding Assistant with Autocomplete & Chat",
-  "version": "1.42.0",
+  "version": "1.46.0",
   "publisher": "sourcegraph",
   "license": "Apache-2.0",
   "icon": "resources/cody.png",
@@ -615,16 +615,6 @@
         "when": "!cody.activated"
       },
       {
-        "command": "cody.chat.new",
-        "key": "shift+ctrl+/",
-        "when": "cody.activated"
-      },
-      {
-        "command": "cody.chat.new",
-        "key": "shift+ctrl+l",
-        "when": "cody.activated"
-      },
-      {
         "command": "cody.chat.toggle",
         "key": "alt+l",
         "when": "cody.activated && editorTextFocus",
@@ -667,6 +657,16 @@
         "when": "cody.activated && editorTextFocus && editorHasSelection"
       },
       {
+        "command": "cody.chat.new",
+        "key": "shift+alt+l",
+        "when": "cody.activated && !editorTextFocus"
+      },
+      {
+        "command": "cody.chat.new",
+        "key": "shift+alt+/",
+        "when": "cody.activated && !editorTextFocus"
+      },
+      {
         "command": "cody.tutorial.chat",
         "key": "alt+l",
         "when": "cody.activated && cody.tutorialActive"
@@ -680,6 +680,11 @@
         "command": "cody.command.auto-edit",
         "key": "alt+tab",
         "when": "cody.activated && !editorReadonly && config.cody.internal.unstable"
+      },
+      {
+        "command": "cody.command.execute-prompt",
+        "key": "shift+alt+p",
+        "when": "cody.activated"
       },
       {
         "command": "cody.tutorial.edit",
@@ -761,12 +766,12 @@
       {
         "command": "cody.experimental.suggest",
         "key": "ctrl+shift+enter",
-        "when": "cody.activated"
+        "when": "cody.activated && config.cody.experimental.autoedits.enabled"
       },
       {
         "command": "cody.supersuggest.testExample",
         "key": "ctrl+alt+enter",
-        "when": "cody.activated"
+        "when": "cody.activated && config.cody.experimental.autoedits.enabled"
       }
     ],
     "submenus": [
@@ -808,10 +813,6 @@
         {
           "command": "cody.command.abort-commit",
           "when": "cody.activated && cody.isGeneratingCommit"
-        },
-        {
-          "command": "cody.menu.custom-commands",
-          "when": "cody.activated"
         },
         {
           "command": "cody.chat.signIn",

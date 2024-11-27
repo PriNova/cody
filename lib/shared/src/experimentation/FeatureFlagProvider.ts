@@ -54,6 +54,8 @@ export enum FeatureFlag {
     CodyAutocompleteContextExperimentVariant4 = 'cody-autocomplete-context-experiment-variant-4',
     CodyAutocompleteContextExperimentControl = 'cody-autocomplete-context-experiment-control',
 
+    CodyAutoeditExperimentEnabledFeatureFlag = 'cody-autoedit-experiment-enabled-flag',
+
     // Enables gpt-4o-mini as a default Edit model
     CodyEditDefaultToGpt4oMini = 'cody-edit-default-to-gpt-4o-mini',
 
@@ -97,6 +99,9 @@ export enum FeatureFlag {
      * Whether the current repo context chip is shown in the chat input by default
      */
     NoDefaultRepoChip = 'no-default-repo-chip',
+
+    /** Enable Shell Context for Deep Cody */
+    DeepCodyShellContext = 'deep-cody-shell-context',
 }
 
 const ONE_HOUR = 60 * 60 * 1000

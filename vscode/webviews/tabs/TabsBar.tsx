@@ -19,7 +19,7 @@ import {
 import { getVSCodeAPI } from '../utils/VSCodeApi'
 import { View } from './types'
 
-import { CodyIDE, FeatureFlag, isDefined } from '@sourcegraph/cody-shared'
+import { CodyIDE, isDefined } from '@sourcegraph/cody-shared'
 import { type FC, Fragment, forwardRef, memo, useCallback, useMemo, useState } from 'react'
 import { Kbd } from '../components/Kbd'
 import { Tooltip, TooltipContent, TooltipTrigger } from '../components/shadcn/ui/tooltip'
@@ -29,7 +29,6 @@ import { useExtensionAPI } from '@sourcegraph/prompt-editor'
 import { isEqual } from 'lodash'
 import { downloadChatHistory } from '../chat/downloadChatHistory'
 import { Button } from '../components/shadcn/ui/button'
-import { useFeatureFlag } from '../utils/useFeatureFlags'
 import styles from './TabsBar.module.css'
 import { getCreateNewChatCommand } from './utils'
 
@@ -337,7 +336,6 @@ function useTabs(input: Pick<TabsBarProps, 'IDE'>): TabConfig[] {
     const {
         config: { multipleWebviewsEnabled, serverEndpoint },
     } = useConfig()
-    const isUnifiedPromptsAvailable = useFeatureFlag(FeatureFlag.CodyUnifiedPrompts)
 
     const extensionAPI = useExtensionAPI<'userHistory'>()
 
@@ -396,10 +394,7 @@ function useTabs(input: Pick<TabsBarProps, 'IDE'>): TabConfig[] {
                     },
                     {
                         view: View.Prompts,
-                        title:
-                            IDE === CodyIDE.Web || isUnifiedPromptsAvailable
-                                ? 'Prompts'
-                                : 'Prompts & Commands',
+                        title: 'Prompts',
                         Icon: BookTextIcon,
                         changesView: true,
                         subActions: [
@@ -436,6 +431,6 @@ function useTabs(input: Pick<TabsBarProps, 'IDE'>): TabConfig[] {
                         : null,
                 ] as (TabConfig | null)[]
             ).filter(isDefined),
-        [IDE, multipleWebviewsEnabled, isUnifiedPromptsAvailable, extensionAPI, serverEndpoint]
+        [IDE, multipleWebviewsEnabled, extensionAPI, serverEndpoint]
     )
 }

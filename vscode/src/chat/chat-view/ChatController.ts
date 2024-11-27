@@ -1,4 +1,5 @@
 import {
+    type AuthStatus,
     type ChatModel,
     type ClientActionBroadcast,
     type CodyClientConfig,
@@ -85,7 +86,7 @@ import type { TelemetryEventParameters } from '@sourcegraph/telemetry'
 import { Subject, map } from 'observable-fns'
 import type { URI } from 'vscode-uri'
 import { View } from '../../../webviews/tabs/types'
-import { redirectToEndpointLogin, showSignInMenu, showSignOutMenu } from '../../auth/auth'
+import { redirectToEndpointLogin, showSignInMenu, showSignOutMenu, signOut } from '../../auth/auth'
 import {
     closeAuthProgressIndicator,
     startAuthProgressIndicator,
@@ -106,6 +107,7 @@ import { publicRepoMetadataIfAllWorkspaceReposArePublic } from '../../repository
 import { authProvider } from '../../services/AuthProvider'
 import { AuthProviderSimplified } from '../../services/AuthProviderSimplified'
 import { localStorage } from '../../services/LocalStorageProvider'
+import { secretStorage } from '../../services/SecretStorageProvider'
 import { recordExposedExperimentsToSpan } from '../../services/open-telemetry/utils'
 import {
     handleCodeFromInsertAtCursor,
@@ -240,10 +242,10 @@ export class ChatController implements vscode.Disposable, vscode.WebviewViewProv
 
         this.disposables.push(
             subscriptionDisposable(
-                authStatus.subscribe(() => {
+                authStatus.subscribe(authStatus => {
                     // Run this async because this method may be called during initialization
                     // and awaiting on this.postMessage may result in a deadlock
-                    void this.sendConfig()
+                    void this.sendConfig(authStatus)
                 })
             ),
 
@@ -444,15 +446,34 @@ export class ChatController implements vscode.Disposable, vscode.WebviewViewProv
                     }
                     break
                 }
-                if (message.authKind === 'signin' && message.endpoint && message.value) {
-                    await localStorage.saveEndpointAndToken({
-                        serverEndpoint: message.endpoint,
-                        accessToken: message.value,
-                    })
+                if (message.authKind === 'signin' && message.endpoint) {
+                    const serverEndpoint = message.endpoint
+                    const accessToken = message.value
+                        ? message.value
+                        : await secretStorage.getToken(serverEndpoint)
+                    if (accessToken) {
+                        const tokenSource = message.value
+                            ? 'paste'
+                            : await secretStorage.getTokenSource(serverEndpoint)
+                        const validationResult = await authProvider.validateAndStoreCredentials(
+                            { serverEndpoint, accessToken, tokenSource },
+                            'always-store'
+                        )
+                        if (validationResult.authStatus.authenticated) {
+                            break
+                        }
+                    } else {
+                        redirectToEndpointLogin(message.endpoint)
+                    }
                     break
                 }
                 if (message.authKind === 'signout') {
-                    await showSignOutMenu()
+                    const serverEndpoint = message.endpoint
+                    if (serverEndpoint) {
+                        await signOut(serverEndpoint)
+                    } else {
+                        await showSignOutMenu()
+                    }
                     break
                 }
                 if (message.authKind === 'switch') {
@@ -519,15 +540,22 @@ export class ChatController implements vscode.Disposable, vscode.WebviewViewProv
         featureFlagProvider.evaluatedFeatureFlag(FeatureFlag.CodyExperimentalOneBox)
     )
 
+    private featureDeepCodyShellContext = storeLastValue(
+        featureFlagProvider.evaluatedFeatureFlag(FeatureFlag.DeepCodyShellContext)
+    )
+
     private async getConfigForWebview(): Promise<ConfigurationSubsetForWebview & LocalEnv> {
         const { configuration, auth } = await currentResolvedConfig()
         const sidebarViewOnly = this.extensionClient.capabilities?.webviewNativeConfig?.view === 'single'
         const isEditorViewType = this.webviewPanelOrView?.viewType === 'cody.editorPanel'
         const webviewType = isEditorViewType && !sidebarViewOnly ? 'editor' : 'sidebar'
         const uiKindIsWeb = (cenv.CODY_OVERRIDE_UI_KIND ?? vscode.env.uiKind) === vscode.UIKind.Web
+        const endpoints = localStorage.getEndpointHistory() ?? []
+
         return {
             uiKindIsWeb,
             serverEndpoint: auth.serverEndpoint,
+            endpointHistory: [...endpoints],
             experimentalNoodle: configuration.experimentalNoodle,
             smartApply: this.isSmartApplyEnabled(),
             hasEditCapability: this.hasEditCapability(),
@@ -543,12 +571,10 @@ export class ChatController implements vscode.Disposable, vscode.WebviewViewProv
 
     // When the webview sends the 'ready' message, respond by posting the view config
     private async handleReady(): Promise<void> {
-        await this.sendConfig()
+        await this.sendConfig(currentAuthStatus())
     }
 
-    private async sendConfig(): Promise<void> {
-        const authStatus = currentAuthStatus()
-
+    private async sendConfig(authStatus: AuthStatus): Promise<void> {
         // Don't emit config if we're verifying auth status to avoid UI auth flashes on the client
         if (authStatus.pendingValidation) {
             return
@@ -608,7 +634,7 @@ export class ChatController implements vscode.Disposable, vscode.WebviewViewProv
             chatID: this.chatBuilder.sessionID,
         })
 
-        await this.saveSession()
+        void this.saveSession()
         this.initDoer.signalInitialized()
     }
 
@@ -654,7 +680,7 @@ export class ChatController implements vscode.Disposable, vscode.WebviewViewProv
             })
             this.postViewTranscript({ speaker: 'assistant' })
 
-            await this.saveSession()
+            void this.saveSession()
             signal.throwIfAborted()
 
             return this.sendChat(
@@ -826,7 +852,7 @@ export class ChatController implements vscode.Disposable, vscode.WebviewViewProv
                 const agenticContext = await new DeepCodyAgent(
                     this.chatBuilder,
                     this.chatClient,
-                    await this.toolProvider.getTools(),
+                    await this.toolProvider.getTools(!!this.featureDeepCodyShellContext.value.last),
                     corpusContext
                 ).getContext(span, signal)
                 corpusContext.push(...agenticContext)
@@ -960,7 +986,9 @@ export class ChatController implements vscode.Disposable, vscode.WebviewViewProv
             configuration: {
                 instruction,
                 mode,
-                intent: mode === 'edit' ? 'edit' : 'add',
+                // Only document code uses non-edit (insert mode), set doc intent for Document code prompt
+                // to specialize cody command runner for document code case.
+                intent: mode === 'edit' ? 'edit' : 'doc',
             },
         })
 
@@ -972,6 +1000,17 @@ export class ChatController implements vscode.Disposable, vscode.WebviewViewProv
         const task = result.task
 
         let responseMessage = `Here is the response for the ${task.intent} instruction:\n`
+
+        if (!task.diff && task.replacement) {
+            task.diff = [
+                {
+                    type: 'insertion',
+                    text: task.replacement,
+                    range: task.originalRange,
+                },
+            ]
+        }
+
         task.diff?.map(diff => {
             responseMessage += '\n```diff\n'
             if (diff.type === 'deletion') {
@@ -1095,7 +1134,7 @@ export class ChatController implements vscode.Disposable, vscode.WebviewViewProv
             this.submitOrEditOperation.abort()
             this.submitOrEditOperation = undefined
         }
-        this.saveSession()
+        void this.saveSession()
     }
 
     /**
@@ -1559,6 +1598,12 @@ export class ChatController implements vscode.Disposable, vscode.WebviewViewProv
         this.postViewTranscript()
     }
 
+    /**
+     * This method will serialize the chat state synchronously and then save the serialized state to
+     * local storage. Usually, it can safely be called without `await`ing.
+     * This method should only be awaited if the caller wants to wait for the saved data to be synced
+     * to local storage before proceeding.
+     */
     private async saveSession(): Promise<void> {
         const authStatus = currentAuthStatus()
         if (authStatus.authenticated) {
@@ -1583,7 +1628,6 @@ export class ChatController implements vscode.Disposable, vscode.WebviewViewProv
             new Date(Date.now()).toUTCString()
         )
         this.postViewTranscript()
-        await this.saveSession()
         // Move the new session to the editor
         await vscode.commands.executeCommand('cody.chat.moveToEditor')
         // Restore the old session in the current window
@@ -1594,7 +1638,7 @@ export class ChatController implements vscode.Disposable, vscode.WebviewViewProv
 
     public async clearAndRestartSession(chatMessages?: ChatMessage[]): Promise<void> {
         this.cancelSubmitOrEditOperation()
-        await this.saveSession()
+        void this.saveSession()
 
         this.chatBuilder = new ChatBuilder(this.chatBuilder.selectedModel, undefined, chatMessages)
         this.postViewTranscript()
