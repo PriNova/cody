@@ -15,7 +15,7 @@ import type { GenericVSCodeWrapper } from '@sourcegraph/cody-shared'
 import type React from 'react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { WorkflowFromExtension, WorkflowToExtension } from '../services/WorkflowProtocol'
-import { type Edge, edgeTypes } from './CustomOrderedEdge'
+import { CustomOrderedEdge, type Edge } from './CustomOrderedEdge'
 import styles from './Flow.module.css'
 import { HelpModal } from './HelpModal'
 import { WorkflowSidebar } from './WorkflowSidebar'
@@ -696,7 +696,9 @@ export const Flow: React.FC<{
                         onNodeDragStart={onNodeDragStart}
                         deleteKeyCode={['Backspace', 'Delete']}
                         nodeTypes={nodeTypes}
-                        edgeTypes={edgeTypes}
+                        edgeTypes={{
+                            'ordered-edge': props => <CustomOrderedEdge {...props} edges={edges} />,
+                        }}
                         fitView
                     >
                         <Background />
@@ -731,6 +733,7 @@ export const Flow: React.FC<{
 function topologicalEdgeSort(nodes: WorkflowNode[], edges: Edge[]): WorkflowNode[] {
     const graph = new Map<string, string[]>()
     const inDegree = new Map<string, number>()
+    const edgeOrder = new Map<string, number>()
 
     // Initialize
     for (const node of nodes) {
@@ -738,16 +741,15 @@ function topologicalEdgeSort(nodes: WorkflowNode[], edges: Edge[]): WorkflowNode
         inDegree.set(node.id, 0)
     }
 
-    // Build graph
-    for (const edge of edges) {
+    // Build graph and track edge order
+    edges.forEach((edge, index) => {
         graph.get(edge.source)?.push(edge.target)
         inDegree.set(edge.target, (inDegree.get(edge.target) || 0) + 1)
-    }
+        edgeOrder.set(`${edge.source}-${edge.target}`, index + 1)
+    })
 
-    // Find nodes with no dependencies but sort them based on their edge connections
+    // Rest of the function remains the same
     const sourceNodes = nodes.filter(node => inDegree.get(node.id) === 0)
-
-    // Sort source nodes based on edge order
     const sortedSourceNodes = sourceNodes.sort((a, b) => {
         const aEdgeIndex = edges.findIndex(edge => edge.source === a.id)
         const bEdgeIndex = edges.findIndex(edge => edge.source === b.id)
@@ -763,6 +765,13 @@ function topologicalEdgeSort(nodes: WorkflowNode[], edges: Edge[]): WorkflowNode
 
         const neighbors = graph.get(nodeId)
         if (neighbors) {
+            // Sort neighbors based on edge order
+            neighbors.sort((a, b) => {
+                const orderA = edgeOrder.get(`${nodeId}-${a}`) || 0
+                const orderB = edgeOrder.get(`${nodeId}-${b}`) || 0
+                return orderA - orderB
+            })
+
             for (const neighbor of neighbors) {
                 inDegree.set(neighbor, (inDegree.get(neighbor) || 0) - 1)
                 if (inDegree.get(neighbor) === 0) {

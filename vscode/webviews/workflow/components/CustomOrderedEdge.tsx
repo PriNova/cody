@@ -1,6 +1,7 @@
 import { BaseEdge, EdgeLabelRenderer, getBezierPath } from '@xyflow/react'
 import type { EdgeProps } from '@xyflow/react'
 import type React from 'react'
+import { useMemo } from 'react'
 
 export interface Edge {
     id: string
@@ -8,11 +9,11 @@ export interface Edge {
     target: string
 }
 
-// Extend EdgeProps to include our data field
 export type OrderedEdgeProps = EdgeProps & {
     data?: {
         orderNumber: number
     }
+    edges: Edge[] // Added edges prop
 }
 
 export const CustomOrderedEdge: React.FC<OrderedEdgeProps> = ({
@@ -24,7 +25,9 @@ export const CustomOrderedEdge: React.FC<OrderedEdgeProps> = ({
     targetPosition,
     style,
     markerEnd,
-    data,
+    source,
+    target,
+    edges, // Added edges parameter
 }) => {
     const [edgePath, labelX, labelY] = getBezierPath({
         sourceX,
@@ -35,8 +38,12 @@ export const CustomOrderedEdge: React.FC<OrderedEdgeProps> = ({
         targetPosition,
     })
 
-    // Only render label if we have an order number
-    const orderNumber = data?.orderNumber
+    // Calculate order number based on target's parent edges
+    const orderNumber = useMemo(() => {
+        if (!edges) return undefined
+        const parentEdges = edges.filter(e => e.target === target)
+        return parentEdges.findIndex(e => e.source === source) + 1
+    }, [source, target, edges])
 
     return (
         <>
@@ -64,6 +71,6 @@ export const CustomOrderedEdge: React.FC<OrderedEdgeProps> = ({
     )
 }
 
-export const edgeTypes: { [key: string]: React.FC<any> } = {
+export const edgeTypes: { [key: string]: React.FC<OrderedEdgeProps> } = {
     'ordered-edge': CustomOrderedEdge,
 }

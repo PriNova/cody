@@ -53,7 +53,7 @@ export class PersistentShell {
             // const sanitizedInput = cmd.replace(/\n/g, '\\n')
             const quotesFixed = this.convertQuotes(cmd)
             const command = sanitizeCommand(quotesFixed)
-            console.log('Execute', JSON.stringify(cmd, null, 2))
+
             if (!this.shell) {
                 const error = new Error('Shell not initialized')
                 void vscode.window.showErrorMessage(error.message)
@@ -83,11 +83,12 @@ export class PersistentShell {
                 if (this.stdoutBuffer.includes('__END_OF_COMMAND_')) {
                     clearTimeout(timeoutId)
                     clearInterval(checkInterval)
-                    if (this.stderrBuffer.trim() === '') {
-                        resolve(this.stdoutBuffer.split('__END_OF_COMMAND_')[0].trim())
+
+                    // Only reject if we got an actual error exit code
+                    if (combinedOutput.includes('Command failed with exit code')) {
+                        reject(new Error(this.stderrBuffer.trim()))
                     } else {
-                        const error = new Error(this.stderrBuffer.trim())
-                        reject(error)
+                        resolve(this.stdoutBuffer.split('__END_OF_COMMAND_')[0].trim())
                     }
                 }
 
