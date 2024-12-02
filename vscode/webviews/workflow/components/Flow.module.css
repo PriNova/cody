@@ -4,6 +4,12 @@
     border-bottom: 1px solid rgba(0, 0, 0, 0.1);
 }
 
+:global(.react-flow__controls-button:hover) {
+    background-color: var(--vscode-button-secondaryHoverBackground);
+    color: var(--vscode-button-secondaryForeground);
+    cursor: pointer;
+}
+
 :global(.react-flow__attribution) {
     background-color: var(--vscode-button-secondaryBackground);
     color: var(--vscode-button-secondaryForeground);

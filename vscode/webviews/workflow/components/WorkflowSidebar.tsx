@@ -79,6 +79,10 @@ export const WorkflowSidebar: React.FC<WorkflowSidebarProps> = ({
                 <Button variant="secondary" className="tw-w-full" onClick={onClear}>
                     Clear Workflow
                 </Button>
+
+                <Button variant="secondary" className="tw-w-full" onClick={() => setIsHelpOpen(true)}>
+                    Show Help
+                </Button>
             </div>
 
             <div className="tw-my-4 tw-border-t tw-border-border" />
@@ -180,11 +184,6 @@ export const WorkflowSidebar: React.FC<WorkflowSidebarProps> = ({
                     </AccordionContent>
                 </AccordionItem>
             </Accordion>
-            <div className="tw-mt-4">
-                <Button variant="secondary" className="tw-w-full" onClick={() => setIsHelpOpen(true)}>
-                    Show Help
-                </Button>
-            </div>
 
             <HelpModal isOpen={isHelpOpen} onClose={() => setIsHelpOpen(false)} />
         </div>

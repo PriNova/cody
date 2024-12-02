@@ -655,12 +655,12 @@ export const Flow: React.FC<{
     return (
         <div
             className={
-                'tw-flex tw-h-screen tw-border-2 tw-border-solid tw-border-[var(--vscode-panel-border)]  tw-text-[14px]'
+                'tw-flex tw-h-screen tw-border-2 tw-border-solid tw-border-[var(--vscode-panel-border)]  tw-text-[14px] tw-overflow-hidden'
             }
         >
             <div
                 style={{ width: sidebarWidth + 'px', flexShrink: 0 }}
-                className="tw-border-r tw-border-solid tw-border-[var(--vscode-panel-border)] tw-bg-[var(--vscode-sideBar-background)]"
+                className="tw-border-r tw-border-solid tw-border-[var(--vscode-panel-border)] tw-bg-[var(--vscode-sideBar-background)] tw-overflow-y-auto tw-h-full"
             >
                 <WorkflowSidebar
                     onNodeAdd={onNodeAdd}
@@ -679,7 +679,7 @@ export const Flow: React.FC<{
                 onMouseDown={handleMouseDown}
             />
             <div
-                className="tw-flex-1 tw-bg-[var(--vscode-editor-background)] tw-shadow-inner"
+                className="tw-flex-1 tw-bg-[var(--vscode-editor-background)] tw-shadow-inner tw-h-full tw-overflow-hidden"
                 onClick={handleBackgroundClick}
                 onKeyDown={handleBackgroundKeyDown}
                 role="button"
