@@ -2,6 +2,13 @@
 
 # <img src="https://storage.googleapis.com/sourcegraph-assets/cody/20230417/logomark-default.svg" width="26"> Cody
 
+## ⚠️ Important Notice
+This is a custom build with extended capabilities. For support and issues related to the additional features, please use this repository's issue tracker. Sourcegraph's official support channels do not cover the custom features added in this build.
+
+## **Extended Cody AI with Additional Features**
+
+This is a custom-enhanced fork of Cody with additional features. While built on Sourcegraph's Cody foundation, this version includes custom features and modifications not supported by Sourcegraph.
+
 **Code AI with codebase context**
 
 Cody is an AI coding assistant that uses the latest LLMs and codebase context to help you understand, write, and fix code faster.
@@ -15,9 +22,13 @@ Cody is an AI coding assistant that uses the latest LLMs and codebase context to
 
 </div>
 
-## Get started
+## Get started with the original Cody AI based on Sourcegraph
 
-[⭐ **Install Cody from the VS Code Marketplace**](https://marketplace.visualstudio.com/items?itemName=sourcegraph.cody-ai) or the [JetBrains Marketplace](https://plugins.jetbrains.com/plugin/9682-cody-ai-by-sourcegraph), then check out the [demos](#demos) to see what you can do.
+[⭐ **Install Cody from the VS Code Marketplace**](https://marketplace.visualstudio.com/items?itemName=sourcegraph.cody-ai) or the [JetBrains Marketplace](https://plugins.jetbrains.com/plugin/9682-cody-ai-by-sourcegraph), then check out the [demos](#demos) to see what you can do. And don't forget to [give us feedback](#feedback)!
+
+## Get started with the custom Cody AI build
+
+Download the [latest release](https://github.com/PriNova/cody/releases/latest) and install it in VS Code in the extensions tab.
 
 _&mdash; or &mdash;_
 
@@ -49,6 +60,33 @@ Here's an example of how you can combine some of these features to use Cody to w
 
 https://www.loom.com/share/ae710891c9044069a9017ee98ce657c5
 
+## Added Custom Features
+
+### Advanced Workflow System
+- Visual Workflow Editor for automation
+- Node-based processing pipeline
+- Multiple node types supported:
+  - CLI execution nodes
+  - LLM processing nodes
+  - Preview nodes
+  - Text formatting nodes
+  - Context search nodes
+  - more to come
+- Workflow save/load functionality
+- Real-time workflow execution tracking
+
+### Configurable Temperature setting
+- Temperature settings for the models used in Cody available in the settings
+
+### Copy Functionality of Assistant Messages
+- Copy the assistant message to the clipboard
+
+### Token Counting for Chat
+- Show the token count for the chat messages of the current chat session
+
+### Chat Title Management
+- Change the title of the chat history
+
 ## Contributing
 
 All code in this repository is open source (Apache 2).
@@ -62,9 +100,11 @@ See [development docs](doc/dev/index.md) for more.
 Cody is often magical and sometimes frustratingly wrong. Cody's goal is to be powerful _and_ accurate. You can help:
 
 - Use the <kbd>👍</kbd>/<kbd>👎</kbd> buttons in the chat sidebar to give feedback.
+- [Review](https://marketplace.visualstudio.com/items?itemName=sourcegraph.cody-ai&ssr=false#review-details) Cody in the VS Code Marketplace
 - [File an issue](https://github.com/sourcegraph/cody/issues) (or submit a PR!) when you see problems.
 - [Community forum](https://community.sourcegraph.com/)
 - [Discord](https://discord.gg/s2qDtYGnAE)
+
 
 ## Usage
 
