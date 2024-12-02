@@ -1,7 +1,5 @@
-import { TokenCounterUtils } from '@sourcegraph/cody-shared/src/token/counter'
 import { Handle, Position } from '@xyflow/react'
 import type React from 'react'
-import { useEffect, useState } from 'react'
 import { v4 as uuidv4 } from 'uuid'
 import { Textarea } from '../../../components/shadcn/ui/textarea'
 import type { Edge } from '../CustomOrderedEdge'
@@ -24,6 +22,7 @@ interface BaseNodeProps {
         error?: boolean
         content?: string
         active?: boolean
+        tokenCount?: number
     }
     selected?: boolean
 }
@@ -42,6 +41,7 @@ export interface WorkflowNode {
         fast?: boolean
         maxTokens?: number
         active?: boolean
+        tokenCount?: number
     }
     position: {
         x: number
@@ -212,21 +212,7 @@ const getNodeStyle = (
     opacity: !active ? '0.4' : '1',
 })
 
-export const PreviewNode: React.FC<BaseNodeProps> = ({ data, selected }) => {
-    const [tokenCount, setTokenCount] = useState<number>(0)
-    // Calculate token count when content changes
-    useEffect(() => {
-        const calculateTokens = async () => {
-            if (data.content) {
-                const count = await TokenCounterUtils.encode(data.content)
-                setTokenCount(count.length)
-            } else {
-                setTokenCount(0)
-            }
-        }
-        void calculateTokens()
-    }, [data.content])
-
+export const PreviewNode: React.FC<BaseNodeProps & { tokenCount?: number }> = ({ data, selected }) => {
     return (
         <div
             style={getNodeStyle(
@@ -242,7 +228,7 @@ export const PreviewNode: React.FC<BaseNodeProps> = ({ data, selected }) => {
             <div className="tw-flex tw-flex-col tw-gap-2">
                 <div className="tw-flex tw-justify-between tw-items-center">
                     <span>{data.title}</span>
-                    <span className="tw-text-sm tw-opacity-70">Tokens: {tokenCount}</span>
+                    <span className="tw-text-sm tw-opacity-70">Tokens: {data.tokenCount || 0}</span>
                 </div>
                 <Textarea
                     className="tw-w-full tw-h-24 tw-p-2 tw-rounded nodrag tw-resize tw-border-2 tw-border-solid tw-border-[var(--xy-node-border-default)]"

@@ -3,6 +3,11 @@ import type { EdgeProps } from '@xyflow/react'
 import type React from 'react'
 import { useMemo } from 'react'
 
+interface IndexedOrder {
+    bySourceTarget: Map<string, number>
+    byTarget: Map<string, Edge[]>
+}
+
 export interface Edge {
     id: string
     source: string
@@ -27,8 +32,32 @@ export const CustomOrderedEdge: React.FC<OrderedEdgeProps> = ({
     markerEnd,
     source,
     target,
-    edges, // Added edges parameter
+    edges,
 }) => {
+    const edgeIndex = useMemo((): IndexedOrder => {
+        const bySourceTarget = new Map<string, number>()
+        const byTarget = new Map<string, Edge[]>()
+
+        if (!edges) return { bySourceTarget, byTarget }
+
+        // Index edges by target for quick parent edge lookups
+        for (const edge of edges) {
+            const targetEdges = byTarget.get(edge.target) || []
+            targetEdges.push(edge)
+            byTarget.set(edge.target, targetEdges)
+        }
+
+        // Precompute order numbers
+        for (const [targetId, targetEdges] of byTarget) {
+            targetEdges.forEach((edge, index) => {
+                const key = `${edge.source}-${targetId}`
+                bySourceTarget.set(key, index + 1)
+            })
+        }
+
+        return { bySourceTarget, byTarget }
+    }, [edges])
+
     const [edgePath, labelX, labelY] = getBezierPath({
         sourceX,
         sourceY,
@@ -38,12 +67,10 @@ export const CustomOrderedEdge: React.FC<OrderedEdgeProps> = ({
         targetPosition,
     })
 
-    // Calculate order number based on target's parent edges
-    const orderNumber = useMemo(() => {
-        if (!edges) return undefined
-        const parentEdges = edges.filter(e => e.target === target)
-        return parentEdges.findIndex(e => e.source === source) + 1
-    }, [source, target, edges])
+    const orderNumber = useMemo(
+        () => edgeIndex.bySourceTarget.get(`${source}-${target}`),
+        [edgeIndex, source, target]
+    )
 
     return (
         <>

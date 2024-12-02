@@ -4,6 +4,7 @@ import {
     type ChatClient,
     type Message,
     PromptString,
+    TokenCounterUtils,
     firstValueFrom,
     getSimplePreamble,
     pendingOperation,
@@ -18,8 +19,42 @@ import { type ContextRetriever, toStructuredMentions } from '../chat/chat-view/C
 import { getCorpusContextItemsForEditorState } from '../chat/initialContext'
 import { PersistentShell } from '../commands/context/shell'
 
+interface IndexedEdges {
+    bySource: Map<string, Edge[]>
+    byTarget: Map<string, Edge[]>
+    byId: Map<string, Edge>
+}
+
 interface ExecutionContext {
     nodeOutputs: Map<string, string>
+}
+
+interface IndexedExecutionContext extends ExecutionContext {
+    nodeIndex: Map<string, WorkflowNode>
+    edgeIndex: IndexedEdges
+}
+
+function createEdgeIndex(edges: Edge[]): IndexedEdges {
+    const bySource = new Map<string, Edge[]>()
+    const byTarget = new Map<string, Edge[]>()
+    const byId = new Map<string, Edge>()
+
+    for (const edge of edges) {
+        // Index by source
+        const sourceEdges = bySource.get(edge.source) || []
+        sourceEdges.push(edge)
+        bySource.set(edge.source, sourceEdges)
+
+        // Index by target
+        const targetEdges = byTarget.get(edge.target) || []
+        targetEdges.push(edge)
+        byTarget.set(edge.target, targetEdges)
+
+        // Index by id
+        byId.set(edge.id, edge)
+    }
+
+    return { bySource, byTarget, byId }
 }
 
 /**
@@ -30,49 +65,34 @@ interface ExecutionContext {
  * @returns The sorted workflow nodes.
  */
 export function topologicalSort(nodes: WorkflowNode[], edges: Edge[]): WorkflowNode[] {
-    const graph = new Map<string, string[]>()
+    const edgeIndex = createEdgeIndex(edges)
+    const nodeIndex = new Map(nodes.map(node => [node.id, node]))
     const inDegree = new Map<string, number>()
 
-    // Initialize
+    // Initialize inDegree using indexed lookups
     for (const node of nodes) {
-        graph.set(node.id, [])
-        inDegree.set(node.id, 0)
+        inDegree.set(node.id, edgeIndex.byTarget.get(node.id)?.length || 0)
     }
 
-    // Build graph
-    for (const edge of edges) {
-        graph.get(edge.source)?.push(edge.target)
-        inDegree.set(edge.target, (inDegree.get(edge.target) || 0) + 1)
-    }
-
-    // Find nodes with no dependencies but sort them based on their edge connections
     const sourceNodes = nodes.filter(node => inDegree.get(node.id) === 0)
-
-    // Sort source nodes based on edge order
-    const sortedSourceNodes = sourceNodes.sort((a, b) => {
-        const aEdgeIndex = edges.findIndex(edge => edge.source === a.id)
-        const bEdgeIndex = edges.findIndex(edge => edge.source === b.id)
-        return aEdgeIndex - bEdgeIndex
-    })
-
-    const queue = sortedSourceNodes.map(node => node.id)
+    const queue = sourceNodes.map(node => node.id)
     const result: string[] = []
+
     while (queue.length > 0) {
         const nodeId = queue.shift()!
         result.push(nodeId)
 
-        const neighbors = graph.get(nodeId)
-        if (neighbors) {
-            for (const neighbor of neighbors) {
-                inDegree.set(neighbor, (inDegree.get(neighbor) || 0) - 1)
-                if (inDegree.get(neighbor) === 0) {
-                    queue.push(neighbor)
-                }
+        const outgoingEdges = edgeIndex.bySource.get(nodeId) || []
+        for (const edge of outgoingEdges) {
+            const targetInDegree = inDegree.get(edge.target)! - 1
+            inDegree.set(edge.target, targetInDegree)
+            if (targetInDegree === 0) {
+                queue.push(edge.target)
             }
         }
     }
 
-    return result.map(id => nodes.find(node => node.id === id)!).filter(Boolean)
+    return result.map(id => nodeIndex.get(id)!).filter(Boolean)
 }
 
 /**
@@ -198,8 +218,23 @@ async function executeLLMNode(
     }
 }
 
-async function executePreviewNode(input: string): Promise<string> {
-    return input.trim()
+async function executePreviewNode(
+    input: string,
+    nodeId: string,
+    webview: vscode.Webview
+): Promise<string> {
+    const trimmedInput = input.trim()
+    const tokenCount = await TokenCounterUtils.encode(trimmedInput)
+
+    webview.postMessage({
+        type: 'token_count',
+        data: {
+            nodeId,
+            count: tokenCount.length,
+        },
+    } as WorkflowFromExtension)
+
+    return trimmedInput
 }
 
 async function executeInputNode(input: string): Promise<string> {
@@ -265,10 +300,10 @@ function replaceIndexedInputs(template: string, parentOutputs: string[]): string
 function combineParentOutputsByConnectionOrder(
     nodeId: string,
     edges: Edge[],
-    context: ExecutionContext,
+    context: IndexedExecutionContext,
     nodeType: string
 ): string[] {
-    const parentEdges = edges.filter(edge => edge.target === nodeId)
+    const parentEdges = context.edgeIndex.byTarget.get(nodeId) || []
     return parentEdges
         .map(edge => {
             const output = context.nodeOutputs.get(edge.source)
@@ -298,15 +333,19 @@ export async function executeWorkflow(
     abortController: AbortSignal,
     contextRetriever: Pick<ContextRetriever, 'retrieveContext'>
 ): Promise<void> {
-    const context: ExecutionContext = {
+    const edgeIndex = createEdgeIndex(edges)
+    const nodeIndex = new Map(nodes.map(node => [node.id, node]))
+    const context: IndexedExecutionContext = {
         nodeOutputs: new Map(),
+        nodeIndex,
+        edgeIndex,
     }
 
     // Calculate all inactive nodes
     const allInactiveNodes = new Set<string>()
     for (const node of nodes) {
         if (node.data.active === false) {
-            const dependentInactiveNodes = getInactiveNodes(nodes, edges, node.id)
+            const dependentInactiveNodes = getInactiveNodes(edges, node.id)
             for (const id of dependentInactiveNodes) {
                 allInactiveNodes.add(id)
             }
@@ -385,7 +424,7 @@ export async function executeWorkflow(
             }
             case 'preview': {
                 const inputs = combineParentOutputsByConnectionOrder(node.id, edges, context, node.type)
-                result = await executePreviewNode(inputs.join('\n'))
+                result = await executePreviewNode(inputs.join('\n'), node.id, webview)
                 break
             }
 

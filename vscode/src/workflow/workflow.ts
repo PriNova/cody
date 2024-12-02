@@ -4,7 +4,7 @@ import type {
     WorkflowToExtension,
 } from '../../webviews/workflow/services/WorkflowProtocol'
 
-import type { ChatClient } from '@sourcegraph/cody-shared'
+import { type ChatClient, TokenCounterUtils } from '@sourcegraph/cody-shared'
 import type { ContextRetriever } from '../chat/chat-view/ContextRetriever'
 import { executeWorkflow } from './workflow-executor'
 import { handleWorkflowLoad, handleWorkflowSave } from './workflow-io'
@@ -79,6 +79,17 @@ export function registerWorkflowCommands(
                                 activeAbortController = null
                             }
                             break
+                        case 'calculate_tokens': {
+                            const count = await TokenCounterUtils.encode(message.data.text)
+                            panel.webview.postMessage({
+                                type: 'token_count',
+                                data: {
+                                    nodeId: message.data.nodeId,
+                                    count: count.length,
+                                },
+                            } as WorkflowFromExtension)
+                            break
+                        }
                     }
                 },
                 undefined,

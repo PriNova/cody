@@ -12,6 +12,7 @@ import {
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import type { GenericVSCodeWrapper } from '@sourcegraph/cody-shared'
+import { memoize } from 'lodash'
 import type React from 'react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { WorkflowFromExtension, WorkflowToExtension } from '../services/WorkflowProtocol'
@@ -20,6 +21,11 @@ import styles from './Flow.module.css'
 import { HelpModal } from './HelpModal'
 import { WorkflowSidebar } from './WorkflowSidebar'
 import { NodeType, type WorkflowNode, createNode, defaultWorkflow, nodeTypes } from './nodes/Nodes'
+
+interface IndexedNodes {
+    byId: Map<string, WorkflowNode>
+    allIds: string[]
+}
 
 export const Flow: React.FC<{
     vscodeAPI: GenericVSCodeWrapper<WorkflowToExtension, WorkflowFromExtension>
@@ -34,6 +40,10 @@ export const Flow: React.FC<{
 
     // UI state
     const [isHelpOpen, setIsHelpOpen] = useState(false)
+
+    const batchUpdateNodeResults = useCallback((updates: Map<string, string>, node?: WorkflowNode) => {
+        setNodeResults(prev => new Map([...prev, ...updates]))
+    }, [])
 
     // #region 1. Execution State
 
@@ -151,6 +161,11 @@ export const Flow: React.FC<{
     ) => {
         const [movingNodeId, setMovingNodeId] = useState<string | null>(null)
         const flowInstance = useReactFlow()
+        const createIndexedNodes = (nodes: WorkflowNode[]): IndexedNodes => ({
+            byId: new Map(nodes.map(node => [node.id, node])),
+            allIds: nodes.map(node => node.id),
+        })
+        const indexedNodes = useMemo(() => createIndexedNodes(nodes), [nodes, createIndexedNodes])
 
         const onNodesChange = useCallback(
             (changes: NodeChange[]) => {
@@ -180,34 +195,48 @@ export const Flow: React.FC<{
                 setNodes(updatedNodes)
 
                 if (selectedNode) {
-                    const updatedSelectedNode = updatedNodes.find(
-                        (node: { id: string }) => node.id === selectedNode.id
-                    )
+                    const updatedSelectedNode = indexedNodes.byId.get(selectedNode.id)
                     setSelectedNode(updatedSelectedNode || null)
                 }
             },
-            [selectedNode, nodes, movingNodeId, setNodes, setSelectedNode]
+            [selectedNode, nodes, movingNodeId, setNodes, setSelectedNode, indexedNodes]
         )
 
         const onNodeDragStart = useCallback(
             (event: React.MouseEvent, node: WorkflowNode) => {
                 if (event.shiftKey) {
+                    const sourceNode = indexedNodes.byId.get(node.id)
+                    if (!sourceNode) return
                     const newNode = createNode({
-                        type: node.type,
-                        title: node.data.title,
+                        type: sourceNode.type,
+                        title: sourceNode.data.title,
                         position: {
-                            x: node.position.x,
-                            y: node.position.y,
+                            x: sourceNode.position.x,
+                            y: sourceNode.position.y,
                         },
                     })
 
                     // Copy node-specific data
-                    if (node.type === NodeType.CLI) {
-                        newNode.data.command = node.data.command
-                    } else if (node.type === NodeType.LLM) {
-                        newNode.data.prompt = node.data.prompt
-                    } else if (node.type === NodeType.PREVIEW || node.type === NodeType.INPUT) {
-                        newNode.data.content = node.data.content
+                    if (sourceNode.type === NodeType.CLI) {
+                        newNode.data.command = sourceNode.data.command
+                    } else if (sourceNode.type === NodeType.LLM) {
+                        newNode.data.prompt = sourceNode.data.prompt
+                    } else if (sourceNode.type === NodeType.PREVIEW || node.type === NodeType.INPUT) {
+                        newNode.data.content = sourceNode.data.content
+                    }
+
+                    // Copy node-specific data
+                    switch (sourceNode.type) {
+                        case NodeType.CLI:
+                            newNode.data.command = sourceNode.data.command
+                            break
+                        case NodeType.LLM:
+                            newNode.data.prompt = sourceNode.data.prompt
+                            break
+                        case NodeType.PREVIEW:
+                        case NodeType.INPUT:
+                            newNode.data.content = sourceNode.data.content
+                            break
                     }
 
                     setNodes(current => [...current, newNode])
@@ -215,7 +244,7 @@ export const Flow: React.FC<{
                     event.stopPropagation()
                 }
             },
-            [setNodes]
+            [indexedNodes, setNodes]
         )
 
         const onNodeAdd = useCallback(
@@ -255,13 +284,22 @@ export const Flow: React.FC<{
                             if (selectedNode?.id === nodeId) {
                                 setSelectedNode(updatedNode)
                             }
+                            if (node.type === NodeType.PREVIEW && 'content' in data) {
+                                vscodeAPI.postMessage({
+                                    type: 'calculate_tokens',
+                                    data: {
+                                        text: data.content || '',
+                                        nodeId: nodeId,
+                                    },
+                                })
+                            }
                             return updatedNode
                         }
                         return node
                     })
                 )
             },
-            [selectedNode, setNodes, setSelectedNode]
+            [selectedNode, setNodes, setSelectedNode, vscodeAPI]
         )
 
         return {
@@ -270,6 +308,7 @@ export const Flow: React.FC<{
             onNodeDragStart,
             onNodeAdd,
             onNodeUpdate,
+            indexedNodes,
         }
     }
 
@@ -290,7 +329,7 @@ export const Flow: React.FC<{
         nodes: WorkflowNode[]
     ) => {
         // Memoize the topological sort results
-        const sortedNodes = useMemo(() => topologicalEdgeSort(nodes, edges), [nodes, edges])
+        const sortedNodes = useMemo(() => memoizedTopologicalSort(nodes, edges), [nodes, edges])
 
         // Memoize the edge order map calculation
         const edgeOrder = useMemo(() => {
@@ -365,56 +404,51 @@ export const Flow: React.FC<{
         useEffect(() => {
             const messageHandler = (event: MessageEvent<WorkflowFromExtension>) => {
                 switch (event.data.type) {
-                    case 'workflow_loaded':
-                        if (event.data.data) {
-                            setNodes(event.data.data.nodes)
-                            setEdges(event.data.data.edges)
+                    case 'workflow_loaded': {
+                        const { nodes, edges } = event.data.data
+                        if (nodes && edges) {
+                            calculatePreviewNodeTokens(nodes)
+                            setNodes(nodes)
+                            setEdges(edges)
                             setNodeErrors(new Map())
                         }
                         break
+                    }
 
-                    case 'node_execution_status':
-                        if (event.data.data?.nodeId && event.data.data?.status) {
+                    case 'node_execution_status': {
+                        const { nodeId, status, result } = event.data.data
+                        if (nodeId && status) {
                             if (event.data.data.status === 'interrupted') {
                                 setInterruptedNodeIds(prev => {
-                                    prev.add(event.data.data?.nodeId ?? '')
+                                    prev.add(nodeId)
                                     return new Set(prev)
                                 })
                             }
 
-                            if (event.data.data.status === 'running') {
-                                setExecutingNodeId(event.data.data.nodeId)
+                            if (status === 'running') {
+                                setExecutingNodeId(nodeId)
                                 setNodeErrors(prev => {
                                     const updated = new Map(prev)
-                                    updated.delete(event.data.data?.nodeId ?? '')
+                                    updated.delete(nodeId)
                                     return updated
                                 })
-                            } else if (event.data.data.status === 'error') {
+                            } else if (status === 'error') {
                                 setExecutingNodeId(null)
-                                setNodeErrors(prev =>
-                                    new Map(prev).set(
-                                        event.data.data?.nodeId ?? '',
-                                        event.data.data?.result ?? ''
-                                    )
-                                )
-                            } else if (event.data.data.status === 'completed') {
+                                setNodeErrors(prev => new Map(prev).set(nodeId, result ?? ''))
+                            } else if (status === 'completed') {
                                 setExecutingNodeId(null)
-                                const node = nodes.find(n => n.id === event.data.data?.nodeId)
+                                const node = nodes.find(n => n.id === nodeId)
                                 if (node?.type === NodeType.PREVIEW) {
-                                    onNodeUpdate(node.id, { content: event.data.data?.result })
+                                    onNodeUpdate(node.id, { content: result })
                                 }
                             } else {
                                 setExecutingNodeId(null)
                             }
 
-                            setNodeResults(prev =>
-                                new Map(prev).set(
-                                    event.data.data?.nodeId ?? '',
-                                    event.data.data?.result ?? ''
-                                )
-                            )
+                            setNodeResults(prev => new Map(prev).set(nodeId, result ?? ''))
                         }
                         break
+                    }
 
                     case 'execution_started':
                         setIsExecuting(true)
@@ -423,6 +457,13 @@ export const Flow: React.FC<{
                     case 'execution_completed':
                         setIsExecuting(false)
                         break
+
+                    case 'token_count': {
+                        const { count, nodeId } = event.data.data
+                        const updates = new Map([[`${nodeId}_tokens`, count.toString()]])
+                        batchUpdateNodeResults(updates)
+                        break
+                    }
                 }
             }
 
@@ -575,7 +616,7 @@ export const Flow: React.FC<{
             const allInactiveNodes = new Set<string>()
             for (const node of nodes) {
                 if (node.data.active === false) {
-                    const dependentInactiveNodes = getInactiveNodes(nodes, edges, node.id)
+                    const dependentInactiveNodes = getInactiveNodes(edges, node.id)
                     for (const id of dependentInactiveNodes) {
                         allInactiveNodes.add(id)
                     }
@@ -615,8 +656,17 @@ export const Flow: React.FC<{
         nodeErrors,
         nodeResults,
         interruptedNodeIds,
-        edges // Add edges parameter
-    )
+        edges
+    ).map(node => ({
+        ...node,
+        data: {
+            ...node.data,
+            tokenCount:
+                node.type === NodeType.PREVIEW
+                    ? Number.parseInt(nodeResults.get(`${node.id}_tokens`) || '0', 10)
+                    : undefined,
+        },
+    }))
 
     // #endregion
 
@@ -645,10 +695,26 @@ export const Flow: React.FC<{
             })
         }, [vscodeAPI])
 
-        return { onSave, onLoad }
+        const calculatePreviewNodeTokens = useCallback(
+            (nodes: WorkflowNode[]) => {
+                for (const node of nodes) {
+                    if (node.type === NodeType.PREVIEW && node.data.content) {
+                        vscodeAPI.postMessage({
+                            type: 'calculate_tokens',
+                            data: {
+                                text: node.data.content,
+                                nodeId: node.id,
+                            },
+                        })
+                    }
+                }
+            },
+            [vscodeAPI]
+        )
+        return { onSave, onLoad, calculatePreviewNodeTokens }
     }
 
-    const { onSave, onLoad } = useWorkflowActions(vscodeAPI, nodes, edges)
+    const { onSave, onLoad, calculatePreviewNodeTokens } = useWorkflowActions(vscodeAPI, nodes, edges)
 
     // #endregion
 
@@ -730,65 +796,73 @@ export const Flow: React.FC<{
  * @param edges - The edges between the workflow nodes.
  * @returns The workflow nodes in a sorted order.
  */
-function topologicalEdgeSort(nodes: WorkflowNode[], edges: Edge[]): WorkflowNode[] {
-    const graph = new Map<string, string[]>()
-    const inDegree = new Map<string, number>()
-    const edgeOrder = new Map<string, number>()
+const memoizedTopologicalSort = memoize(
+    (nodes: WorkflowNode[], edges: Edge[]) => {
+        const graph = new Map<string, string[]>()
+        const inDegree = new Map<string, number>()
+        const edgeOrder = new Map<string, number>()
 
-    // Initialize
-    for (const node of nodes) {
-        graph.set(node.id, [])
-        inDegree.set(node.id, 0)
-    }
+        // Initialize
+        for (const node of nodes) {
+            graph.set(node.id, [])
+            inDegree.set(node.id, 0)
+        }
 
-    // Build graph and track edge order
-    edges.forEach((edge, index) => {
-        graph.get(edge.source)?.push(edge.target)
-        inDegree.set(edge.target, (inDegree.get(edge.target) || 0) + 1)
-        edgeOrder.set(`${edge.source}-${edge.target}`, index + 1)
-    })
+        // Build graph and track edge order
+        edges.forEach((edge, index) => {
+            graph.get(edge.source)?.push(edge.target)
+            inDegree.set(edge.target, (inDegree.get(edge.target) || 0) + 1)
+            edgeOrder.set(`${edge.source}-${edge.target}`, index + 1)
+        })
 
-    // Rest of the function remains the same
-    const sourceNodes = nodes.filter(node => inDegree.get(node.id) === 0)
-    const sortedSourceNodes = sourceNodes.sort((a, b) => {
-        const aEdgeIndex = edges.findIndex(edge => edge.source === a.id)
-        const bEdgeIndex = edges.findIndex(edge => edge.source === b.id)
-        return aEdgeIndex - bEdgeIndex
-    })
+        const sourceNodes = nodes.filter(node => inDegree.get(node.id) === 0)
+        const sortedSourceNodes = sourceNodes.sort((a, b) => {
+            const aEdgeIndex = edges.findIndex(edge => edge.source === a.id)
+            const bEdgeIndex = edges.findIndex(edge => edge.source === b.id)
+            return aEdgeIndex - bEdgeIndex
+        })
 
-    const queue = sortedSourceNodes.map(node => node.id)
-    const result: string[] = []
+        const queue = sortedSourceNodes.map(node => node.id)
+        const result: string[] = []
 
-    while (queue.length > 0) {
-        const nodeId = queue.shift()!
-        result.push(nodeId)
+        while (queue.length > 0) {
+            const nodeId = queue.shift()!
+            result.push(nodeId)
 
-        const neighbors = graph.get(nodeId)
-        if (neighbors) {
-            // Sort neighbors based on edge order
-            neighbors.sort((a, b) => {
-                const orderA = edgeOrder.get(`${nodeId}-${a}`) || 0
-                const orderB = edgeOrder.get(`${nodeId}-${b}`) || 0
-                return orderA - orderB
-            })
+            const neighbors = graph.get(nodeId)
+            if (neighbors) {
+                neighbors.sort((a, b) => {
+                    const orderA = edgeOrder.get(`${nodeId}-${a}`) || 0
+                    const orderB = edgeOrder.get(`${nodeId}-${b}`) || 0
+                    return orderA - orderB
+                })
 
-            for (const neighbor of neighbors) {
-                inDegree.set(neighbor, (inDegree.get(neighbor) || 0) - 1)
-                if (inDegree.get(neighbor) === 0) {
-                    queue.push(neighbor)
+                for (const neighbor of neighbors) {
+                    inDegree.set(neighbor, (inDegree.get(neighbor) || 0) - 1)
+                    if (inDegree.get(neighbor) === 0) {
+                        queue.push(neighbor)
+                    }
                 }
             }
         }
+
+        return result.map(id => nodes.find(node => node.id === id)!).filter(Boolean)
+    },
+    // Custom resolver function for memoization key
+    (nodes: WorkflowNode[], edges: Edge[]) => {
+        const nodeKey = nodes
+            .map(n => n.id)
+            .sort()
+            .join('|')
+        const edgeKey = edges
+            .map(e => `${e.source}-${e.target}`)
+            .sort()
+            .join('|')
+        return `${nodeKey}:${edgeKey}`
     }
+)
 
-    return result.map(id => nodes.find(node => node.id === id)!).filter(Boolean)
-}
-
-export function getInactiveNodes(
-    nodes: WorkflowNode[],
-    edges: Edge[],
-    startNodeId: string
-): Set<string> {
+export function getInactiveNodes(edges: Edge[], startNodeId: string): Set<string> {
     const inactiveNodes = new Set<string>()
     const queue = [startNodeId]
 
