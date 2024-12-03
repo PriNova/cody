@@ -19,6 +19,7 @@ import type { WorkflowFromExtension, WorkflowToExtension } from '../services/Wor
 import { CustomOrderedEdge, type Edge } from './CustomOrderedEdge'
 import styles from './Flow.module.css'
 import { HelpModal } from './HelpModal'
+import { RightSidebar } from './RightSidebar'
 import { WorkflowSidebar } from './WorkflowSidebar'
 import { NodeType, type WorkflowNode, createNode, defaultWorkflow, nodeTypes } from './nodes/Nodes'
 
@@ -548,6 +549,56 @@ export const Flow: React.FC<{
 
     const { sidebarWidth, handleMouseDown } = useSidebarResize()
 
+    const useRightSidebarResize = (initialWidth = 256, minWidth = 200, maxWidth = 800) => {
+        const [rightSidebarWidth, setRightSidebarWidth] = useState(initialWidth)
+        const [isResizing, setIsResizing] = useState(false)
+        const [startX, setStartX] = useState(0)
+        const [startWidth, setStartWidth] = useState(0)
+
+        const handleMouseDown = useCallback(
+            (e: React.MouseEvent) => {
+                setIsResizing(true)
+                setStartX(e.clientX)
+                setStartWidth(rightSidebarWidth)
+                e.preventDefault()
+            },
+            [rightSidebarWidth]
+        )
+
+        const handleMouseMove = useCallback(
+            (e: MouseEvent) => {
+                if (!isResizing) return
+                const delta = startX - e.clientX
+                const newWidth = Math.min(Math.max(startWidth + delta, minWidth), maxWidth)
+                setRightSidebarWidth(newWidth)
+            },
+            [isResizing, startX, startWidth, minWidth, maxWidth]
+        )
+
+        const handleMouseUp = useCallback(() => {
+            setIsResizing(false)
+        }, [])
+
+        useEffect(() => {
+            if (isResizing) {
+                document.addEventListener('mousemove', handleMouseMove)
+                document.addEventListener('mouseup', handleMouseUp)
+            }
+
+            return () => {
+                document.removeEventListener('mousemove', handleMouseMove)
+                document.removeEventListener('mouseup', handleMouseUp)
+            }
+        }, [isResizing, handleMouseMove, handleMouseUp])
+
+        return {
+            rightSidebarWidth,
+            handleMouseDown,
+        }
+    }
+
+    const { rightSidebarWidth, handleMouseDown: handleRightSidebarMouseDown } = useRightSidebarResize()
+
     // #endregion
 
     // #region 6. Selection Management
@@ -719,14 +770,10 @@ export const Flow: React.FC<{
     // #endregion
 
     return (
-        <div
-            className={
-                'tw-flex tw-h-screen tw-border-2 tw-border-solid tw-border-[var(--vscode-panel-border)]  tw-text-[14px] tw-overflow-hidden'
-            }
-        >
+        <div className="tw-flex tw-h-screen tw-w-full tw-border-2 tw-border-solid tw-border-[var(--vscode-panel-border)] tw-text-[14px] tw-overflow-hidden">
             <div
-                style={{ width: sidebarWidth + 'px', flexShrink: 0 }}
-                className="tw-border-r tw-border-solid tw-border-[var(--vscode-panel-border)] tw-bg-[var(--vscode-sideBar-background)] tw-overflow-y-auto tw-h-full"
+                style={{ width: sidebarWidth + 'px' }}
+                className="tw-flex-shrink-0 tw-border-r tw-border-solid tw-border-[var(--vscode-panel-border)] tw-bg-[var(--vscode-sideBar-background)] tw-overflow-y-auto tw-h-full"
             >
                 <WorkflowSidebar
                     onNodeAdd={onNodeAdd}
@@ -741,7 +788,7 @@ export const Flow: React.FC<{
                 />
             </div>
             <div
-                className="tw-w-2 hover:tw-w-2 tw-bg-[var(--vscode-panel-border)] hover:tw-bg-[var(--vscode-textLink-activeForeground)] tw-cursor-ew-resize tw-select-none tw-transition-colors tw-transition-width tw-shadow-sm"
+                className="tw-w-2 hover:tw-w-2 tw-bg-[var(--vscode-panel-border)] hover:tw-bg-[var(--vscode-textLink-activeForeground)] tw-cursor-ew-resize"
                 onMouseDown={handleMouseDown}
             />
             <div
@@ -751,35 +798,52 @@ export const Flow: React.FC<{
                 role="button"
                 tabIndex={0}
             >
-                <div className="tw-w-full tw-h-full tw-border-l tw-border-solid tw-border-[var(--vscode-panel-border)]">
-                    <ReactFlow
-                        nodes={nodesWithState}
-                        edges={getEdgesWithOrder}
-                        onNodesChange={onNodesChange}
-                        onEdgesChange={onEdgesChange}
-                        onConnect={onConnect}
-                        onNodeClick={onNodeClick}
-                        onNodeDragStart={onNodeDragStart}
-                        deleteKeyCode={['Backspace', 'Delete']}
-                        nodeTypes={nodeTypes}
-                        edgeTypes={{
-                            'ordered-edge': props => <CustomOrderedEdge {...props} edges={edges} />,
-                        }}
-                        fitView
+                <div className="tw-flex tw-flex-1 tw-h-full">
+                    <div className="tw-flex-1 tw-bg-[var(--vscode-editor-background)] tw-h-full">
+                        <ReactFlow
+                            nodes={nodesWithState}
+                            edges={getEdgesWithOrder}
+                            onNodesChange={onNodesChange}
+                            onEdgesChange={onEdgesChange}
+                            onConnect={onConnect}
+                            onNodeClick={onNodeClick}
+                            onNodeDragStart={onNodeDragStart}
+                            deleteKeyCode={['Backspace', 'Delete']}
+                            nodeTypes={nodeTypes}
+                            edgeTypes={{
+                                'ordered-edge': props => <CustomOrderedEdge {...props} edges={edges} />,
+                            }}
+                            fitView
+                        >
+                            <Background />
+                            <Controls className={styles.controls}>
+                                <button
+                                    type="button"
+                                    className="react-flow__controls-button"
+                                    onClick={() => setIsHelpOpen(true)}
+                                    title="Help"
+                                >
+                                    ?
+                                </button>
+                            </Controls>
+                            <HelpModal isOpen={isHelpOpen} onClose={() => setIsHelpOpen(false)} />
+                        </ReactFlow>
+                    </div>
+
+                    <div
+                        className="tw-w-2 hover:tw-w-2 tw-bg-[var(--vscode-panel-border)] hover:tw-bg-[var(--vscode-textLink-activeForeground)] tw-cursor-ew-resize tw-select-none tw-transition-colors tw-transition-width tw-shadow-sm"
+                        onMouseDown={handleRightSidebarMouseDown}
+                    />
+                    <div
+                        style={{ width: rightSidebarWidth + 'px' }}
+                        className="tw-flex-shrink-0 tw-border-r tw-border-solid tw-border-[var(--vscode-panel-border)] tw-bg-[var(--vscode-sideBar-background)] tw-h-full tw-overflow-y-auto"
                     >
-                        <Background />
-                        <Controls className={styles.controls}>
-                            <button
-                                type="button"
-                                className="react-flow__controls-button"
-                                onClick={() => setIsHelpOpen(true)}
-                                title="Help"
-                            >
-                                ?
-                            </button>
-                        </Controls>
-                        <HelpModal isOpen={isHelpOpen} onClose={() => setIsHelpOpen(false)} />
-                    </ReactFlow>
+                        <RightSidebar
+                            sortedNodes={memoizedTopologicalSort(nodes, edges)}
+                            nodeResults={nodeResults}
+                            executingNodeId={executingNodeId}
+                        />
+                    </div>
                 </div>
             </div>
         </div>
@@ -796,7 +860,7 @@ export const Flow: React.FC<{
  * @param edges - The edges between the workflow nodes.
  * @returns The workflow nodes in a sorted order.
  */
-const memoizedTopologicalSort = memoize(
+export const memoizedTopologicalSort = memoize(
     (nodes: WorkflowNode[], edges: Edge[]) => {
         const graph = new Map<string, string[]>()
         const inDegree = new Map<string, number>()
