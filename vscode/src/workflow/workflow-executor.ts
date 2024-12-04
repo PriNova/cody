@@ -13,7 +13,11 @@ import {
 import * as vscode from 'vscode'
 import type { Edge } from '../../webviews/workflow/components/CustomOrderedEdge'
 import { getInactiveNodes } from '../../webviews/workflow/components/Flow'
-import type { WorkflowNode } from '../../webviews/workflow/components/nodes/Nodes'
+import {
+    type CLINode,
+    NodeType,
+    type WorkflowNodes,
+} from '../../webviews/workflow/components/nodes/Nodes'
 import type { WorkflowFromExtension } from '../../webviews/workflow/services/WorkflowProtocol'
 import { type ContextRetriever, toStructuredMentions } from '../chat/chat-view/ContextRetriever'
 import { getCorpusContextItemsForEditorState } from '../chat/initialContext'
@@ -30,7 +34,7 @@ interface ExecutionContext {
 }
 
 interface IndexedExecutionContext extends ExecutionContext {
-    nodeIndex: Map<string, WorkflowNode>
+    nodeIndex: Map<string, WorkflowNodes>
     edgeIndex: IndexedEdges
 }
 
@@ -64,7 +68,7 @@ function createEdgeIndex(edges: Edge[]): IndexedEdges {
  * @param edges - The edges between the workflow nodes.
  * @returns The sorted workflow nodes.
  */
-export function topologicalSort(nodes: WorkflowNode[], edges: Edge[]): WorkflowNode[] {
+export function topologicalSort(nodes: WorkflowNodes[], edges: Edge[]): WorkflowNodes[] {
     const edgeIndex = createEdgeIndex(edges)
     const nodeIndex = new Map(nodes.map(node => [node.id, node]))
     const inDegree = new Map<string, number>()
@@ -104,7 +108,7 @@ export function topologicalSort(nodes: WorkflowNode[], edges: Edge[]): WorkflowN
  * @throws {Error} If the shell is not available, the workspace is not trusted, or the command fails to execute.
  */
 async function executeCLINode(
-    node: WorkflowNode,
+    node: WorkflowNodes,
     abortSignal: AbortSignal,
     persistentShell: PersistentShell
 ): Promise<string> {
@@ -114,7 +118,8 @@ async function executeCLINode(
 
     const homeDir = os.homedir() || process.env.HOME || process.env.USERPROFILE || ''
 
-    const filteredCommand = node.data.command?.replaceAll(/(\s~\/)/g, ` ${homeDir}${path.sep}`) || ''
+    const filteredCommand =
+        (node as CLINode).data.command?.replaceAll(/(\s~\/)/g, ` ${homeDir}${path.sep}`) || ''
 
     if (commandsNotAllowed.some(cmd => filteredCommand.startsWith(cmd))) {
         void vscode.window.showErrorMessage('Cody cannot execute this command')
@@ -139,7 +144,7 @@ async function executeCLINode(
  * @throws {Error} If no prompt is specified for the LLM node, or if there is an error executing the LLM node.
  */
 async function executeLLMNode(
-    node: WorkflowNode,
+    node: WorkflowNodes,
     chatClient: ChatClient,
     abortSignal?: AbortSignal
 ): Promise<string> {
@@ -326,7 +331,7 @@ function combineParentOutputsByConnectionOrder(
  * @returns A Promise that resolves when the workflow execution is complete.
  */
 export async function executeWorkflow(
-    nodes: WorkflowNode[],
+    nodes: WorkflowNodes[],
     edges: Edge[],
     webview: vscode.Webview,
     chatClient: ChatClient,
@@ -371,7 +376,7 @@ export async function executeWorkflow(
 
         let result: string
         switch (node.type) {
-            case 'cli': {
+            case NodeType.CLI: {
                 try {
                     const inputs = combineParentOutputsByConnectionOrder(
                         node.id,
@@ -379,11 +384,11 @@ export async function executeWorkflow(
                         context,
                         node.type
                     ).map(output => sanitizeForShell(output))
-                    const command = node.data.command
-                        ? replaceIndexedInputs(node.data.command, inputs)
+                    const command = (node as CLINode).data.command
+                        ? replaceIndexedInputs((node as CLINode).data.command, inputs)
                         : ''
                     result = await executeCLINode(
-                        { ...node, data: { ...node.data, command } },
+                        { ...(node as CLINode), data: { ...(node as CLINode).data, command } },
                         abortController,
                         persistentShell
                     )
@@ -407,7 +412,7 @@ export async function executeWorkflow(
                 }
                 break
             }
-            case 'llm': {
+            case NodeType.LLM: {
                 const inputs = combineParentOutputsByConnectionOrder(
                     node.id,
                     edges,
@@ -422,27 +427,27 @@ export async function executeWorkflow(
                 )
                 break
             }
-            case 'preview': {
+            case NodeType.PREVIEW: {
                 const inputs = combineParentOutputsByConnectionOrder(node.id, edges, context, node.type)
                 result = await executePreviewNode(inputs.join('\n'), node.id, webview)
                 break
             }
 
-            case 'text-format': {
+            case NodeType.INPUT: {
                 const inputs = combineParentOutputsByConnectionOrder(node.id, edges, context, node.type)
                 const text = node.data.content ? replaceIndexedInputs(node.data.content, inputs) : ''
                 result = await executeInputNode(text)
                 break
             }
 
-            case 'search-context': {
+            case NodeType.SEARCH_CONTEXT: {
                 const inputs = combineParentOutputsByConnectionOrder(node.id, edges, context, node.type)
                 result = await executeSearchContextNode(inputs.join('\n'), contextRetriever)
                 break
             }
             default:
                 persistentShell.dispose()
-                throw new Error(`Unknown node type: ${node.type}`)
+                throw new Error(`Unknown node type: ${(node as WorkflowNodes).type}`)
         }
 
         context.nodeOutputs.set(node.id, result)
@@ -466,25 +471,6 @@ function sanitizeForShell(input: string): string {
 function sanitizeForPrompt(input: string): string {
     return input.replace(/\${/g, '\\${')
 }
-
-/* function getInactiveNodes(nodes: WorkflowNode[], edges: Edge[], startNodeId: string): Set<string> {
-    const inactiveNodes = new Set<string>()
-    const queue = [startNodeId]
-
-    while (queue.length > 0) {
-        const currentId = queue.shift()!
-        inactiveNodes.add(currentId)
-
-        // Find all nodes that depend on the current node
-        for (const edge of edges) {
-            if (edge.source === currentId && !inactiveNodes.has(edge.target)) {
-                queue.push(edge.target)
-            }
-        }
-    }
-
-    return inactiveNodes
-} */
 
 const commandsNotAllowed = [
     'rm',

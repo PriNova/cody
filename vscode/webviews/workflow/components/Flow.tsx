@@ -21,10 +21,17 @@ import styles from './Flow.module.css'
 import { HelpModal } from './HelpModal'
 import { RightSidebar } from './RightSidebar'
 import { WorkflowSidebar } from './WorkflowSidebar'
-import { NodeType, type WorkflowNode, createNode, defaultWorkflow, nodeTypes } from './nodes/Nodes'
+import {
+    type CLINode,
+    NodeType,
+    type WorkflowNodes,
+    createNode,
+    defaultWorkflow,
+    nodeTypes,
+} from './nodes/Nodes'
 
 interface IndexedNodes {
-    byId: Map<string, WorkflowNode>
+    byId: Map<string, WorkflowNodes>
     allIds: string[]
 }
 
@@ -33,7 +40,7 @@ export const Flow: React.FC<{
 }> = ({ vscodeAPI }) => {
     // Node-related state
     const [nodes, setNodes] = useState(defaultWorkflow.nodes)
-    const [selectedNode, setSelectedNode] = useState<WorkflowNode | null>(null)
+    const [selectedNode, setSelectedNode] = useState<WorkflowNodes | null>(null)
     const [nodeResults, setNodeResults] = useState<Map<string, string>>(new Map())
 
     // Edge-related state
@@ -42,7 +49,7 @@ export const Flow: React.FC<{
     // UI state
     const [isHelpOpen, setIsHelpOpen] = useState(false)
 
-    const batchUpdateNodeResults = useCallback((updates: Map<string, string>, node?: WorkflowNode) => {
+    const batchUpdateNodeResults = useCallback((updates: Map<string, string>, node?: WorkflowNodes) => {
         setNodeResults(prev => new Map([...prev, ...updates]))
     }, [])
 
@@ -50,7 +57,7 @@ export const Flow: React.FC<{
 
     const useWorkflowExecution = (
         vscodeAPI: GenericVSCodeWrapper<WorkflowToExtension, WorkflowFromExtension>,
-        nodes: WorkflowNode[],
+        nodes: WorkflowNodes[],
         edges: Edge[]
     ) => {
         // Move all state declarations to the top
@@ -155,14 +162,14 @@ export const Flow: React.FC<{
 
     // Handles all node-related state changes and updates
     const useNodeOperations = (
-        nodes: WorkflowNode[],
-        setNodes: React.Dispatch<React.SetStateAction<WorkflowNode[]>>,
-        selectedNode: WorkflowNode | null,
-        setSelectedNode: React.Dispatch<React.SetStateAction<WorkflowNode | null>>
+        nodes: WorkflowNodes[],
+        setNodes: React.Dispatch<React.SetStateAction<WorkflowNodes[]>>,
+        selectedNode: WorkflowNodes | null,
+        setSelectedNode: React.Dispatch<React.SetStateAction<WorkflowNodes | null>>
     ) => {
         const [movingNodeId, setMovingNodeId] = useState<string | null>(null)
         const flowInstance = useReactFlow()
-        const createIndexedNodes = (nodes: WorkflowNode[]): IndexedNodes => ({
+        const createIndexedNodes = (nodes: WorkflowNodes[]): IndexedNodes => ({
             byId: new Map(nodes.map(node => [node.id, node])),
             allIds: nodes.map(node => node.id),
         })
@@ -204,7 +211,7 @@ export const Flow: React.FC<{
         )
 
         const onNodeDragStart = useCallback(
-            (event: React.MouseEvent, node: WorkflowNode) => {
+            (event: React.MouseEvent, node: WorkflowNodes) => {
                 if (event.shiftKey) {
                     const sourceNode = indexedNodes.byId.get(node.id)
                     if (!sourceNode) return
@@ -215,21 +222,12 @@ export const Flow: React.FC<{
                             x: sourceNode.position.x,
                             y: sourceNode.position.y,
                         },
-                    })
-
-                    // Copy node-specific data
-                    if (sourceNode.type === NodeType.CLI) {
-                        newNode.data.command = sourceNode.data.command
-                    } else if (sourceNode.type === NodeType.LLM) {
-                        newNode.data.prompt = sourceNode.data.prompt
-                    } else if (sourceNode.type === NodeType.PREVIEW || node.type === NodeType.INPUT) {
-                        newNode.data.content = sourceNode.data.content
-                    }
+                    }) as WorkflowNodes
 
                     // Copy node-specific data
                     switch (sourceNode.type) {
                         case NodeType.CLI:
-                            newNode.data.command = sourceNode.data.command
+                            ;(newNode as CLINode).data.command = (sourceNode as CLINode).data.command
                             break
                         case NodeType.LLM:
                             newNode.data.prompt = sourceNode.data.prompt
@@ -274,7 +272,7 @@ export const Flow: React.FC<{
         )
 
         const onNodeUpdate = useCallback(
-            (nodeId: string, data: Partial<WorkflowNode['data']>) => {
+            (nodeId: string, data: Partial<WorkflowNodes['data']>) => {
                 setNodes(currentNodes =>
                     currentNodes.map(node => {
                         if (node.id === nodeId) {
@@ -327,7 +325,7 @@ export const Flow: React.FC<{
     const useEdgeOperations = (
         edges: Edge[],
         setEdges: React.Dispatch<React.SetStateAction<Edge[]>>,
-        nodes: WorkflowNode[]
+        nodes: WorkflowNodes[]
     ) => {
         // Memoize the topological sort results
         const sortedNodes = useMemo(() => memoizedTopologicalSort(nodes, edges), [nodes, edges])
@@ -392,15 +390,15 @@ export const Flow: React.FC<{
     // #region 4. Message Handlers
 
     const useMessageHandler = (
-        nodes: WorkflowNode[],
-        setNodes: React.Dispatch<React.SetStateAction<WorkflowNode[]>>,
+        nodes: WorkflowNodes[],
+        setNodes: React.Dispatch<React.SetStateAction<WorkflowNodes[]>>,
         setEdges: React.Dispatch<React.SetStateAction<Edge[]>>,
         setNodeErrors: React.Dispatch<React.SetStateAction<Map<string, string>>>,
         setNodeResults: React.Dispatch<React.SetStateAction<Map<string, string>>>,
         setInterruptedNodeIds: React.Dispatch<React.SetStateAction<Set<string>>>,
         setExecutingNodeId: React.Dispatch<React.SetStateAction<string | null>>,
         setIsExecuting: React.Dispatch<React.SetStateAction<boolean>>,
-        onNodeUpdate: (nodeId: string, data: Partial<WorkflowNode['data']>) => void
+        onNodeUpdate: (nodeId: string, data: Partial<WorkflowNodes['data']>) => void
     ) => {
         useEffect(() => {
             const messageHandler = (event: MessageEvent<WorkflowFromExtension>) => {
@@ -604,7 +602,7 @@ export const Flow: React.FC<{
     // #region 6. Selection Management
 
     const useInteractionHandling = (
-        setSelectedNode: React.Dispatch<React.SetStateAction<WorkflowNode | null>>
+        setSelectedNode: React.Dispatch<React.SetStateAction<WorkflowNodes | null>>
     ) => {
         // Handle node selection changes from ReactFlow
         useOnSelectionChange({
@@ -617,7 +615,7 @@ export const Flow: React.FC<{
 
         // Handle direct node clicks
         const onNodeClick = useCallback(
-            (event: React.MouseEvent, node: WorkflowNode) => {
+            (event: React.MouseEvent, node: WorkflowNodes) => {
                 event.stopPropagation()
                 setSelectedNode(node)
             },
@@ -653,8 +651,8 @@ export const Flow: React.FC<{
     // #region 7. Node State Transformations
 
     const useNodeStateTransformation = (
-        nodes: WorkflowNode[],
-        selectedNode: WorkflowNode | null,
+        nodes: WorkflowNodes[],
+        selectedNode: WorkflowNodes | null,
         movingNodeId: string | null,
         executingNodeId: string | null,
         nodeErrors: Map<string, string>,
@@ -725,7 +723,7 @@ export const Flow: React.FC<{
 
     const useWorkflowActions = (
         vscodeAPI: GenericVSCodeWrapper<WorkflowToExtension, WorkflowFromExtension>,
-        nodes: WorkflowNode[],
+        nodes: WorkflowNodes[],
         edges: Edge[]
     ) => {
         const onSave = useCallback(() => {
@@ -747,7 +745,7 @@ export const Flow: React.FC<{
         }, [vscodeAPI])
 
         const calculatePreviewNodeTokens = useCallback(
-            (nodes: WorkflowNode[]) => {
+            (nodes: WorkflowNodes[]) => {
                 for (const node of nodes) {
                     if (node.type === NodeType.PREVIEW && node.data.content) {
                         vscodeAPI.postMessage({
@@ -861,7 +859,7 @@ export const Flow: React.FC<{
  * @returns The workflow nodes in a sorted order.
  */
 export const memoizedTopologicalSort = memoize(
-    (nodes: WorkflowNode[], edges: Edge[]) => {
+    (nodes: WorkflowNodes[], edges: Edge[]) => {
         const graph = new Map<string, string[]>()
         const inDegree = new Map<string, number>()
         const edgeOrder = new Map<string, number>()
@@ -913,7 +911,7 @@ export const memoizedTopologicalSort = memoize(
         return result.map(id => nodes.find(node => node.id === id)!).filter(Boolean)
     },
     // Custom resolver function for memoization key
-    (nodes: WorkflowNode[], edges: Edge[]) => {
+    (nodes: WorkflowNodes[], edges: Edge[]) => {
         const nodeKey = nodes
             .map(n => n.id)
             .sort()

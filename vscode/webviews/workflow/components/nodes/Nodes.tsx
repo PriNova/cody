@@ -27,27 +27,37 @@ interface BaseNodeProps {
     selected?: boolean
 }
 
-export interface WorkflowNode {
+type BaseNodeData = {
+    title: string
+    prompt?: string
+    input?: string
+    output?: string
+    content?: string
+    temperature?: number
+    fast?: boolean
+    maxTokens?: number
+    active?: boolean
+    tokenCount?: number
+}
+
+export type WorkflowNode = {
     id: string
     type: NodeType
-    data: {
-        title: string
-        command?: string
-        prompt?: string
-        input?: string
-        output?: string
-        content?: string
-        temperature?: number
-        fast?: boolean
-        maxTokens?: number
-        active?: boolean
-        tokenCount?: number
-    }
+    data: BaseNodeData
     position: {
         x: number
         y: number
     }
 }
+
+export type CLINode = Omit<WorkflowNode, 'data'> & {
+    type: NodeType.CLI
+    data: BaseNodeData & {
+        command: string
+    }
+}
+
+export type WorkflowNodes = CLINode | WorkflowNode
 
 /**
  * Creates a new workflow node with the specified type, label, and position.
@@ -61,9 +71,9 @@ export const createNode = ({
     type,
     title,
     position,
-    command = '', // provide defaults
     prompt = '',
     content = '',
+    command = '',
     temperature = 0.0,
     fast = true,
     maxTokens = 1000,
@@ -77,21 +87,36 @@ export const createNode = ({
     temperature?: number
     fast?: boolean
     maxTokens?: number
-}): WorkflowNode => ({
-    id: uuidv4(),
-    type,
-    data: {
+}): WorkflowNodes => {
+    const baseData = {
         title,
-        command: type === NodeType.CLI ? command : undefined,
         prompt: type === NodeType.LLM ? prompt : undefined,
         content: type === NodeType.PREVIEW || type === NodeType.INPUT ? content : undefined,
         temperature: type === NodeType.LLM ? temperature : undefined,
         fast: type === NodeType.LLM ? fast : undefined,
         maxTokens: type === NodeType.LLM ? maxTokens : undefined,
         active: true,
-    },
-    position,
-})
+    }
+
+    if (type === NodeType.CLI) {
+        return {
+            id: uuidv4(),
+            type,
+            data: {
+                ...baseData,
+                command,
+            },
+            position,
+        } as CLINode
+    }
+
+    return {
+        id: uuidv4(),
+        type,
+        data: baseData,
+        position,
+    }
+}
 
 /* Creates a connection between two nodes.
  *
@@ -122,7 +147,7 @@ export const defaultWorkflow = (() => {
             title: 'Git Diff',
             position: { x: 0, y: 0 },
             command: 'git diff',
-        }),
+        }) as CLINode,
         createNode({
             type: NodeType.LLM,
             title: 'Cody Generate Commit Message',
@@ -134,7 +159,7 @@ export const defaultWorkflow = (() => {
             title: 'Git Commit',
             position: { x: 0, y: 200 },
             command: 'git commit -m "${1}"',
-        }),
+        }) as CLINode,
     ]
 
     return {

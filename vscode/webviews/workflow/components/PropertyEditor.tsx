@@ -5,11 +5,11 @@ import { Input } from '../../components/shadcn/ui/input'
 import { Label } from '../../components/shadcn/ui/label'
 import { Slider } from '../../components/shadcn/ui/slider'
 import { Textarea } from '../../components/shadcn/ui/textarea'
-import { NodeType, type WorkflowNode } from './nodes/Nodes'
+import { type CLINode, NodeType, type WorkflowNodes } from './nodes/Nodes'
 
 interface PropertyEditorProps {
-    node: WorkflowNode
-    onUpdate: (nodeId: string, data: Partial<WorkflowNode['data']>) => void
+    node: WorkflowNodes
+    onUpdate: (nodeId: string, data: Partial<WorkflowNodes['data']>) => void
 }
 
 export const PropertyEditor: React.FC<PropertyEditorProps> = ({ node, onUpdate }) => {
@@ -41,7 +41,7 @@ export const PropertyEditor: React.FC<PropertyEditorProps> = ({ node, onUpdate }
                     <Label htmlFor="node-command">Command</Label>
                     <Input
                         id="node-command"
-                        value={node.data.command || ''}
+                        value={(node as CLINode).data.command}
                         onChange={(e: { target: { value: any } }) =>
                             onUpdate(node.id, { command: e.target.value })
                         }

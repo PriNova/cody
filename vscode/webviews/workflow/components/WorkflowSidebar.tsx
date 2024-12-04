@@ -9,12 +9,12 @@ import {
 import { Button } from '../../components/shadcn/ui/button'
 import { HelpModal } from './HelpModal'
 import { PropertyEditor } from './PropertyEditor'
-import { NodeType, type WorkflowNode } from './nodes/Nodes'
+import { NodeType, type WorkflowNodes } from './nodes/Nodes'
 
 interface WorkflowSidebarProps {
     onNodeAdd: (nodeLabel: string, nodeType: NodeType) => void
-    selectedNode?: WorkflowNode | null
-    onNodeUpdate?: (nodeId: string, data: Partial<WorkflowNode['data']>) => void
+    selectedNode?: WorkflowNodes | null
+    onNodeUpdate?: (nodeId: string, data: Partial<WorkflowNodes['data']>) => void
     onSave?: () => void
     onLoad?: () => void
     onExecute?: () => void

@@ -1,19 +1,23 @@
 import { v4 as uuidv4 } from 'uuid'
 import { expect, test } from 'vitest'
-import type { NodeType, WorkflowNode } from '../../../webviews/workflow/components/nodes/Nodes'
+import {
+    type CLINode,
+    NodeType,
+    type WorkflowNodes,
+} from '../../../webviews/workflow/components/nodes/Nodes'
 import { topologicalSort } from '../workflow-executor'
 
 test('workflow executes correctly with UUID node IDs', () => {
     const id1 = uuidv4()
     const id2 = uuidv4()
 
-    const nodes: WorkflowNode[] = [
+    const nodes: WorkflowNodes[] = [
         {
             id: id1,
-            type: 'cli' as NodeType,
+            type: NodeType.CLI,
             data: { title: 'CLI Node', command: 'echo "hello"' },
             position: { x: 0, y: 0 },
-        },
+        } as CLINode,
         {
             id: id2,
             type: 'preview' as NodeType,
@@ -33,7 +37,7 @@ test('topology sort maintains order with UUID nodes', () => {
     const id2 = uuidv4()
     const id3 = uuidv4()
 
-    const nodes: WorkflowNode[] = [
+    const nodes: WorkflowNodes[] = [
         {
             id: id1,
             type: 'cli' as NodeType,
