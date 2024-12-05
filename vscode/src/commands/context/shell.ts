@@ -1,4 +1,7 @@
-import { type ChildProcess, spawn } from 'node:child_process'
+import { type ChildProcess, exec, spawn } from 'node:child_process'
+import os from 'node:os'
+import path from 'node:path'
+import { promisify } from 'node:util'
 import {
     type ContextItem,
     ContextItemSource,
