@@ -34,11 +34,6 @@ export const AccountTab: React.FC<AccountTabProps> = ({
     isDotComUser,
     userProductSubscription,
 }) => {
-    // We open the native system pop-up for VS Code.
-    if (clientCapabilities.isVSCode) {
-        return null
-    }
-
     if (!authStatus.authenticated || userProductSubscription === undefined) {
         return null
     }
@@ -95,9 +90,10 @@ export const AccountTab: React.FC<AccountTabProps> = ({
         getVSCodeAPI().postMessage({ command: 'command', id: 'cody.status-bar.interacted' })
     )
 
-    const signOutButton = createButton('Sign Out', () =>
+    const signOutButton = createButton('Sign Out', () => {
         getVSCodeAPI().postMessage({ command: 'auth', authKind: 'signout' })
-    )
+        setIsLoading(true)
+    })
 
     const accountPanelView = (
         <div className="tw-overflow-auto tw-flex-1 tw-flex tw-flex-col tw-items-start tw-w-full tw-px-8 tw-py-6 tw-gap-6">
@@ -114,7 +110,7 @@ export const AccountTab: React.FC<AccountTabProps> = ({
                             <p className="tw-text-lg tw-font-semibold">{displayName ?? username}</p>
                             <p className="tw-text-sm tw-text-muted-foreground">{primaryEmail}</p>
                         </div>
-                        {clientCapabilities.accountSwitchingInWebview === 'enabled' && accountSwitcher}
+                        {accountSwitcher}
                     </div>
                 </div>
                 <div className="tw-grid tw-grid-cols-5 tw-gap-4">

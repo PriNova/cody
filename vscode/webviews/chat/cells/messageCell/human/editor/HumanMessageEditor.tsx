@@ -332,6 +332,9 @@ export const HumanMessageEditor: FunctionComponent<{
 
     // Set up the message listener so the extension can control the input field.
     useClientActionListener(
+        // Add new context to chat from the "Cody Add Selection to Cody Chat"
+        // command, etc. Only add to the last human input field.
+        { isActive: !isSent },
         useCallback<ClientActionListener>(
             ({
                 editorState,
@@ -341,12 +344,6 @@ export const HumanMessageEditor: FunctionComponent<{
                 setLastHumanInputIntent,
                 setPromptAsInput,
             }) => {
-                // Add new context to chat from the "Cody Add Selection to Cody Chat"
-                // command, etc. Only add to the last human input field.
-                if (isSent) {
-                    return
-                }
-
                 const updates: Promise<unknown>[] = []
 
                 if (addContextItemsToLastHumanInput && addContextItemsToLastHumanInput.length > 0) {
@@ -432,13 +429,7 @@ export const HumanMessageEditor: FunctionComponent<{
                     )
                 }
             },
-            [
-                isSent,
-                onSubmitClick,
-                submitIntent,
-                extensionAPI.hydratePromptMessage,
-                extensionAPI.defaultContext,
-            ]
+            [onSubmitClick, submitIntent, extensionAPI.hydratePromptMessage, extensionAPI.defaultContext]
         )
     )
 

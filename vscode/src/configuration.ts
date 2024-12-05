@@ -11,6 +11,7 @@ import {
 } from '@sourcegraph/cody-shared'
 
 import type { ChatModelProviderConfig } from '@sourcegraph/cody-shared/src/models/sync'
+import { DefaultShellContextConfig } from './commands/context/config'
 import { CONFIG_KEY, type ConfigKeys } from './configuration-keys'
 import { localStorage } from './services/LocalStorageProvider'
 
@@ -91,6 +92,12 @@ export function getConfiguration(
         codeActions: config.get(CONFIG_KEY.codeActionsEnabled, true),
         commandHints: config.get(CONFIG_KEY.commandHintsEnabled, false),
         chatTemperature: config.get<number>(CONFIG_KEY.chatTemperature, 0.2),
+
+        /**
+         * Instance must have feature flag enabled to use this feature.
+         * Allows AI Agent to run shell commands automatically.
+         */
+        agenticContext: config.get(CONFIG_KEY.agenticContext, { shell: DefaultShellContextConfig }),
 
         /**
          * Hidden settings for internal use only.
