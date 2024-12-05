@@ -38,7 +38,7 @@ interface IndexedExecutionContext extends ExecutionContext {
     edgeIndex: IndexedEdges
 }
 
-function createEdgeIndex(edges: Edge[]): IndexedEdges {
+export function createEdgeIndex(edges: Edge[]): IndexedEdges {
     const bySource = new Map<string, Edge[]>()
     const byTarget = new Map<string, Edge[]>()
     const byId = new Map<string, Edge>()
@@ -114,6 +114,11 @@ async function executeCLINode(
 ): Promise<string> {
     if (!vscode.env.shell || !vscode.workspace.isTrusted) {
         throw new Error('Shell command is not supported in your current workspace.')
+    }
+
+    // Add validation for empty commands
+    if (!node.data.command?.trim()) {
+        throw new Error('CLI Node requires a non-empty command')
     }
 
     const homeDir = os.homedir() || process.env.HOME || process.env.USERPROFILE || ''
@@ -284,7 +289,7 @@ async function executeSearchContextNode(
  * @param parentOutputs - The array of parent output values to substitute into the template.
  * @returns The template string with the indexed placeholders replaced.
  */
-function replaceIndexedInputs(template: string, parentOutputs: string[]): string {
+export function replaceIndexedInputs(template: string, parentOutputs: string[]): string {
     return template.replace(/\${(\d+)}/g, (_match, index) => {
         const adjustedIndex = Number.parseInt(index, 10) - 1
         return adjustedIndex >= 0 && adjustedIndex < parentOutputs.length
@@ -302,11 +307,9 @@ function replaceIndexedInputs(template: string, parentOutputs: string[]): string
  * @param nodeType - The type of the current node (e.g. 'cli' or 'llm').
  * @returns An array of the combined parent outputs, with optional sanitization.
  */
-function combineParentOutputsByConnectionOrder(
+export function combineParentOutputsByConnectionOrder(
     nodeId: string,
-    edges: Edge[],
-    context: IndexedExecutionContext,
-    nodeType: string
+    context: IndexedExecutionContext
 ): string[] {
     const parentEdges = context.edgeIndex.byTarget.get(nodeId) || []
     return parentEdges
@@ -415,9 +418,8 @@ export async function executeWorkflow(
             case NodeType.LLM: {
                 const inputs = combineParentOutputsByConnectionOrder(
                     node.id,
-                    edges,
-                    context,
-                    node.type
+
+                    context
                 ).map(input => sanitizeForPrompt(input))
                 const prompt = node.data.prompt ? replaceIndexedInputs(node.data.prompt, inputs) : ''
                 result = await executeLLMNode(
@@ -463,9 +465,9 @@ export async function executeWorkflow(
     } as WorkflowFromExtension)
 }
 
-function sanitizeForShell(input: string): string {
-    // Escape special characters but preserve actual newlines
-    return input.replace(/(["\\'$`])/g, '\\$1') //.replace(/\r\n/g, '\n') // Normalize CRLF to LF
+export function sanitizeForShell(input: string): string {
+    // Only escape backslashes and ${} template syntax
+    return input.replace(/\\/g, '\\\\').replace(/\${/g, '\\${')
 }
 
 function sanitizeForPrompt(input: string): string {

@@ -15,13 +15,13 @@ import type { ConfigurationSubsetForWebview, LocalEnv } from '../src/chat/protoc
 import styles from './App.module.css'
 import { Chat } from './Chat'
 import { useClientActionDispatcher } from './client/clientState'
-import { ConnectivityStatusBanner } from './components/ConnectivityStatusBanner'
 import { Notices } from './components/Notices'
 import { StateDebugOverlay } from './components/StateDebugOverlay'
 import { TabContainer, TabRoot } from './components/shadcn/ui/tabs'
 import { AccountTab, HistoryTab, PromptsTab, SettingsTab, TabsBar, View } from './tabs'
 import ToolboxTab from './tabs/ToolboxTab'
 import type { VSCodeWrapper } from './utils/VSCodeApi'
+import { useUserAccountInfo } from './utils/useConfig'
 import { useFeatureFlag } from './utils/useFeatureFlags'
 import { TabViewContext } from './utils/useTabView'
 interface CodyPanelProps {
@@ -70,10 +70,12 @@ export const CodyPanel: FunctionComponent<CodyPanelProps> = ({
 }) => {
     const tabContainerRef = useRef<HTMLDivElement>(null)
 
+    const user = useUserAccountInfo()
     const externalAPI = useExternalAPI()
     const api = useExtensionAPI()
     const { value: chatModels } = useObservable(useMemo(() => api.chatModels(), [api.chatModels]))
     const isPromptsV2Enabled = useFeatureFlag(FeatureFlag.CodyPromptsV2)
+    const isTeamsUpgradeCtaEnabled = useFeatureFlag(FeatureFlag.SourcegraphTeamsUpgradeCTA)
 
     useEffect(() => {
         onExternalApiReady?.(externalAPI)
@@ -103,16 +105,12 @@ export const CodyPanel: FunctionComponent<CodyPanelProps> = ({
                 orientation="vertical"
                 className={styles.outerContainer}
             >
-                {!authStatus.authenticated && authStatus.showNetworkError && (
-                    <ConnectivityStatusBanner />
-                )}
-
+                <Notices user={user} isTeamsUpgradeCtaEnabled={isTeamsUpgradeCtaEnabled} />
                 {/* Hide tab bar in editor chat panels. */}
                 {(clientCapabilities.agentIDE === CodyIDE.Web || config.webviewType !== 'editor') && (
                     <TabsBar currentView={view} setView={setView} IDE={clientCapabilities.agentIDE} />
                 )}
                 {errorMessages && <ErrorBanner errors={errorMessages} setErrors={setErrorMessages} />}
-                <Notices />
                 <TabContainer value={view} ref={tabContainerRef}>
                     {view === View.Chat && (
                         <Chat
