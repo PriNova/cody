@@ -29,13 +29,9 @@ interface BaseNodeProps {
 
 type BaseNodeData = {
     title: string
-    prompt?: string
     input?: string
     output?: string
-    content?: string
-    temperature?: number
-    fast?: boolean
-    maxTokens?: number
+    content: string
     active?: boolean
     tokenCount?: number
 }
@@ -52,12 +48,29 @@ export type WorkflowNode = {
 
 export type CLINode = Omit<WorkflowNode, 'data'> & {
     type: NodeType.CLI
+    data: BaseNodeData
+}
+
+export type LLMNode = Omit<WorkflowNode, 'data'> & {
+    type: NodeType.LLM
     data: BaseNodeData & {
-        command: string
+        temperature: number
+        fast?: boolean
+        maxTokens?: number
     }
 }
 
-export type WorkflowNodes = CLINode | WorkflowNode
+export type PreviewNode = Omit<WorkflowNode, 'data'> & {
+    type: NodeType.PREVIEW
+    data: BaseNodeData
+}
+
+export type InputNode = Omit<WorkflowNode, 'data'> & {
+    type: NodeType.INPUT
+    data: BaseNodeData
+}
+
+export type WorkflowNodes = WorkflowNode | CLINode | LLMNode | PreviewNode | InputNode
 
 /**
  * Creates a new workflow node with the specified type, label, and position.
@@ -67,54 +80,39 @@ export type WorkflowNodes = CLINode | WorkflowNode
  * @param {{ x: number; y: number }} position - The position of the node.
  * @returns {WorkflowNode} - The new workflow node.
  */
-export const createNode = ({
-    type,
-    title,
-    position,
-    prompt = '',
-    content = '',
-    command = '',
-    temperature = 0.0,
-    fast = true,
-    maxTokens = 1000,
-}: {
-    type: NodeType
-    title: string
-    position: { x: number; y: number }
-    command?: string
-    prompt?: string
-    content?: string
-    temperature?: number
-    fast?: boolean
-    maxTokens?: number
-}): WorkflowNodes => {
-    const baseData = {
-        title,
-        prompt: type === NodeType.LLM ? prompt : undefined,
-        content: type === NodeType.PREVIEW || type === NodeType.INPUT ? content : undefined,
-        temperature: type === NodeType.LLM ? temperature : undefined,
-        fast: type === NodeType.LLM ? fast : undefined,
-        maxTokens: type === NodeType.LLM ? maxTokens : undefined,
-        active: true,
-    }
+export const createNode = (node: Omit<WorkflowNodes, 'id'>): WorkflowNodes => {
+    const id = uuidv4()
 
-    if (type === NodeType.CLI) {
-        return {
-            id: uuidv4(),
-            type,
-            data: {
-                ...baseData,
-                command,
-            },
-            position,
-        } as CLINode
-    }
+    switch (node.type) {
+        case NodeType.CLI:
+            return {
+                ...node,
+                id,
+            } as CLINode
 
-    return {
-        id: uuidv4(),
-        type,
-        data: baseData,
-        position,
+        case NodeType.LLM:
+            return {
+                ...node,
+                id,
+            } as LLMNode
+
+        case NodeType.PREVIEW:
+            return {
+                ...node,
+                id,
+            } as PreviewNode
+
+        case NodeType.INPUT:
+            return {
+                ...node,
+                id,
+            } as InputNode
+
+        default:
+            return {
+                ...node,
+                id,
+            }
     }
 }
 
@@ -144,21 +142,24 @@ export const defaultWorkflow = (() => {
     const nodes = [
         createNode({
             type: NodeType.CLI,
-            title: 'Git Diff',
+            data: { title: 'Git Diff', content: 'git diff' },
             position: { x: 0, y: 0 },
-            command: 'git diff',
         }) as CLINode,
         createNode({
             type: NodeType.LLM,
-            title: 'Cody Generate Commit Message',
+            data: {
+                title: 'Cody Generate Commit Message',
+                content: 'Generate a commit message for the following git diff: ${1}',
+                temperature: 0.0,
+                fast: true,
+                maxTokens: 1000,
+            },
             position: { x: 0, y: 100 },
-            prompt: 'Generate a commit message for the following git diff: ${1}',
-        }),
+        }) as LLMNode,
         createNode({
             type: NodeType.CLI,
-            title: 'Git Commit',
+            data: { title: 'Git Commit', content: 'git commit -m "${1}"' },
             position: { x: 0, y: 200 },
-            command: 'git commit -m "${1}"',
         }) as CLINode,
     ]
 
@@ -167,7 +168,6 @@ export const defaultWorkflow = (() => {
         edges: [createEdge(nodes[0], nodes[1]), createEdge(nodes[1], nodes[2])],
     }
 })()
-
 const getBorderColor = (
     type: NodeType,
     {

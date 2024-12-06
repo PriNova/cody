@@ -49,7 +49,7 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
                                     </AccordionTrigger>
                                     <AccordionContent>
                                         {nodeResults.has(node.id) && (
-                                            <div className="tw-mt-1 tw-p-2 tw-rounded tw-text-sm tw-bg-[var(--vscode-input-background)] tw-text-[var(--vscode-input-foreground)] tw-font-mono">
+                                            <div className="tw-mt-1 tw-p-2 tw-rounded tw-text-[14px] tw-bg-[var(--vscode-input-background)] tw-font-mono">
                                                 <Textarea
                                                     id="node-input"
                                                     value={nodeResults.get(node.id) || ''}

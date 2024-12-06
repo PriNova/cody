@@ -15,6 +15,7 @@ import type { Edge } from '../../webviews/workflow/components/CustomOrderedEdge'
 import { getInactiveNodes } from '../../webviews/workflow/components/Flow'
 import {
     type CLINode,
+    type LLMNode,
     NodeType,
     type WorkflowNodes,
 } from '../../webviews/workflow/components/nodes/Nodes'
@@ -33,7 +34,7 @@ interface ExecutionContext {
     nodeOutputs: Map<string, string>
 }
 
-interface IndexedExecutionContext extends ExecutionContext {
+export interface IndexedExecutionContext extends ExecutionContext {
     nodeIndex: Map<string, WorkflowNodes>
     edgeIndex: IndexedEdges
 }
@@ -107,7 +108,7 @@ export function topologicalSort(nodes: WorkflowNodes[], edges: Edge[]): Workflow
  * @returns The output of the shell command.
  * @throws {Error} If the shell is not available, the workspace is not trusted, or the command fails to execute.
  */
-async function executeCLINode(
+export async function executeCLINode(
     node: WorkflowNodes,
     abortSignal: AbortSignal,
     persistentShell: PersistentShell
@@ -115,16 +116,15 @@ async function executeCLINode(
     if (!vscode.env.shell || !vscode.workspace.isTrusted) {
         throw new Error('Shell command is not supported in your current workspace.')
     }
-
     // Add validation for empty commands
-    if (!node.data.command?.trim()) {
+    if (!node.data.content?.trim()) {
         throw new Error('CLI Node requires a non-empty command')
     }
 
     const homeDir = os.homedir() || process.env.HOME || process.env.USERPROFILE || ''
 
     const filteredCommand =
-        (node as CLINode).data.command?.replaceAll(/(\s~\/)/g, ` ${homeDir}${path.sep}`) || ''
+        (node as CLINode).data.content?.replaceAll(/(\s~\/)/g, ` ${homeDir}${path.sep}`) || ''
 
     if (commandsNotAllowed.some(cmd => filteredCommand.startsWith(cmd))) {
         void vscode.window.showErrorMessage('Cody cannot execute this command')
@@ -132,7 +132,8 @@ async function executeCLINode(
     }
 
     try {
-        return await persistentShell.execute(filteredCommand, abortSignal)
+        const result = await persistentShell.execute(filteredCommand, abortSignal)
+        return result
     } catch (error: unknown) {
         persistentShell.dispose()
         const errorMessage = error instanceof Error ? error.message : String(error)
@@ -153,7 +154,7 @@ async function executeLLMNode(
     chatClient: ChatClient,
     abortSignal?: AbortSignal
 ): Promise<string> {
-    if (!node.data.prompt) {
+    if (!node.data.content) {
         throw new Error(`No prompt specified for LLM node ${node.id} with ${node.data.title}`)
     }
 
@@ -171,7 +172,7 @@ async function executeLLMNode(
             ...preamble,
             {
                 speaker: 'human',
-                text: PromptString.unsafe_fromUserQuery(node.data.prompt),
+                text: PromptString.unsafe_fromUserQuery(node.data.content),
             },
         ]
 
@@ -182,10 +183,10 @@ async function executeLLMNode(
                     messages,
                     {
                         stream: false,
-                        maxTokensToSample: node.data.maxTokens ?? 1000,
-                        fast: node.data.fast ?? true,
+                        maxTokensToSample: (node as LLMNode).data.maxTokens ?? 1000,
+                        fast: (node as LLMNode).data.fast ?? true,
                         model: 'anthropic::2024-10-22::claude-3-5-sonnet-latest',
-                        temperature: node.data.temperature ?? 0,
+                        temperature: (node as LLMNode).data.temperature ?? 0,
                     },
                     abortSignal
                 )
@@ -383,15 +384,14 @@ export async function executeWorkflow(
                 try {
                     const inputs = combineParentOutputsByConnectionOrder(
                         node.id,
-                        edges,
-                        context,
-                        node.type
+
+                        context
                     ).map(output => sanitizeForShell(output))
-                    const command = (node as CLINode).data.command
-                        ? replaceIndexedInputs((node as CLINode).data.command, inputs)
+                    const command = (node as CLINode).data.content
+                        ? replaceIndexedInputs((node as CLINode).data.content, inputs)
                         : ''
                     result = await executeCLINode(
-                        { ...(node as CLINode), data: { ...(node as CLINode).data, command } },
+                        { ...(node as CLINode), data: { ...(node as CLINode).data, content: command } },
                         abortController,
                         persistentShell
                     )
@@ -421,29 +421,29 @@ export async function executeWorkflow(
 
                     context
                 ).map(input => sanitizeForPrompt(input))
-                const prompt = node.data.prompt ? replaceIndexedInputs(node.data.prompt, inputs) : ''
+                const prompt = node.data.content ? replaceIndexedInputs(node.data.content, inputs) : ''
                 result = await executeLLMNode(
-                    { ...node, data: { ...node.data, prompt } },
+                    { ...node, data: { ...node.data, content: prompt } },
                     chatClient,
                     abortController
                 )
                 break
             }
             case NodeType.PREVIEW: {
-                const inputs = combineParentOutputsByConnectionOrder(node.id, edges, context, node.type)
+                const inputs = combineParentOutputsByConnectionOrder(node.id, context)
                 result = await executePreviewNode(inputs.join('\n'), node.id, webview)
                 break
             }
 
             case NodeType.INPUT: {
-                const inputs = combineParentOutputsByConnectionOrder(node.id, edges, context, node.type)
+                const inputs = combineParentOutputsByConnectionOrder(node.id, context)
                 const text = node.data.content ? replaceIndexedInputs(node.data.content, inputs) : ''
                 result = await executeInputNode(text)
                 break
             }
 
             case NodeType.SEARCH_CONTEXT: {
-                const inputs = combineParentOutputsByConnectionOrder(node.id, edges, context, node.type)
+                const inputs = combineParentOutputsByConnectionOrder(node.id, context)
                 result = await executeSearchContextNode(inputs.join('\n'), contextRetriever)
                 break
             }

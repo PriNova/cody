@@ -5,7 +5,7 @@ import { Input } from '../../components/shadcn/ui/input'
 import { Label } from '../../components/shadcn/ui/label'
 import { Slider } from '../../components/shadcn/ui/slider'
 import { Textarea } from '../../components/shadcn/ui/textarea'
-import { type CLINode, NodeType, type WorkflowNodes } from './nodes/Nodes'
+import { type LLMNode, NodeType, type WorkflowNodes } from './nodes/Nodes'
 
 interface PropertyEditorProps {
     node: WorkflowNodes
@@ -41,9 +41,9 @@ export const PropertyEditor: React.FC<PropertyEditorProps> = ({ node, onUpdate }
                     <Label htmlFor="node-command">Command</Label>
                     <Input
                         id="node-command"
-                        value={(node as CLINode).data.command}
+                        value={node.data.content}
                         onChange={(e: { target: { value: any } }) =>
-                            onUpdate(node.id, { command: e.target.value })
+                            onUpdate(node.id, { content: e.target.value })
                         }
                         placeholder="Enter CLI command... (use ${1}, ${2} and so on for positional inputs)"
                     />
@@ -55,9 +55,9 @@ export const PropertyEditor: React.FC<PropertyEditorProps> = ({ node, onUpdate }
                         <Label htmlFor="node-prompt">Prompt</Label>
                         <Textarea
                             id="node-prompt"
-                            value={node.data.prompt || ''}
+                            value={node.data.content || ''}
                             onChange={(e: { target: { value: any } }) =>
-                                onUpdate(node.id, { prompt: e.target.value })
+                                onUpdate(node.id, { content: e.target.value })
                             }
                             placeholder="Enter LLM prompt... (use ${1}, ${2} and so on for positional inputs)"
                         />
@@ -70,18 +70,18 @@ export const PropertyEditor: React.FC<PropertyEditorProps> = ({ node, onUpdate }
                             min={0}
                             max={1}
                             step={0.05}
-                            value={[node.data.temperature || 0]}
+                            value={[(node as LLMNode).data.temperature || 0]}
                             onValueChange={([value]) => onUpdate(node.id, { temperature: value })}
                         />
                         <span className="tw-text-sm tw-text-muted-foreground">
-                            {node.data.temperature || 0}
+                            {(node as LLMNode).data.temperature || 0}
                         </span>
                     </div>
 
                     <div className="tw-flex tw-items-center tw-space-x-2">
                         <Checkbox
                             id="node-fast"
-                            checked={node.data.fast || false}
+                            checked={(node as LLMNode).data.fast || false}
                             onCheckedChange={checked => onUpdate(node.id, { fast: checked === true })}
                         />
                         <Label htmlFor="node-fast">Fast Mode</Label>
@@ -94,11 +94,11 @@ export const PropertyEditor: React.FC<PropertyEditorProps> = ({ node, onUpdate }
                             min={250}
                             max={4000}
                             step={250}
-                            value={[node.data.maxTokens || 250]}
+                            value={[(node as LLMNode).data.maxTokens || 250]}
                             onValueChange={([value]) => onUpdate(node.id, { maxTokens: value })}
                         />
                         <span className="tw-text-sm tw-text-muted-foreground">
-                            {node.data.maxTokens || 250}
+                            {(node as LLMNode).data.maxTokens || 250}
                         </span>
                     </div>
                 </>

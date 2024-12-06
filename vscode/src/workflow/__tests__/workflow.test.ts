@@ -112,13 +112,13 @@ describe('Topology Ordering', () => {
             {
                 id: id1,
                 type: 'cli' as NodeType,
-                data: { title: 'CLI Node', command: 'echo "hello"' },
+                data: { title: 'CLI Node', content: 'echo "hello"' },
                 position: { x: 0, y: 0 },
             },
             {
                 id: id2,
                 type: 'preview' as NodeType,
-                data: { title: 'Preview Node' },
+                data: { title: 'Preview Node', content: '' },
                 position: { x: 0, y: 0 },
             },
         ]
@@ -138,19 +138,19 @@ describe('Topology Ordering', () => {
             {
                 id: id1,
                 type: 'cli' as NodeType,
-                data: { title: 'First CLI' },
+                data: { title: 'First CLI', content: 'echo "hello"' },
                 position: { x: 0, y: 0 },
             },
             {
                 id: id2,
                 type: 'llm' as NodeType,
-                data: { title: 'LLM Node' },
+                data: { title: 'LLM Node', content: 'echo "hello"' },
                 position: { x: 0, y: 0 },
             },
             {
                 id: id3,
                 type: 'preview' as NodeType,
-                data: { title: 'Preview' },
+                data: { title: 'Preview', content: '' },
                 position: { x: 0, y: 0 },
             },
         ]
@@ -345,23 +345,30 @@ describe('executeCLINode', () => {
     })
 
     // Safe command test cases
-    it('executes echo command successfully', async () => {
-        const node = createNode({
-            type: NodeType.CLI,
-            title: 'Echo Test',
-            command: 'echo "hello world"',
-            position: { x: 0, y: 0 },
-        })
-
-        const result = await executeCLINode(node, abortController.signal, shell)
-        expect(result.trim()).toBe('hello world')
-    })
+    it(
+        'executes echo command successfully',
+        async () => {
+            const node = createNode({
+                type: NodeType.CLI,
+                data: {
+                    title: 'Echo Test',
+                    content: 'echo "hello world"',
+                },
+                position: { x: 0, y: 0 },
+            })
+            const result = await executeCLINode(node, abortController.signal, shell)
+            expect(result.trim()).toBe('hello world')
+        },
+        { timeout: 10000 }
+    )
 
     it('handles pwd command with home directory expansion', async () => {
         const node = createNode({
             type: NodeType.CLI,
-            title: 'PWD Test',
-            command: 'pwd',
+            data: {
+                title: 'PWD Test',
+                content: 'pwd',
+            },
             position: { x: 0, y: 0 },
         })
 
@@ -375,8 +382,10 @@ describe('executeCLINode', () => {
         const homeDir = os.homedir()
         const node = createNode({
             type: NodeType.CLI,
-            title: 'Home Dir Test',
-            command: 'echo ~/test',
+            data: {
+                title: 'Home Dir Test',
+                content: 'echo ~/test',
+            },
             position: { x: 0, y: 0 },
         })
 
@@ -388,8 +397,10 @@ describe('executeCLINode', () => {
     it('rejects forbidden commands', async () => {
         const node = createNode({
             type: NodeType.CLI,
-            title: 'Forbidden Command',
-            command: 'rm -rf /',
+            data: {
+                title: 'Forbidden Command',
+                content: 'rm -rf /',
+            },
             position: { x: 0, y: 0 },
         })
 
@@ -402,8 +413,10 @@ describe('executeCLINode', () => {
     it('handles abort signal', async () => {
         const node = createNode({
             type: NodeType.CLI,
-            title: 'Long Running Command',
-            command: 'sleep 5',
+            data: {
+                title: 'Long Running Command',
+                content: 'sleep 5',
+            },
             position: { x: 0, y: 0 },
         })
 
@@ -419,11 +432,12 @@ describe('executeCLINode', () => {
         async () => {
             const node = createNode({
                 type: NodeType.CLI,
-                title: 'Invalid Command',
-                command: 'invalidcommand123',
+                data: {
+                    title: 'Invalid Command',
+                    content: 'invalidcommand123',
+                },
                 position: { x: 0, y: 0 },
             })
-
             await expect(executeCLINode(node, abortController.signal, shell)).rejects.toThrow()
         },
         { timeout: 5000 }
@@ -433,8 +447,10 @@ describe('executeCLINode', () => {
     it('handles empty command', async () => {
         const node = createNode({
             type: NodeType.CLI,
-            title: 'Empty Command',
-            command: '',
+            data: {
+                title: 'Empty Command',
+                content: '',
+            },
             position: { x: 0, y: 0 },
         })
 
@@ -450,11 +466,12 @@ describe('executeCLINode', () => {
             for (const command of commands) {
                 const node = createNode({
                     type: NodeType.CLI,
-                    title: 'Sequential Test',
-                    command,
+                    data: {
+                        title: 'Sequential Test',
+                        content: command,
+                    },
                     position: { x: 0, y: 0 },
                 })
-
                 const result = await executeCLINode(node, abortController.signal, shell)
                 expect(result).toBeTruthy()
             }
@@ -471,11 +488,12 @@ describe('executeCLINode', () => {
             for (const command of commands) {
                 const node = createNode({
                     type: NodeType.CLI,
-                    title: 'Sequential Test',
-                    command,
+                    data: {
+                        title: 'Sequential Test',
+                        content: command,
+                    },
                     position: { x: 0, y: 0 },
                 })
-
                 const result = await executeCLINode(node, abortController.signal, shell)
                 expect(result).toBeTruthy()
             }
@@ -509,25 +527,34 @@ describe('Workflow Executor Integration Tests', () => {
             const nodes: WorkflowNode[] = [
                 createNode({
                     type: NodeType.CLI,
-                    title: 'List Files',
+                    data: {
+                        title: 'List Files',
+                        content: 'ls -la',
+                    },
                     position: { x: 0, y: 0 },
-                    command: 'ls -la',
                 }),
                 createNode({
                     type: NodeType.INPUT,
-                    title: 'Search Pattern',
+                    data: {
+                        title: 'Search Pattern',
+                        content: '*.ts',
+                    },
                     position: { x: 100, y: 0 },
-                    content: '*.ts',
                 }),
                 createNode({
                     type: NodeType.CLI,
-                    title: 'Find Files',
+                    data: {
+                        title: 'Find Files',
+                        content: 'find . -maxdepth 2 -name "${1}"',
+                    },
                     position: { x: 200, y: 0 },
-                    command: 'find . -name "${1}"',
                 }),
                 createNode({
                     type: NodeType.PREVIEW,
-                    title: 'Results',
+                    data: {
+                        title: 'Results',
+                        content: '${2}',
+                    },
                     position: { x: 300, y: 0 },
                 }),
             ]
@@ -585,19 +612,26 @@ describe('Workflow Executor Integration Tests', () => {
         const nodes: WorkflowNode[] = [
             createNode({
                 type: NodeType.INPUT,
-                title: 'Complex Input',
+                data: {
+                    title: 'Branch Name',
+                    content: 'branch/with${special}chars\\and spaces',
+                },
                 position: { x: 0, y: 0 },
-                content: 'branch/with${special}chars\\and spaces',
             }),
             createNode({
                 type: NodeType.CLI,
-                title: 'Echo Command',
+                data: {
+                    title: 'Echio Command',
+                    content: 'echo "${1}"',
+                },
                 position: { x: 100, y: 0 },
-                command: 'echo "${1}"',
             }),
             createNode({
                 type: NodeType.PREVIEW,
-                title: 'Output',
+                data: {
+                    title: 'Preview',
+                    content: '${2}',
+                },
                 position: { x: 200, y: 0 },
             }),
         ]
@@ -623,31 +657,42 @@ describe('Workflow Executor Integration Tests', () => {
         const nodes: WorkflowNode[] = [
             createNode({
                 type: NodeType.INPUT,
-                title: 'Template Input',
+                data: {
+                    title: 'Template Input',
+                    content: 'function sayHello() { return "Hello \'World\'!" }',
+                },
                 position: { x: 0, y: 0 },
-                content: 'function sayHello() { return "Hello \'World\'!" }',
             }),
             createNode({
                 type: NodeType.CLI,
-                title: 'Echo Complex String',
+                data: {
+                    title: 'Echo Complex String',
+                    content: 'echo "${1}" > output.txt && cat output.txt',
+                },
                 position: { x: 100, y: 0 },
-                command: 'echo "${1}" > output.txt && cat output.txt',
             }),
             createNode({
                 type: NodeType.INPUT,
-                title: 'Additional Parameters',
+                data: {
+                    title: 'Additional Parameters',
+                    content: '--flag="custom value" \'single quoted value\'',
+                },
                 position: { x: 100, y: 100 },
-                content: '--flag="custom value" \'single quoted value\'',
             }),
             createNode({
                 type: NodeType.CLI,
-                title: 'Combined Echo',
+                data: {
+                    title: 'Combined Echo',
+                    content: 'echo ${1} ${2}',
+                },
                 position: { x: 200, y: 50 },
-                command: 'echo ${1} ${2}',
             }),
             createNode({
                 type: NodeType.PREVIEW,
-                title: 'Final Output',
+                data: {
+                    title: 'Final Output',
+                    content: '${3}',
+                },
                 position: { x: 300, y: 50 },
             }),
         ]

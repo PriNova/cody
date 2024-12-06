@@ -22,7 +22,7 @@ import { HelpModal } from './HelpModal'
 import { RightSidebar } from './RightSidebar'
 import { WorkflowSidebar } from './WorkflowSidebar'
 import {
-    type CLINode,
+    type LLMNode,
     NodeType,
     type WorkflowNodes,
     createNode,
@@ -35,11 +35,13 @@ interface IndexedNodes {
     allIds: string[]
 }
 
+const WOKRFLOW_VERSION = '1.1.0'
+
 export const Flow: React.FC<{
     vscodeAPI: GenericVSCodeWrapper<WorkflowToExtension, WorkflowFromExtension>
 }> = ({ vscodeAPI }) => {
     // Node-related state
-    const [nodes, setNodes] = useState(defaultWorkflow.nodes)
+    const [nodes, setNodes] = useState<WorkflowNodes[]>(defaultWorkflow.nodes)
     const [selectedNode, setSelectedNode] = useState<WorkflowNodes | null>(null)
     const [nodeResults, setNodeResults] = useState<Map<string, string>>(new Map())
 
@@ -82,7 +84,7 @@ export const Flow: React.FC<{
         const onExecute = useCallback(() => {
             const invalidNodes = nodes.filter(node => {
                 if (node.type === NodeType.LLM) {
-                    return !node.data.prompt || node.data.prompt.trim() === ''
+                    return !node.data.content || node.data.content.trim() === ''
                 }
                 return false
             })
@@ -217,7 +219,13 @@ export const Flow: React.FC<{
                     if (!sourceNode) return
                     const newNode = createNode({
                         type: sourceNode.type,
-                        title: sourceNode.data.title,
+                        data: {
+                            ...sourceNode.data,
+                            title: sourceNode.data.title,
+                            content: sourceNode.data.content,
+                            active: sourceNode.data.active,
+                        },
+
                         position: {
                             x: sourceNode.position.x,
                             y: sourceNode.position.y,
@@ -226,14 +234,21 @@ export const Flow: React.FC<{
 
                     // Copy node-specific data
                     switch (sourceNode.type) {
+                        case NodeType.LLM: {
+                            const llmSource = sourceNode as LLMNode
+                            node.data = {
+                                ...newNode.data,
+                                temperature: llmSource.data.temperature,
+                                fast: llmSource.data.fast,
+                                maxTokens: llmSource.data.maxTokens,
+                            }
+                            break
+                        }
+
                         case NodeType.CLI:
-                            ;(newNode as CLINode).data.command = (sourceNode as CLINode).data.command
-                            break
-                        case NodeType.LLM:
-                            newNode.data.prompt = sourceNode.data.prompt
-                            break
                         case NodeType.PREVIEW:
                         case NodeType.INPUT:
+                        case NodeType.SEARCH_CONTEXT:
                             newNode.data.content = sourceNode.data.content
                             break
                     }
@@ -256,14 +271,31 @@ export const Flow: React.FC<{
                     y: flowBounds ? flowBounds.y + flowBounds.height / 2 : 0,
                 })
 
+                // Create new node with type-specific defaults
                 const newNode = createNode({
                     type: nodeType,
-                    title: nodeLabel,
+                    data: {
+                        title: nodeLabel,
+                        content: '',
+                        active: true,
+                    },
                     position: centerPosition,
-                })
+                }) as WorkflowNodes
 
-                if ([NodeType.PREVIEW, NodeType.INPUT].includes(nodeType)) {
-                    newNode.data.content = ''
+                // Set type-specific defaults
+                switch (nodeType) {
+                    case NodeType.LLM:
+                        newNode.data = {
+                            ...newNode.data,
+                            temperature: 0.0,
+                            fast: true,
+                            maxTokens: 1000,
+                        }
+                        break
+                    case NodeType.PREVIEW:
+                    case NodeType.INPUT:
+                        newNode.data.content = ''
+                        break
                 }
 
                 setNodes(nodes => [...nodes, newNode])
@@ -730,7 +762,7 @@ export const Flow: React.FC<{
             const workflowData = {
                 nodes,
                 edges,
-                version: '1.0.0',
+                version: WOKRFLOW_VERSION,
             }
             vscodeAPI.postMessage({
                 type: 'save_workflow',
