@@ -35,8 +35,6 @@ interface IndexedNodes {
     allIds: string[]
 }
 
-const WOKRFLOW_VERSION = '1.1.0'
-
 export const Flow: React.FC<{
     vscodeAPI: GenericVSCodeWrapper<WorkflowToExtension, WorkflowFromExtension>
 }> = ({ vscodeAPI }) => {
@@ -762,7 +760,6 @@ export const Flow: React.FC<{
             const workflowData = {
                 nodes,
                 edges,
-                version: WOKRFLOW_VERSION,
             }
             vscodeAPI.postMessage({
                 type: 'save_workflow',

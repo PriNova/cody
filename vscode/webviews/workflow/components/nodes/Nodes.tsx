@@ -70,7 +70,18 @@ export type InputNode = Omit<WorkflowNode, 'data'> & {
     data: BaseNodeData
 }
 
-export type WorkflowNodes = WorkflowNode | CLINode | LLMNode | PreviewNode | InputNode
+export type SearchContextNode = Omit<WorkflowNode, 'data'> & {
+    type: NodeType.SEARCH_CONTEXT
+    data: BaseNodeData
+}
+
+export type WorkflowNodes =
+    | WorkflowNode
+    | CLINode
+    | LLMNode
+    | PreviewNode
+    | InputNode
+    | SearchContextNode
 
 /**
  * Creates a new workflow node with the specified type, label, and position.
@@ -315,6 +326,16 @@ export const SearchContextNode: React.FC<BaseNodeProps> = ({ data, selected }) =
         <Handle type="target" position={Position.Top} />
         <div className="tw-flex tw-flex-col tw-gap-2">
             <span>{data.title}</span>
+            <Textarea
+                className="tw-w-full tw-h-24 tw-p-2 tw-rounded nodrag tw-resize tw-border-2 tw-border-solid tw-border-[var(--xy-node-border-default)]"
+                style={{
+                    color: 'var(--vscode-editor-foreground)',
+                    backgroundColor: 'var(--vscode-input-background)',
+                    outline: 'none',
+                }}
+                value={data.content || ''}
+                placeholder="Enter your input text here..."
+            />
         </div>
         <Handle type="source" position={Position.Bottom} />
     </div>

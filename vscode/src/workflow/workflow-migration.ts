@@ -1,4 +1,5 @@
 import { NodeType } from '../../webviews/workflow/components/nodes/Nodes'
+import { WORKFLOW_VERSION } from './workflow-io'
 
 interface LegacyWorkflowNode {
     id: string
@@ -17,8 +18,7 @@ interface LegacyWorkflowNode {
 
 export function migrateWorkflowData(data: any) {
     // Check version and apply migrations if needed
-    if (!data.version || data.version <= '1.0.0') {
-        console.log('Migrating workflow data...')
+    if (!data.version || data.version < WORKFLOW_VERSION) {
         return {
             ...data,
             nodes: data.nodes.map((node: LegacyWorkflowNode) => {
@@ -61,7 +61,7 @@ export function migrateWorkflowData(data: any) {
                         return node
                 }
             }),
-            version: '1.0.0',
+            version: '1.1.0',
         }
     }
     return data

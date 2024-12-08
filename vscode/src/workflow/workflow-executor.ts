@@ -270,7 +270,7 @@ async function executeSearchContextNode(
         PromptString.unsafe_fromLLMResponse(input),
         span,
         undefined,
-        true
+        false
     )
     span.end()
     const result = context
@@ -444,7 +444,8 @@ export async function executeWorkflow(
 
             case NodeType.SEARCH_CONTEXT: {
                 const inputs = combineParentOutputsByConnectionOrder(node.id, context)
-                result = await executeSearchContextNode(inputs.join('\n'), contextRetriever)
+                const text = node.data.content ? replaceIndexedInputs(node.data.content, inputs) : ''
+                result = await executeSearchContextNode(text, contextRetriever)
                 break
             }
             default:

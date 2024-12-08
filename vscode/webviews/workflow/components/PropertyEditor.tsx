@@ -116,6 +116,19 @@ export const PropertyEditor: React.FC<PropertyEditorProps> = ({ node, onUpdate }
                     />
                 </div>
             )}
+            {node.type === NodeType.SEARCH_CONTEXT && (
+                <div>
+                    <Label htmlFor="node-input">Context</Label>
+                    <Textarea
+                        id="node-input"
+                        value={node.data.content || ''}
+                        onChange={(e: { target: { value: any } }) =>
+                            onUpdate(node.id, { content: e.target.value })
+                        }
+                        placeholder="Enter input text... (use ${1}, ${2} and so on for positional inputs)"
+                    />
+                </div>
+            )}
             {node.type === NodeType.PREVIEW && (
                 <div className="tw-flex tw-flex-col tw-gap-2">
                     <div className="tw-flex tw-gap-2">

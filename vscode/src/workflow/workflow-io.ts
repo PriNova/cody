@@ -2,6 +2,8 @@ import * as vscode from 'vscode'
 import { writeToCodyJSON } from '../commands/utils/config-file'
 import { migrateWorkflowData } from './workflow-migration'
 
+export const WORKFLOW_VERSION = '1.1.0'
+
 /**
  * Handles the workflow saving process by displaying a save dialog to the user, allowing them to select a location to save the workflow file.
  *
@@ -27,7 +29,7 @@ export async function handleWorkflowSave(data: any): Promise<void> {
     })
     if (result) {
         try {
-            await writeToCodyJSON(result, data)
+            await writeToCodyJSON(result, { ...data, WORKFLOW_VERSION })
             void vscode.window.showInformationMessage('Workflow saved successfully!')
         } catch (error) {
             void vscode.window.showErrorMessage(`Failed to save workflow: ${error}`)
@@ -64,9 +66,7 @@ export async function handleWorkflowLoad(): Promise<any> {
         try {
             const content = await vscode.workspace.fs.readFile(result[0])
             const rawData = JSON.parse(content.toString())
-            console.log('Loaded workflow data:', rawData)
             const data = migrateWorkflowData(rawData)
-            console.log('Migrated workflow data:', data)
             void vscode.window.showInformationMessage('Workflow loaded successfully!')
             return data
         } catch (error) {
