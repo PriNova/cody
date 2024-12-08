@@ -56,8 +56,7 @@ export class PersistentShell {
         return new Promise((resolve, reject) => {
             // Remove the sanitization that replaces newlines
             // const sanitizedInput = cmd.replace(/\n/g, '\\n')
-            const quotesFixed = this.convertQuotes(cmd)
-            const command = sanitizeCommand(quotesFixed)
+            const command = sanitizeCommand(cmd)
 
             if (!this.shell) {
                 const error = new Error('Shell not initialized')
@@ -143,11 +142,6 @@ export class PersistentShell {
         }
         this.stdoutBuffer = ''
         this.stderrBuffer = ''
-    }
-
-    private convertQuotes(cmd: string): string {
-        // Replace double quotes with single quotes, preserving any existing escaped quotes
-        return cmd.replace(/(?<!\\)"/g, "'")
     }
 }
 

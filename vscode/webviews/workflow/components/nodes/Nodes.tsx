@@ -22,6 +22,7 @@ interface BaseNodeProps {
         error?: boolean
         content?: string
         active?: boolean
+        needsUserApproval?: boolean
         tokenCount?: number
     }
     selected?: boolean
@@ -33,6 +34,7 @@ type BaseNodeData = {
     output?: string
     content: string
     active?: boolean
+    needsUserApproval?: boolean
     tokenCount?: number
 }
 
@@ -99,6 +101,7 @@ export const createNode = (node: Omit<WorkflowNodes, 'id'>): WorkflowNodes => {
             return {
                 ...node,
                 id,
+                needsUserApproval: false,
             } as CLINode
 
         case NodeType.LLM:

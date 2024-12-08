@@ -111,8 +111,11 @@ export function topologicalSort(nodes: WorkflowNodes[], edges: Edge[]): Workflow
 export async function executeCLINode(
     node: WorkflowNodes,
     abortSignal: AbortSignal,
-    persistentShell: PersistentShell
+    persistentShell: PersistentShell,
+    webview: vscode.Webview,
+    approvalHandler: (nodeId: string) => Promise<string>
 ): Promise<string> {
+
     if (!vscode.env.shell || !vscode.workspace.isTrusted) {
         throw new Error('Shell command is not supported in your current workspace.')
     }
@@ -126,7 +129,23 @@ export async function executeCLINode(
     const filteredCommand =
         (node as CLINode).data.content?.replaceAll(/(\s~\/)/g, ` ${homeDir}${path.sep}`) || ''
 
-    if (commandsNotAllowed.some(cmd => filteredCommand.startsWith(cmd))) {
+    // Replace double quotes with single quotes, preserving any existing escaped quotes
+    const convertQuotes = filteredCommand.replace(/(?<!\\)"/g, "'")
+            
+    if (node.data.needsUserApproval) {
+        webview.postMessage({
+            type: 'node_execution_status',
+            data: { 
+                nodeId: node.id, 
+                status: 'pending_approval',
+                result: `Awaiting approval for command: ${convertQuotes}`
+            }
+        } as WorkflowFromExtension)
+
+        await approvalHandler(node.id)
+    }
+            
+    if (commandsNotAllowed.some(cmd => convertQuotes.startsWith(cmd))) {
         void vscode.window.showErrorMessage('Cody cannot execute this command')
         throw new Error('Cody cannot execute this command')
     }
@@ -340,7 +359,8 @@ export async function executeWorkflow(
     webview: vscode.Webview,
     chatClient: ChatClient,
     abortController: AbortSignal,
-    contextRetriever: Pick<ContextRetriever, 'retrieveContext'>
+    contextRetriever: Pick<ContextRetriever, 'retrieveContext'>,
+    approvalHandler: (nodeId: string) => Promise<string>
 ): Promise<void> {
     const edgeIndex = createEdgeIndex(edges)
     const nodeIndex = new Map(nodes.map(node => [node.id, node]))
@@ -393,7 +413,9 @@ export async function executeWorkflow(
                     result = await executeCLINode(
                         { ...(node as CLINode), data: { ...(node as CLINode).data, content: command } },
                         abortController,
-                        persistentShell
+                        persistentShell,
+                        webview,
+                        approvalHandler
                     )
                 } catch (error: unknown) {
                     persistentShell.dispose()

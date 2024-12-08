@@ -37,7 +37,7 @@ export const PropertyEditor: React.FC<PropertyEditorProps> = ({ node, onUpdate }
                 />
             </div>
             {node.type === NodeType.CLI && (
-                <div>
+                <div className="tw-flex tw-flex-col tw-gap-2">
                     <Label htmlFor="node-command">Command</Label>
                     <Input
                         id="node-command"
@@ -47,6 +47,16 @@ export const PropertyEditor: React.FC<PropertyEditorProps> = ({ node, onUpdate }
                         }
                         placeholder="Enter CLI command... (use ${1}, ${2} and so on for positional inputs)"
                     />
+                    <div className="tw-flex tw-items-center tw-space-x-2">
+                        <Checkbox
+                            id="node-approval"
+                            checked={node.data.needsUserApproval || false}
+                            onCheckedChange={checked =>
+                                onUpdate(node.id, { needsUserApproval: checked === true })
+                            }
+                        />
+                        <Label htmlFor="node-approval">Require User Approval</Label>
+                    </div>
                 </div>
             )}
             {node.type === NodeType.LLM && (

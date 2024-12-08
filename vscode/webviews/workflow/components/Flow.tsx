@@ -42,6 +42,7 @@ export const Flow: React.FC<{
     const [nodes, setNodes] = useState<WorkflowNodes[]>(defaultWorkflow.nodes)
     const [selectedNode, setSelectedNode] = useState<WorkflowNodes | null>(null)
     const [nodeResults, setNodeResults] = useState<Map<string, string>>(new Map())
+    const [pendingApprovalNodeId, setPendingApprovalNodeId] = useState<string | null>(null)
 
     // Edge-related state
     const [edges, setEdges] = useState(defaultWorkflow.edges)
@@ -453,8 +454,9 @@ export const Flow: React.FC<{
                                     return new Set(prev)
                                 })
                             }
-
-                            if (status === 'running') {
+                            if (status === 'pending_approval') {
+                                setPendingApprovalNodeId(nodeId)  // Set the pending approval state
+                            } else if (status === 'running') {
                                 setExecutingNodeId(nodeId)
                                 setNodeErrors(prev => {
                                     const updated = new Map(prev)
@@ -789,10 +791,25 @@ export const Flow: React.FC<{
             },
             [vscodeAPI]
         )
-        return { onSave, onLoad, calculatePreviewNodeTokens }
+
+        const handleNodeApproval = (nodeId: string, approved: boolean) => {
+            if (approved) {
+                setPendingApprovalNodeId(null)
+                vscodeAPI.postMessage({
+                    type: 'node_approved',
+                    data: { nodeId }
+                })
+            } else {
+                // Handle rejection
+                setPendingApprovalNodeId(null)
+                setNodeErrors(prev => new Map(prev).set(nodeId, 'Command execution rejected by user'))
+                setIsExecuting(false)
+            }
+        }
+        return { onSave, onLoad, calculatePreviewNodeTokens, handleNodeApproval }
     }
 
-    const { onSave, onLoad, calculatePreviewNodeTokens } = useWorkflowActions(vscodeAPI, nodes, edges)
+    const { onSave, onLoad, calculatePreviewNodeTokens, handleNodeApproval } = useWorkflowActions(vscodeAPI, nodes, edges)
 
     // #endregion
 
@@ -869,6 +886,8 @@ export const Flow: React.FC<{
                             sortedNodes={memoizedTopologicalSort(nodes, edges)}
                             nodeResults={nodeResults}
                             executingNodeId={executingNodeId}
+                            pendingApprovalNodeId={pendingApprovalNodeId}
+                            onApprove={handleNodeApproval}
                         />
                     </div>
                 </div>

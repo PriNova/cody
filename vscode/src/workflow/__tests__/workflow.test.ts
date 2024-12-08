@@ -334,6 +334,8 @@ vi.mock('vscode', () => ({
 describe('executeCLINode', () => {
     let shell: PersistentShell
     let abortController: AbortController
+    const mockWebview = { postMessage: vi.fn() }
+    const mockApprovalHandler = async (nodeId: string) => ''
 
     beforeEach(() => {
         shell = new PersistentShell()
@@ -356,7 +358,8 @@ describe('executeCLINode', () => {
                 },
                 position: { x: 0, y: 0 },
             })
-            const result = await executeCLINode(node, abortController.signal, shell)
+            const result = await executeCLINode(node, abortController.signal, shell, mockWebview as any,
+                mockApprovalHandler)
             expect(result.trim()).toBe('hello world')
         },
         { timeout: 10000 }
@@ -372,7 +375,8 @@ describe('executeCLINode', () => {
             position: { x: 0, y: 0 },
         })
 
-        const result = await executeCLINode(node, abortController.signal, shell)
+        const result = await executeCLINode(node, abortController.signal, shell, mockWebview as any,
+            mockApprovalHandler)
         expect(result).toBeTruthy()
         expect(result.length).toBeGreaterThan(0)
     })
@@ -389,7 +393,8 @@ describe('executeCLINode', () => {
             position: { x: 0, y: 0 },
         })
 
-        const result = await executeCLINode(node, abortController.signal, shell)
+        const result = await executeCLINode(node, abortController.signal, shell, mockWebview as any,
+            mockApprovalHandler)
         expect(result.trim()).toBe(`${homeDir}/test`)
     })
 
@@ -404,7 +409,8 @@ describe('executeCLINode', () => {
             position: { x: 0, y: 0 },
         })
 
-        await expect(executeCLINode(node, abortController.signal, shell)).rejects.toThrow(
+        await expect(executeCLINode(node, abortController.signal, shell, mockWebview as any,
+            mockApprovalHandler)).rejects.toThrow(
             'Cody cannot execute this command'
         )
     })
@@ -420,7 +426,8 @@ describe('executeCLINode', () => {
             position: { x: 0, y: 0 },
         })
 
-        const promise = executeCLINode(node, abortController.signal, shell)
+        const promise = executeCLINode(node, abortController.signal, shell, mockWebview as any,
+            mockApprovalHandler)
         abortController.abort()
 
         await expect(promise).rejects.toThrow('Command execution aborted')
@@ -438,7 +445,8 @@ describe('executeCLINode', () => {
                 },
                 position: { x: 0, y: 0 },
             })
-            await expect(executeCLINode(node, abortController.signal, shell)).rejects.toThrow()
+            await expect(executeCLINode(node, abortController.signal, shell, mockWebview as any,
+                mockApprovalHandler)).rejects.toThrow()
         },
         { timeout: 5000 }
     )
@@ -454,7 +462,8 @@ describe('executeCLINode', () => {
             position: { x: 0, y: 0 },
         })
 
-        await expect(executeCLINode(node, abortController.signal, shell)).rejects.toThrow()
+        await expect(executeCLINode(node, abortController.signal, shell, mockWebview as any,
+            mockApprovalHandler)).rejects.toThrow()
     })
 
     // Command with special characters
@@ -472,7 +481,8 @@ describe('executeCLINode', () => {
                     },
                     position: { x: 0, y: 0 },
                 })
-                const result = await executeCLINode(node, abortController.signal, shell)
+                const result = await executeCLINode(node, abortController.signal, shell, mockWebview as any,
+                    mockApprovalHandler)
                 expect(result).toBeTruthy()
             }
         },
@@ -494,7 +504,8 @@ describe('executeCLINode', () => {
                     },
                     position: { x: 0, y: 0 },
                 })
-                const result = await executeCLINode(node, abortController.signal, shell)
+                const result = await executeCLINode(node, abortController.signal, shell, mockWebview as any,
+                    mockApprovalHandler)
                 expect(result).toBeTruthy()
             }
         },
@@ -516,6 +527,8 @@ describe('Workflow Executor Integration Tests', () => {
     }
 
     const mockAbortSignal = new AbortController().signal
+
+    const mockApprovalHandler = async (nodeId: string) => ''
 
     beforeEach(() => {
         vi.clearAllMocks()
@@ -602,7 +615,8 @@ describe('Workflow Executor Integration Tests', () => {
                 mockWebview as any,
                 mockChatClient as any,
                 mockAbortSignal,
-                mockContextRetriever
+                mockContextRetriever,
+                mockApprovalHandler
             )
         },
         { timeout: 10000 }

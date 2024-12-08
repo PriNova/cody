@@ -25,6 +25,13 @@ export function registerWorkflowCommands(
     contextRetriever: ContextRetriever
 ) {
     let activeAbortController: AbortController | null = null
+    let pendingApprovalResolve: ((value: string) => void) | null = null
+    const waitForApproval = (nodeId: string): Promise<string> => {
+        return new Promise((resolve) => {
+            pendingApprovalResolve = resolve
+        })
+    }
+
     context.subscriptions.push(
         vscode.commands.registerCommand('cody.openWorkflowEditor', async () => {
             const panel = vscode.window.createWebviewPanel(
@@ -65,7 +72,8 @@ export function registerWorkflowCommands(
                                         panel.webview,
                                         chatClient,
                                         activeAbortController.signal,
-                                        contextRetriever
+                                        contextRetriever,
+                                        waitForApproval
                                     )
                                 } finally {
                                     activeAbortController = null
@@ -88,6 +96,13 @@ export function registerWorkflowCommands(
                                     count: count.length,
                                 },
                             } as WorkflowFromExtension)
+                            break
+                        }
+                        case 'node_approved': {
+                            if (pendingApprovalResolve) {
+                                pendingApprovalResolve('approved')
+                                pendingApprovalResolve = null
+                            }
                             break
                         }
                     }
@@ -119,4 +134,5 @@ export function registerWorkflowCommands(
                 .replaceAll('{cspSource}', panel.webview.cspSource)
         })
     )
+    return { waitForApproval }
 }

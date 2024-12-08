@@ -26,8 +26,9 @@ interface WorkflowPayload {
 
 interface NodeExecutionPayload {
     nodeId: string
-    status: 'running' | 'completed' | 'error' | 'interrupted'
+    status: 'running' | 'completed' | 'error' | 'interrupted'  | 'pending_approval'
     result?: string
+    command?: string
 }
 
 // Messages TO Extension (Commands)
@@ -84,6 +85,13 @@ interface TokenCountEvent extends BaseWorkflowMessage {
     }
 }
 
+interface NodeApprovalCommand extends BaseWorkflowMessage {
+    type: 'node_approved'
+    data: {
+        nodeId: string
+    }
+}
+
 // Export discriminated unions
 export type WorkflowToExtension =
     | SaveWorkflowCommand
@@ -91,6 +99,7 @@ export type WorkflowToExtension =
     | ExecuteWorkflowCommand
     | AbortWorkflowCommand
     | CalculateTokensCommand
+    | NodeApprovalCommand
 
 export type WorkflowFromExtension =
     | WorkflowLoadedEvent

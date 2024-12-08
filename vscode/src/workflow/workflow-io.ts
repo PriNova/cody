@@ -29,7 +29,7 @@ export async function handleWorkflowSave(data: any): Promise<void> {
     })
     if (result) {
         try {
-            await writeToCodyJSON(result, { ...data, WORKFLOW_VERSION })
+            await writeToCodyJSON(result, { ...data, version: WORKFLOW_VERSION })
             void vscode.window.showInformationMessage('Workflow saved successfully!')
         } catch (error) {
             void vscode.window.showErrorMessage(`Failed to save workflow: ${error}`)
