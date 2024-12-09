@@ -1,21 +1,21 @@
 import clsx from 'clsx'
+import { useEffect, useState } from 'react'
 import {
     Accordion,
     AccordionContent,
     AccordionItem,
     AccordionTrigger,
 } from '../../components/shadcn/ui/accordion'
+import { Button } from '../../components/shadcn/ui/button'
 import { Textarea } from '../../components/shadcn/ui/textarea'
 import { NodeType, type WorkflowNode } from './nodes/Nodes'
-import { Button } from '../../components/shadcn/ui/button'
-import { useEffect, useState } from 'react'
 
 interface RightSidebarProps {
     sortedNodes: WorkflowNode[]
     nodeResults: Map<string, string>
     executingNodeId: string | null
     pendingApprovalNodeId: string | null
-    onApprove: (nodeId: string, approved: boolean) => void
+    onApprove: (nodeId: string, approved: boolean, modifiedCommand?: string) => void
 }
 
 export const RightSidebar: React.FC<RightSidebarProps> = ({
@@ -33,13 +33,29 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
         return 'tw-border-transparent'
     }
     const [openItemId, setOpenItemId] = useState<string | undefined>(undefined)
+    const [modifiedCommands, setModifiedCommands] = useState<Map<string, string>>(new Map())
+    const handleCommandChange = (nodeId: string, value: string) => {
+        setModifiedCommands(prev => new Map(prev).set(nodeId, value))
+    }
 
     useEffect(() => {
         if (pendingApprovalNodeId) {
             setOpenItemId(pendingApprovalNodeId)
         }
     }, [pendingApprovalNodeId])
-    
+
+    useEffect(() => {
+        if (executingNodeId !== null) {
+            setModifiedCommands(new Map())
+        }
+    }, [executingNodeId])
+
+    useEffect(() => {
+        if (pendingApprovalNodeId !== null) {
+            setModifiedCommands(new Map())
+        }
+    }, [pendingApprovalNodeId])
+
     return (
         <div className="tw-w-full tw-border-r tw-border-border tw-h-full tw-bg-sidebar-background tw-p-4">
             <div className="tw-flex tw-flex-col tw-gap-2 tw-mb-4">
@@ -57,50 +73,65 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
                             )}
                         >
                             <Accordion
-                            type="single"
+                                type="single"
                                 collapsible
                                 value={openItemId}
-                                onValueChange={(value) => setOpenItemId(value || '')}
+                                onValueChange={value => setOpenItemId(value || '')}
                             >
                                 <AccordionItem value={node.id}>
                                     <AccordionTrigger>
                                         {index + 1}. {node.data.title}
                                     </AccordionTrigger>
                                     <AccordionContent>
-                                {nodeResults.has(node.id) && (
-                                    <div className="tw-mt-1">
-                                        <Textarea
-                                            value={nodeResults.get(node.id) || ''}
-                                            readOnly={true}
-                                        />
-                                        {node.type === NodeType.CLI && 
-                                         node.id === pendingApprovalNodeId && (
-                                            <div className="tw-flex tw-w-full tw-gap-2 tw-mt-2 tw-justify-center">
-                                                <Button 
-                                                    onClick={() => onApprove(node.id, true)}
-                                                    variant="secondary"
-                                                    style={{ 
-                                                        backgroundColor: 'var(--vscode-testing-iconPassed)',
-                                                        color: 'var(--vscode-button-foreground)'
-                                                    }}
-                                                >
-                                                    Approve
-                                                </Button>
-                                                <Button
-                                                    onClick={() => onApprove(node.id, false)}
-                                                    variant="secondary"
-                                                    style={{
-                                                        backgroundColor: 'var(--vscode-charts-red)',
-                                                        color: 'var(--vscode-button-foreground)'
-                                                    }}
-                                                >
-                                                    Reject
-                                                </Button>
+                                        {nodeResults.has(node.id) && (
+                                            <div className="tw-mt-1">
+                                                <Textarea
+                                                    value={
+                                                        modifiedCommands.get(node.id) ||
+                                                        nodeResults.get(node.id) ||
+                                                        ''
+                                                    }
+                                                    readOnly={node.id !== pendingApprovalNodeId}
+                                                    onChange={e =>
+                                                        handleCommandChange(node.id, e.target.value)
+                                                    }
+                                                />
+                                                {node.type === NodeType.CLI &&
+                                                    node.id === pendingApprovalNodeId && (
+                                                        <div className="tw-flex tw-w-full tw-gap-2 tw-mt-2 tw-justify-center">
+                                                            <Button
+                                                                onClick={() =>
+                                                                    onApprove(
+                                                                        node.id,
+                                                                        true,
+                                                                        modifiedCommands.get(node.id)
+                                                                    )
+                                                                }
+                                                                variant="secondary"
+                                                                style={{
+                                                                    backgroundColor:
+                                                                        'var(--vscode-testing-iconPassed)',
+                                                                    color: 'var(--vscode-button-foreground)',
+                                                                }}
+                                                            >
+                                                                Approve
+                                                            </Button>
+                                                            <Button
+                                                                onClick={() => onApprove(node.id, false)}
+                                                                variant="secondary"
+                                                                style={{
+                                                                    backgroundColor:
+                                                                        'var(--vscode-charts-red)',
+                                                                    color: 'var(--vscode-button-foreground)',
+                                                                }}
+                                                            >
+                                                                Reject
+                                                            </Button>
+                                                        </div>
+                                                    )}
                                             </div>
                                         )}
-                                    </div>
-                                )}
-                            </AccordionContent>
+                                    </AccordionContent>
                                 </AccordionItem>
                             </Accordion>
                         </div>

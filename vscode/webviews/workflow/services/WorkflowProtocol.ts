@@ -26,7 +26,7 @@ interface WorkflowPayload {
 
 interface NodeExecutionPayload {
     nodeId: string
-    status: 'running' | 'completed' | 'error' | 'interrupted'  | 'pending_approval'
+    status: 'running' | 'completed' | 'error' | 'interrupted' | 'pending_approval'
     result?: string
     command?: string
 }
@@ -89,6 +89,7 @@ interface NodeApprovalCommand extends BaseWorkflowMessage {
     type: 'node_approved'
     data: {
         nodeId: string
+        modifiedCommand?: string
     }
 }
 

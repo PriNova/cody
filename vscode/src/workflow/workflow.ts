@@ -25,9 +25,9 @@ export function registerWorkflowCommands(
     contextRetriever: ContextRetriever
 ) {
     let activeAbortController: AbortController | null = null
-    let pendingApprovalResolve: ((value: string) => void) | null = null
-    const waitForApproval = (nodeId: string): Promise<string> => {
-        return new Promise((resolve) => {
+    let pendingApprovalResolve: ((value: { command?: string }) => void) | null = null
+    const waitForApproval = (nodeId: string): Promise<{ command?: string }> => {
+        return new Promise(resolve => {
             pendingApprovalResolve = resolve
         })
     }
@@ -100,7 +100,9 @@ export function registerWorkflowCommands(
                         }
                         case 'node_approved': {
                             if (pendingApprovalResolve) {
-                                pendingApprovalResolve('approved')
+                                pendingApprovalResolve({
+                                    command: message.data.modifiedCommand,
+                                })
                                 pendingApprovalResolve = null
                             }
                             break

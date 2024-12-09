@@ -113,9 +113,8 @@ export async function executeCLINode(
     abortSignal: AbortSignal,
     persistentShell: PersistentShell,
     webview: vscode.Webview,
-    approvalHandler: (nodeId: string) => Promise<string>
+    approvalHandler: (nodeId: string) => Promise<{ command?: string }>
 ): Promise<string> {
-
     if (!vscode.env.shell || !vscode.workspace.isTrusted) {
         throw new Error('Shell command is not supported in your current workspace.')
     }
@@ -131,27 +130,32 @@ export async function executeCLINode(
 
     // Replace double quotes with single quotes, preserving any existing escaped quotes
     const convertQuotes = filteredCommand.replace(/(?<!\\)"/g, "'")
-            
+
+    let commandToExecute = convertQuotes
+
     if (node.data.needsUserApproval) {
         webview.postMessage({
             type: 'node_execution_status',
-            data: { 
-                nodeId: node.id, 
+            data: {
+                nodeId: node.id,
                 status: 'pending_approval',
-                result: `Awaiting approval for command: ${convertQuotes}`
-            }
+                result: `${commandToExecute}`,
+            },
         } as WorkflowFromExtension)
 
-        await approvalHandler(node.id)
+        const approval = await approvalHandler(node.id)
+        if (approval.command) {
+            commandToExecute = approval.command
+        }
     }
-            
+
     if (commandsNotAllowed.some(cmd => convertQuotes.startsWith(cmd))) {
         void vscode.window.showErrorMessage('Cody cannot execute this command')
         throw new Error('Cody cannot execute this command')
     }
 
     try {
-        const result = await persistentShell.execute(filteredCommand, abortSignal)
+        const result = await persistentShell.execute(commandToExecute, abortSignal)
         return result
     } catch (error: unknown) {
         persistentShell.dispose()
@@ -360,7 +364,7 @@ export async function executeWorkflow(
     chatClient: ChatClient,
     abortController: AbortSignal,
     contextRetriever: Pick<ContextRetriever, 'retrieveContext'>,
-    approvalHandler: (nodeId: string) => Promise<string>
+    approvalHandler: (nodeId: string) => Promise<{ command?: string }>
 ): Promise<void> {
     const edgeIndex = createEdgeIndex(edges)
     const nodeIndex = new Map(nodes.map(node => [node.id, node]))

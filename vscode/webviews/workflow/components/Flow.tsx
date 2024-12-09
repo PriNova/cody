@@ -455,7 +455,7 @@ export const Flow: React.FC<{
                                 })
                             }
                             if (status === 'pending_approval') {
-                                setPendingApprovalNodeId(nodeId)  // Set the pending approval state
+                                setPendingApprovalNodeId(nodeId) // Set the pending approval state
                             } else if (status === 'running') {
                                 setExecutingNodeId(nodeId)
                                 setNodeErrors(prev => {
@@ -792,12 +792,12 @@ export const Flow: React.FC<{
             [vscodeAPI]
         )
 
-        const handleNodeApproval = (nodeId: string, approved: boolean) => {
+        const handleNodeApproval = (nodeId: string, approved: boolean, modifiedCommand?: string) => {
             if (approved) {
                 setPendingApprovalNodeId(null)
                 vscodeAPI.postMessage({
                     type: 'node_approved',
-                    data: { nodeId }
+                    data: { nodeId, modifiedCommand },
                 })
             } else {
                 // Handle rejection
@@ -809,7 +809,11 @@ export const Flow: React.FC<{
         return { onSave, onLoad, calculatePreviewNodeTokens, handleNodeApproval }
     }
 
-    const { onSave, onLoad, calculatePreviewNodeTokens, handleNodeApproval } = useWorkflowActions(vscodeAPI, nodes, edges)
+    const { onSave, onLoad, calculatePreviewNodeTokens, handleNodeApproval } = useWorkflowActions(
+        vscodeAPI,
+        nodes,
+        edges
+    )
 
     // #endregion
 
@@ -883,7 +887,7 @@ export const Flow: React.FC<{
                         className="tw-flex-shrink-0 tw-border-r tw-border-solid tw-border-[var(--vscode-panel-border)] tw-bg-[var(--vscode-sideBar-background)] tw-h-full tw-overflow-y-auto"
                     >
                         <RightSidebar
-                            sortedNodes={memoizedTopologicalSort(nodes, edges)}
+                            sortedNodes={memoizedTopologicalSort(nodesWithState, edges)}
                             nodeResults={nodeResults}
                             executingNodeId={executingNodeId}
                             pendingApprovalNodeId={pendingApprovalNodeId}
