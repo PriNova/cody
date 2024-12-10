@@ -2,6 +2,7 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import {
     type ChatClient,
+    type ContextItem,
     type Message,
     PromptString,
     TokenCounterUtils,
@@ -20,9 +21,11 @@ import {
     type WorkflowNodes,
 } from '../../webviews/workflow/components/nodes/Nodes'
 import type { WorkflowFromExtension } from '../../webviews/workflow/services/WorkflowProtocol'
+import { ChatController, type ChatSession } from '../chat/chat-view/ChatController'
 import { type ContextRetriever, toStructuredMentions } from '../chat/chat-view/ContextRetriever'
 import { getCorpusContextItemsForEditorState } from '../chat/initialContext'
 import { PersistentShell } from '../commands/context/shell'
+import { executeChat } from '../commands/execute/ask'
 
 interface IndexedEdges {
     bySource: Map<string, Edge[]>
@@ -31,7 +34,7 @@ interface IndexedEdges {
 }
 
 interface ExecutionContext {
-    nodeOutputs: Map<string, string>
+    nodeOutputs: Map<string, string | string[]>
 }
 
 export interface IndexedExecutionContext extends ExecutionContext {
@@ -278,14 +281,14 @@ async function executeInputNode(input: string): Promise<string> {
 async function executeSearchContextNode(
     input: string,
     contextRetriever: Pick<ContextRetriever, 'retrieveContext'>
-): Promise<string> {
+): Promise<string[]> {
     const corpusItems = await firstValueFrom(getCorpusContextItemsForEditorState())
     if (corpusItems === pendingOperation || corpusItems.length === 0) {
-        return ''
+        return ['']
     }
     const repo = corpusItems.find(i => i.type === 'tree' || i.type === 'repository')
     if (!repo) {
-        return ''
+        return ['']
     }
     const span = tracer.startSpan('chat.submit')
     const context = await contextRetriever.retrieveContext(
@@ -296,14 +299,55 @@ async function executeSearchContextNode(
         false
     )
     span.end()
-    const result = context
-        .map(item => {
-            // Format each context item as path + newline + content
-            return `${item.uri.path}\n${item.content || ''}`
-        })
-        .join('\n\n') // Join multiple items with double newlines
+    const result = context.map(item => {
+        // Format each context item as path + newline + content
+        return `${item.uri.path}\n${item.content || ''}`
+    })
+    //.join('\n\n') // Join multiple items with double newlines
 
     return result
+}
+
+async function executeOutputNode(
+    input: string,
+    contextItemsAsString: string[] | undefined,
+    abortSignal: AbortSignal
+): Promise<string> {
+    const stringToContext = contextItemsAsString ? stringToContextItems(contextItemsAsString) : []
+
+    return new Promise<string>((resolve, reject) => {
+        // Handle workflow abortion
+        abortSignal.addEventListener('abort', () => {
+            reject(new Error('Workflow execution aborted'))
+        })
+
+        executeChat({
+            text: PromptString.unsafe_fromLLMResponse(input),
+            contextItems: stringToContext,
+            submitType: 'continue-chat',
+        }).then((value: ChatSession | ChatController | undefined) => {
+            if (value instanceof ChatController) {
+                const messages = value.getViewTranscript()
+                const initialMessageCount = messages.length
+                // Check for new messages periodically
+                const interval = setInterval(() => {
+                    if (abortSignal.aborted) {
+                        clearInterval(interval)
+                        value.startNewSubmitOrEditOperation() // This aborts any ongoing chat
+                        reject(new Error('Workflow execution aborted'))
+                        return
+                    }
+                    const currentMessages = value.getViewTranscript()
+                    if (currentMessages.length > initialMessageCount) {
+                        clearInterval(interval)
+                        resolve(value.sessionID)
+                    }
+                }, 100)
+            } else {
+                resolve('')
+            }
+        })
+    })
 }
 
 /**
@@ -336,9 +380,14 @@ export function combineParentOutputsByConnectionOrder(
     context: IndexedExecutionContext
 ): string[] {
     const parentEdges = context.edgeIndex.byTarget.get(nodeId) || []
+
     return parentEdges
         .map(edge => {
-            const output = context.nodeOutputs.get(edge.source)
+            let output = context.nodeOutputs.get(edge.source)
+            if (Array.isArray(output)) {
+                output = output.join('\n')
+            }
+
             if (output === undefined) {
                 return ''
             }
@@ -362,7 +411,7 @@ export async function executeWorkflow(
     edges: Edge[],
     webview: vscode.Webview,
     chatClient: ChatClient,
-    abortController: AbortSignal,
+    abortSignal: AbortSignal,
     contextRetriever: Pick<ContextRetriever, 'retrieveContext'>,
     approvalHandler: (nodeId: string) => Promise<{ command?: string }>
 ): Promise<void> {
@@ -402,7 +451,7 @@ export async function executeWorkflow(
             data: { nodeId: node.id, status: 'running' },
         } as WorkflowFromExtension)
 
-        let result: string
+        let result: string | string[]
         switch (node.type) {
             case NodeType.CLI: {
                 try {
@@ -416,7 +465,7 @@ export async function executeWorkflow(
                         : ''
                     result = await executeCLINode(
                         { ...(node as CLINode), data: { ...(node as CLINode).data, content: command } },
-                        abortController,
+                        abortSignal,
                         persistentShell,
                         webview,
                         approvalHandler
@@ -451,7 +500,7 @@ export async function executeWorkflow(
                 result = await executeLLMNode(
                     { ...node, data: { ...node.data, content: prompt } },
                     chatClient,
-                    abortController
+                    abortSignal
                 )
                 break
             }
@@ -474,6 +523,48 @@ export async function executeWorkflow(
                 result = await executeSearchContextNode(text, contextRetriever)
                 break
             }
+            case NodeType.CODY_OUTPUT: {
+                try {
+                    const parentEdges = context.edgeIndex.byTarget.get(node.id) || []
+                    const nonSearchContextEdges = parentEdges.filter(edge => {
+                        const sourceNode = context.nodeIndex.get(edge.source)
+                        return sourceNode?.type !== NodeType.SEARCH_CONTEXT
+                    })
+                    const inputs = combineParentOutputsByConnectionOrder(node.id, {
+                        ...context,
+                        edgeIndex: {
+                            ...context.edgeIndex,
+                            byTarget: new Map([[node.id, nonSearchContextEdges]]),
+                        },
+                    })
+
+                    const parentNodesByParentEdges = parentEdges.map(edge =>
+                        context.nodeIndex.get(edge.source)
+                    )
+                    const searchContextNode = parentNodesByParentEdges.find(
+                        node => node?.type === NodeType.SEARCH_CONTEXT
+                    )
+                    const contextItems = context.nodeOutputs.get(searchContextNode?.id || '') as
+                        | string[]
+                        | undefined
+                    result = await executeOutputNode(inputs.join('\n'), contextItems, abortSignal)
+                } catch (error) {
+                    const errorMessage = error instanceof Error ? error.message : String(error)
+                    const status = errorMessage.includes('aborted') ? 'interrupted' : 'error'
+
+                    webview.postMessage({
+                        type: 'node_execution_status',
+                        data: { nodeId: node.id, status, result: errorMessage },
+                    } as WorkflowFromExtension)
+
+                    webview.postMessage({
+                        type: 'execution_completed',
+                    } as WorkflowFromExtension)
+
+                    return
+                }
+                break
+            }
             default:
                 persistentShell.dispose()
                 throw new Error(`Unknown node type: ${(node as WorkflowNodes).type}`)
@@ -490,6 +581,19 @@ export async function executeWorkflow(
     webview.postMessage({
         type: 'execution_completed',
     } as WorkflowFromExtension)
+}
+
+function stringToContextItems(input: string[]): ContextItem[] {
+    //const lines = input.split('\n')
+    const contextItems: ContextItem[] = input.map(line => {
+        const [firstLine, ...rest] = line.split('\n')
+        return {
+            type: 'file',
+            content: rest.join('\n'),
+            uri: vscode.Uri.file(firstLine),
+        }
+    })
+    return contextItems
 }
 
 export function sanitizeForShell(input: string): string {

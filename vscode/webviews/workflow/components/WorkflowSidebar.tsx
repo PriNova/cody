@@ -157,6 +157,20 @@ export const WorkflowSidebar: React.FC<WorkflowSidebarProps> = ({
                         </div>
                     </AccordionContent>
                 </AccordionItem>
+                <AccordionItem value="outputs">
+                    <AccordionTrigger>Outputs</AccordionTrigger>
+                    <AccordionContent>
+                        <div className="tw-flex tw-flex-col tw-gap-2">
+                            <Button
+                                onClick={() => onNodeAdd('CodyOutput', NodeType.CODY_OUTPUT)}
+                                className="tw-w-full"
+                                variant="secondary"
+                            >
+                                Cody Output
+                            </Button>
+                        </div>
+                    </AccordionContent>
+                </AccordionItem>
             </Accordion>
             <Accordion
                 type="single"

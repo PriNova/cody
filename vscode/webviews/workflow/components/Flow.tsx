@@ -247,6 +247,7 @@ export const Flow: React.FC<{
                         case NodeType.CLI:
                         case NodeType.PREVIEW:
                         case NodeType.INPUT:
+                        case NodeType.CODY_OUTPUT:
                         case NodeType.SEARCH_CONTEXT:
                             newNode.data.content = sourceNode.data.content
                             break

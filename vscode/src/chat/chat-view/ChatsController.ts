@@ -355,7 +355,7 @@ export class ChatsController implements vscode.Disposable {
         source = DEFAULT_EVENT_SOURCE,
         command,
         submitType = 'new-chat',
-    }: ExecuteChatArguments): Promise<ChatSession | undefined> {
+    }: ExecuteChatArguments): Promise<ChatSession | ChatController | undefined> {
         let provider: ChatController
         // If the sidebar panel is visible and empty, use it instead of creating a new panel
         if (submitType === 'new-chat' && this.panel.isVisible() && this.panel.isEmpty()) {

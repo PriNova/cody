@@ -11,6 +11,7 @@ export enum NodeType {
     PREVIEW = 'preview',
     INPUT = 'text-format',
     SEARCH_CONTEXT = 'search-context',
+    CODY_OUTPUT = 'cody-output',
 }
 
 // Shared node props interface
@@ -77,6 +78,11 @@ export type SearchContextNode = Omit<WorkflowNode, 'data'> & {
     data: BaseNodeData
 }
 
+export type CodyOutputNode = Omit<WorkflowNode, 'data'> & {
+    type: NodeType.CODY_OUTPUT
+    data: BaseNodeData
+}
+
 export type WorkflowNodes =
     | WorkflowNode
     | CLINode
@@ -84,6 +90,7 @@ export type WorkflowNodes =
     | PreviewNode
     | InputNode
     | SearchContextNode
+    | CodyOutputNode
 
 /**
  * Creates a new workflow node with the specified type, label, and position.
@@ -383,10 +390,34 @@ export const CodyLLMNode: React.FC<BaseNodeProps> = ({ data, selected }) => (
     </div>
 )
 
+export const CodyOutputNode: React.FC<BaseNodeProps> = ({ data, selected }) => (
+    <div
+        style={{
+            ...getNodeStyle(
+                NodeType.CODY_OUTPUT,
+                data.moving,
+                selected,
+                data.executing,
+                data.error,
+                data.active
+            ),
+            borderRadius: '5rem',
+            backgroundColor: 'var(--vscode-focusBorder)',
+        }}
+    >
+        <Handle type="target" position={Position.Top} />
+        <div className="tw-flex tw-items-center">
+            <span>{data.title}</span>
+        </div>
+        <Handle type="source" position={Position.Bottom} />
+    </div>
+)
+
 export const nodeTypes = {
     [NodeType.CLI]: CLINode,
     [NodeType.LLM]: CodyLLMNode,
     [NodeType.PREVIEW]: PreviewNode,
     [NodeType.INPUT]: InputNode,
     [NodeType.SEARCH_CONTEXT]: SearchContextNode,
+    [NodeType.CODY_OUTPUT]: CodyOutputNode,
 }
