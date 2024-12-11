@@ -171,6 +171,27 @@ export const WorkflowSidebar: React.FC<WorkflowSidebarProps> = ({
                         </div>
                     </AccordionContent>
                 </AccordionItem>
+                <AccordionItem value="loop">
+                    <AccordionTrigger>Loop Control</AccordionTrigger>
+                    <AccordionContent>
+                        <div className="tw-flex tw-flex-col tw-gap-2">
+                            <Button
+                                onClick={() => onNodeAdd('Loop Start', NodeType.LOOP_START)}
+                                className="tw-w-full"
+                                variant="secondary"
+                            >
+                                Loop Start
+                            </Button>
+                            <Button
+                                onClick={() => onNodeAdd('Loop End', NodeType.LOOP_END)}
+                                className="tw-w-full"
+                                variant="secondary"
+                            >
+                                Loop End
+                            </Button>
+                        </div>
+                    </AccordionContent>
+                </AccordionItem>
             </Accordion>
             <Accordion
                 type="single"

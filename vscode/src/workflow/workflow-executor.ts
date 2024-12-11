@@ -17,6 +17,7 @@ import { getInactiveNodes } from '../../webviews/workflow/components/hooks/nodeS
 import {
     type CLINode,
     type LLMNode,
+    type LoopStartNode,
     NodeType,
     type WorkflowNodes,
 } from '../../webviews/workflow/components/nodes/Nodes'
@@ -33,13 +34,18 @@ interface IndexedEdges {
     byId: Map<string, Edge>
 }
 
-interface ExecutionContext {
+export interface IndexedExecutionContext {
     nodeOutputs: Map<string, string | string[]>
-}
-
-export interface IndexedExecutionContext extends ExecutionContext {
     nodeIndex: Map<string, WorkflowNodes>
     edgeIndex: IndexedEdges
+    loopStates: Map<
+        string,
+        {
+            currentIteration: number
+            maxIterations: number
+            variable: string
+        }
+    >
 }
 
 /**
@@ -69,6 +75,7 @@ export async function executeWorkflow(
         nodeOutputs: new Map(),
         nodeIndex,
         edgeIndex,
+        loopStates: new Map(),
     }
 
     // Calculate all inactive nodes
@@ -89,7 +96,18 @@ export async function executeWorkflow(
         type: 'execution_started',
     } as WorkflowFromExtension)
 
-    for (const node of sortedNodes) {
+    for (let i = 0; i < sortedNodes.length; i++) {
+        const node = sortedNodes[i]
+
+        if (node.type === NodeType.LOOP_START) {
+            const loopState = context.loopStates.get(node.id) || {
+                currentIteration: 1,
+                maxIterations: (node as LoopStartNode).data.iterations,
+                variable: (node as LoopStartNode).data.loopVariable,
+            }
+            context.loopStates.set(node.id, loopState)
+        }
+
         if (allInactiveNodes.has(node.id)) {
             continue
         }
@@ -109,7 +127,7 @@ export async function executeWorkflow(
                         context
                     ).map(output => sanitizeForShell(output))
                     const command = (node as CLINode).data.content
-                        ? replaceIndexedInputs((node as CLINode).data.content, inputs)
+                        ? replaceIndexedInputs((node as CLINode).data.content, inputs, context)
                         : ''
                     result = await executeCLINode(
                         { ...(node as CLINode), data: { ...(node as CLINode).data, content: command } },
@@ -133,18 +151,17 @@ export async function executeWorkflow(
                     webview.postMessage({
                         type: 'execution_completed',
                     } as WorkflowFromExtension)
-
                     return
                 }
                 break
             }
             case NodeType.LLM: {
-                const inputs = combineParentOutputsByConnectionOrder(
-                    node.id,
-
-                    context
-                ).map(input => sanitizeForPrompt(input))
-                const prompt = node.data.content ? replaceIndexedInputs(node.data.content, inputs) : ''
+                const inputs = combineParentOutputsByConnectionOrder(node.id, context).map(input =>
+                    sanitizeForPrompt(input)
+                )
+                const prompt = node.data.content
+                    ? replaceIndexedInputs(node.data.content, inputs, context)
+                    : ''
                 result = await executeLLMNode(
                     { ...node, data: { ...node.data, content: prompt } },
                     chatClient,
@@ -154,20 +171,24 @@ export async function executeWorkflow(
             }
             case NodeType.PREVIEW: {
                 const inputs = combineParentOutputsByConnectionOrder(node.id, context)
-                result = await executePreviewNode(inputs.join('\n'), node.id, webview)
+                result = await executePreviewNode(inputs.join('\n'), node.id, webview, context)
                 break
             }
 
             case NodeType.INPUT: {
                 const inputs = combineParentOutputsByConnectionOrder(node.id, context)
-                const text = node.data.content ? replaceIndexedInputs(node.data.content, inputs) : ''
+                const text = node.data.content
+                    ? replaceIndexedInputs(node.data.content, inputs, context)
+                    : ''
                 result = await executeInputNode(text)
                 break
             }
 
             case NodeType.SEARCH_CONTEXT: {
                 const inputs = combineParentOutputsByConnectionOrder(node.id, context)
-                const text = node.data.content ? replaceIndexedInputs(node.data.content, inputs) : ''
+                const text = node.data.content
+                    ? replaceIndexedInputs(node.data.content, inputs, context)
+                    : ''
                 result = await executeSearchContextNode(text, contextRetriever)
                 break
             }
@@ -213,6 +234,26 @@ export async function executeWorkflow(
                 }
                 break
             }
+            case NodeType.LOOP_START: {
+                result = String(context.loopStates.get(node.id)?.currentIteration || 1)
+                break
+            }
+            case NodeType.LOOP_END: {
+                const loopNodes = findNodesInLoop(node, sortedNodes)
+                if (loopNodes.length > 0) {
+                    const matchingStart = loopNodes[0]
+                    const loopState = context.loopStates.get(matchingStart.id)
+                    if (loopState && loopState.currentIteration < loopState.maxIterations) {
+                        loopState.currentIteration++
+                        context.loopStates.set(matchingStart.id, loopState)
+                        // Jump back to the start of the loop
+                        i = sortedNodes.indexOf(loopNodes[1]) - 1
+                    }
+                }
+                result = ''
+                break
+            }
+
             default:
                 persistentShell.dispose()
                 throw new Error(`Unknown node type: ${(node as WorkflowNodes).type}`)
@@ -229,6 +270,8 @@ export async function executeWorkflow(
     webview.postMessage({
         type: 'execution_completed',
     } as WorkflowFromExtension)
+
+    context.loopStates.clear()
 }
 
 /**
@@ -312,13 +355,29 @@ export function topologicalSort(nodes: WorkflowNodes[], edges: Edge[]): Workflow
  * @param parentOutputs - The array of parent output values to substitute into the template.
  * @returns The template string with the indexed placeholders replaced.
  */
-export function replaceIndexedInputs(template: string, parentOutputs: string[]): string {
-    return template.replace(/\${(\d+)}/g, (_match, index) => {
+export function replaceIndexedInputs(
+    template: string,
+    parentOutputs: string[],
+    context?: IndexedExecutionContext
+): string {
+    let result = template.replace(/\${(\d+)}/g, (_match, index) => {
         const adjustedIndex = Number.parseInt(index, 10) - 1
         return adjustedIndex >= 0 && adjustedIndex < parentOutputs.length
             ? parentOutputs[adjustedIndex]
             : ''
     })
+
+    if (context) {
+        // Replace loop variables
+        for (const [, loopState] of context.loopStates) {
+            result = result.replace(
+                new RegExp(`\\$\{${loopState.variable}}`, 'g'),
+                String(loopState.currentIteration)
+            )
+        }
+    }
+
+    return result
 }
 
 /**
@@ -349,6 +408,22 @@ export function combineParentOutputsByConnectionOrder(
         })
         .filter(output => output !== undefined)
 }
+
+function findNodesInLoop(endNode: WorkflowNodes, nodes: WorkflowNodes[]): WorkflowNodes[] {
+    const endIndex = nodes.indexOf(endNode)
+    if (endIndex === -1) {
+        return []
+    }
+
+    for (let i = endIndex - 1; i >= 0; i--) {
+        if (nodes[i].type === NodeType.LOOP_START) {
+            return nodes.slice(i, endIndex + 1)
+        }
+    }
+    return []
+}
+
+// #region 1 CLI Node Execution */
 
 /**
  * Executes a CLI node in a workflow, handling user approval, command filtering, and error handling.
@@ -416,6 +491,10 @@ export async function executeCLINode(
         throw new Error(`CLI Node execution failed: ${errorMessage}`) // Re-throw for handling in executeWorkflow
     }
 }
+
+// #endregion 1 CLI Node Execution
+
+// #region 2 LLM Node Execution */
 
 /**
  * Executes an LLM (Large Language Model) node in a workflow.
@@ -509,6 +588,9 @@ async function executeLLMNode(
         throw new Error('Unknown error in LLM node execution')
     }
 }
+// #endregion 2 LLM Node Execution */
+
+// #region 3 Preview Node Execution */
 
 /**
  * Executes a preview node in the workflow, trimming the input and sending the token count to the webview.
@@ -521,9 +603,11 @@ async function executeLLMNode(
 async function executePreviewNode(
     input: string,
     nodeId: string,
-    webview: vscode.Webview
+    webview: vscode.Webview,
+    context: IndexedExecutionContext
 ): Promise<string> {
-    const trimmedInput = input.trim()
+    const processedInput = replaceIndexedInputs(input, [], context)
+    const trimmedInput = processedInput.trim()
     const tokenCount = await TokenCounterUtils.encode(trimmedInput)
 
     webview.postMessage({
@@ -537,6 +621,8 @@ async function executePreviewNode(
     return trimmedInput
 }
 
+// #endregion 3 Preview Node Execution */
+
 /**
  * Executes an input node in the workflow, trimming the input string.
  *
@@ -546,6 +632,8 @@ async function executePreviewNode(
 async function executeInputNode(input: string): Promise<string> {
     return input.trim()
 }
+
+// #region 4 Search Context Node Execution */
 
 /**
  * Executes a search context node in the workflow, retrieving and formatting relevant context items based on the input.
@@ -584,6 +672,9 @@ async function executeSearchContextNode(
     return result
 }
 
+// #endregion 4 Search Context Node Execution */
+
+// #region 5 Search Node Execution */
 /**
  * Executes an output node in the workflow, which involves continuing a chat session and waiting for new messages.
  *
@@ -633,6 +724,8 @@ async function executeCodyOutputNode(
         })
     })
 }
+
+// #endregion 5 Search Node Execution */
 
 /**
  * Converts an array of strings representing context items into an array of `ContextItem` objects.

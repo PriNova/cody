@@ -12,6 +12,8 @@ export enum NodeType {
     INPUT = 'text-format',
     SEARCH_CONTEXT = 'search-context',
     CODY_OUTPUT = 'cody-output',
+    LOOP_START = 'loop-start',
+    LOOP_END = 'loop-end',
 }
 
 // Shared node props interface
@@ -25,6 +27,7 @@ interface BaseNodeProps {
         active?: boolean
         needsUserApproval?: boolean
         tokenCount?: number
+        iterations?: number
     }
     selected?: boolean
 }
@@ -83,6 +86,19 @@ export type CodyOutputNode = Omit<WorkflowNode, 'data'> & {
     data: BaseNodeData
 }
 
+export type LoopStartNode = Omit<WorkflowNode, 'data'> & {
+    type: NodeType.LOOP_START
+    data: BaseNodeData & {
+        iterations: number
+        loopVariable: string
+    }
+}
+
+export type LoopEndNode = Omit<WorkflowNode, 'data'> & {
+    type: NodeType.LOOP_END
+    data: BaseNodeData
+}
+
 export type WorkflowNodes =
     | WorkflowNode
     | CLINode
@@ -91,6 +107,8 @@ export type WorkflowNodes =
     | InputNode
     | SearchContextNode
     | CodyOutputNode
+    | LoopStartNode
+    | LoopEndNode
 
 /**
  * Creates a new workflow node with the specified type, label, and position.
@@ -413,6 +431,51 @@ export const CodyOutputNode: React.FC<BaseNodeProps> = ({ data, selected }) => (
     </div>
 )
 
+export const LoopStartNode: React.FC<BaseNodeProps> = ({ data, selected }) => (
+    <div
+        style={{
+            ...getNodeStyle(
+                NodeType.LOOP_START,
+                data.moving,
+                selected,
+                data.executing,
+                data.error,
+                data.active
+            ),
+            borderStyle: 'double',
+        }}
+    >
+        <Handle type="target" position={Position.Top} />
+        <div className="tw-flex tw-flex-col tw-gap-2">
+            <span>{data.title}</span>
+            <span className="tw-text-sm tw-opacity-70">Iterations: {data.iterations || 0}</span>
+        </div>
+        <Handle type="source" position={Position.Bottom} />
+    </div>
+)
+
+export const LoopEndNode: React.FC<BaseNodeProps> = ({ data, selected }) => (
+    <div
+        style={{
+            ...getNodeStyle(
+                NodeType.LOOP_END,
+                data.moving,
+                selected,
+                data.executing,
+                data.error,
+                data.active
+            ),
+            borderStyle: 'double',
+        }}
+    >
+        <Handle type="target" position={Position.Top} />
+        <div className="tw-flex tw-items-center">
+            <span>{data.title}</span>
+        </div>
+        <Handle type="source" position={Position.Bottom} />
+    </div>
+)
+
 export const nodeTypes = {
     [NodeType.CLI]: CLINode,
     [NodeType.LLM]: CodyLLMNode,
@@ -420,4 +483,6 @@ export const nodeTypes = {
     [NodeType.INPUT]: InputNode,
     [NodeType.SEARCH_CONTEXT]: SearchContextNode,
     [NodeType.CODY_OUTPUT]: CodyOutputNode,
+    [NodeType.LOOP_START]: LoopStartNode,
+    [NodeType.LOOP_END]: LoopEndNode,
 }

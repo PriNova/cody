@@ -177,6 +177,7 @@ describe('combineParentOutputsByConnectionOrder', () => {
             nodeOutputs: new Map([[parentId, 'test output']]),
             nodeIndex: new Map(),
             edgeIndex: createEdgeIndex([{ id: uuidv4(), source: parentId, target: childId }]),
+            loopStates: new Map(),
         }
 
         const result = combineParentOutputsByConnectionOrder(childId, context)
@@ -198,6 +199,7 @@ describe('combineParentOutputsByConnectionOrder', () => {
                 { id: uuidv4(), source: parent1Id, target: childId },
                 { id: uuidv4(), source: parent2Id, target: childId },
             ]),
+            loopStates: new Map(),
         }
 
         const result = combineParentOutputsByConnectionOrder(childId, context)
@@ -216,6 +218,7 @@ describe('combineParentOutputsByConnectionOrder', () => {
                 { id: uuidv4(), source: parent1Id, target: childId },
                 { id: uuidv4(), source: parent2Id, target: childId },
             ]),
+            loopStates: new Map(),
         }
 
         const result = combineParentOutputsByConnectionOrder(childId, context)
@@ -230,6 +233,7 @@ describe('combineParentOutputsByConnectionOrder', () => {
             nodeOutputs: new Map([[parentId, 'line1\r\nline2\r\nline3']]),
             nodeIndex: new Map(),
             edgeIndex: createEdgeIndex([{ id: uuidv4(), source: parentId, target: childId }]),
+            loopStates: new Map(),
         }
 
         const result = combineParentOutputsByConnectionOrder(childId, context)
@@ -243,6 +247,7 @@ describe('combineParentOutputsByConnectionOrder', () => {
             nodeOutputs: new Map(),
             nodeIndex: new Map(),
             edgeIndex: createEdgeIndex([]),
+            loopStates: new Map(),
         }
 
         const result = combineParentOutputsByConnectionOrder(childId, context)
@@ -257,6 +262,7 @@ describe('combineParentOutputsByConnectionOrder', () => {
             nodeOutputs: new Map([[parentId, '  output with spaces  \n  ']]),
             nodeIndex: new Map(),
             edgeIndex: createEdgeIndex([{ id: uuidv4(), source: parentId, target: childId }]),
+            loopStates: new Map(),
         }
 
         const result = combineParentOutputsByConnectionOrder(childId, context)
@@ -642,6 +648,7 @@ describe('Workflow Executor Integration Tests', () => {
                     [nodes[0].id, 'file1.ts\nfile2.ts'],
                     [nodes[1].id, '*.ts'],
                 ]),
+                loopStates: new Map(),
             }
 
             const combinedOutputs = combineParentOutputsByConnectionOrder(nodes[2].id, context)
@@ -701,6 +708,7 @@ describe('Workflow Executor Integration Tests', () => {
                 byId: new Map(edges.map(edge => [edge.id, edge])),
             },
             nodeOutputs: new Map([[nodes[0].id, 'branch/with${special}chars\\and spaces']]),
+            loopStates: new Map(),
         }
 
         const combinedOutputs = combineParentOutputsByConnectionOrder(nodes[1].id, context)
@@ -781,6 +789,7 @@ describe('Workflow Executor Integration Tests', () => {
                 [nodes[0].id, 'function sayHello() { return "Hello \'World\'!" }'],
                 [nodes[2].id, '--flag="custom value" \'single quoted value\''],
             ]),
+            loopStates: new Map(),
         }
 
         const combinedOutputs = combineParentOutputsByConnectionOrder(nodes[3].id, context)
