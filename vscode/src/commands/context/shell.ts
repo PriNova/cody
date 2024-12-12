@@ -149,9 +149,8 @@ export const shell: PersistentShell = new PersistentShell()
 
 export async function getContextFileFromShell(command: string): Promise<ContextItem[]> {
     return wrapInActiveSpan('commands.context.command', async () => {
-        const userShellConfig = getConfiguration()?.agenticContext?.shell
-        const isDisabled = !userShellConfig?.allow?.length
-        if (!vscode.env.shell || isDisabled) {
+        const agenticShellConfig = getConfiguration()?.agenticContextExperimentalOptions?.shell
+        if (!vscode.env.shell) {
             void vscode.window.showErrorMessage(
                 'Shell command is not supported in your current workspace.'
             )
@@ -163,8 +162,8 @@ export async function getContextFileFromShell(command: string): Promise<ContextI
         const filteredCommand = command.replaceAll(/(\s~\/)/g, ` ${HOME_DIR}${path.sep}`)
 
         // Process user config list
-        const allowList = new Set(userShellConfig?.allow?.filter(cmd => cmd !== '*') ?? [])
-        const blockList = new Set([...BASE_DISALLOWED_COMMANDS, ...(userShellConfig?.block ?? [])])
+        const allowList = new Set(agenticShellConfig?.allow ?? [])
+        const blockList = new Set([...BASE_DISALLOWED_COMMANDS, ...(agenticShellConfig?.block ?? [])])
 
         try {
             // Command validation

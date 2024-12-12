@@ -3,7 +3,12 @@ import {
     type ChatModel,
     type ClientActionBroadcast,
     type CodyClientConfig,
+    type ContextItemFile,
+    type ContextItemRepository,
     DefaultEditCommands,
+    REMOTE_DIRECTORY_PROVIDER_URI,
+    REMOTE_FILE_PROVIDER_URI,
+    REMOTE_REPOSITORY_PROVIDER_URI,
     cenv,
     clientCapabilities,
     currentSiteVersion,
@@ -11,6 +16,7 @@ import {
     extractContextFromTraceparent,
     firstResultFromOperation,
     forceHydration,
+    inputTextWithMappedContextChipsFromPromptEditorState,
     isAbortError,
     pendingOperation,
     ps,
@@ -96,6 +102,7 @@ import type { startTokenReceiver } from '../../auth/token-receiver'
 import { executeCodyCommand } from '../../commands/CommandsController'
 import { getContextFileFromUri } from '../../commands/context/file-path'
 import { getContextFileFromCursor } from '../../commands/context/selection'
+import { escapeRegExp } from '../../context/openctx/remoteFileSearch'
 import { resolveContextItems } from '../../editor/utils/editor-context'
 import type { VSCodeEditor } from '../../editor/vscode-editor'
 import type { ExtensionClient } from '../../extension-client'
@@ -105,6 +112,7 @@ import { getCategorizedMentions } from '../../prompt-builder/utils'
 import { hydratePromptText } from '../../prompts/prompt-hydration'
 import { mergedPromptsAndLegacyCommands } from '../../prompts/prompts'
 import { publicRepoMetadataIfAllWorkspaceReposArePublic } from '../../repository/githubRepoMetadata'
+import { getFirstRepoNameContainingUri } from '../../repository/repo-name-resolver'
 import { authProvider } from '../../services/AuthProvider'
 import { AuthProviderSimplified } from '../../services/AuthProviderSimplified'
 import { localStorage } from '../../services/LocalStorageProvider'
@@ -122,6 +130,7 @@ import { TestSupport } from '../../test-support'
 import type { MessageErrorType } from '../MessageProvider'
 import { CodyToolProvider } from '../agentic/CodyToolProvider'
 import { DeepCodyAgent } from '../agentic/DeepCody'
+import { DeepCodyRateLimiter } from '../agentic/DeepCodyRateLimiter'
 import { getMentionMenuData } from '../context/chatContext'
 import type { ChatIntentAPIClient } from '../context/chatIntentAPIClient'
 import { observeDefaultContext } from '../initialContext'
@@ -477,6 +486,9 @@ export class ChatController implements vscode.Disposable, vscode.WebviewViewProv
                     } else {
                         await showSignOutMenu()
                     }
+                    // Send config to refresh the endpoint history list.
+                    // TODO: Remove this when the config for webview is observable, see getConfigForWebview.
+                    await this.sendConfig(currentAuthStatus())
                     break
                 }
                 if (message.authKind === 'switch') {
@@ -543,6 +555,16 @@ export class ChatController implements vscode.Disposable, vscode.WebviewViewProv
         featureFlagProvider.evaluatedFeatureFlag(FeatureFlag.CodyExperimentalOneBox)
     )
 
+    private featureDeepCodyShellContext = storeLastValue(
+        featureFlagProvider.evaluatedFeatureFlag(FeatureFlag.DeepCodyShellContext)
+    )
+    private featureDeepCodyRateLimitBase = storeLastValue(
+        featureFlagProvider.evaluatedFeatureFlag(FeatureFlag.DeepCodyRateLimitBase)
+    )
+    private featureDeepCodyRateLimitMultiplier = storeLastValue(
+        featureFlagProvider.evaluatedFeatureFlag(FeatureFlag.DeepCodyRateLimitMultiplier)
+    )
+
     private async getConfigForWebview(): Promise<ConfigurationSubsetForWebview & LocalEnv> {
         const { configuration, auth } = await currentResolvedConfig()
         const sidebarViewOnly = this.extensionClient.capabilities?.webviewNativeConfig?.view === 'single'
@@ -550,6 +572,11 @@ export class ChatController implements vscode.Disposable, vscode.WebviewViewProv
         const webviewType = isEditorViewType && !sidebarViewOnly ? 'editor' : 'sidebar'
         const uiKindIsWeb = (cenv.CODY_OVERRIDE_UI_KIND ?? vscode.env.uiKind) === vscode.UIKind.Web
         const endpoints = localStorage.getEndpointHistory() ?? []
+        this.toolProvider.setShellConfig({
+            instance: this.featureDeepCodyShellContext.value?.last,
+            user: Boolean(configuration.agenticContextExperimentalShell),
+            client: Boolean(vscode.env.shell),
+        })
 
         return {
             uiKindIsWeb,
@@ -710,6 +737,53 @@ export class ChatController implements vscode.Disposable, vscode.WebviewViewProv
         })
     }
 
+    private async getIntentAndScores({
+        requestID,
+        input,
+        signal,
+        detectedIntent,
+        detectedIntentScores,
+    }: {
+        requestID: string
+        input: string
+        signal: AbortSignal
+        detectedIntent?: ChatMessage['intent'] | undefined | null
+        detectedIntentScores?: { intent: string; score: number }[] | undefined | null
+    }): Promise<{
+        intent: ChatMessage['intent']
+        intentScores: { intent: string; score: number }[]
+    }> {
+        if (!this.featureCodyExperimentalOneBox) {
+            return { intent: 'chat', intentScores: [] }
+        }
+
+        // The `detectedIntent` comes from the webview, where it can either be manually set by the user
+        // using the dropdown UI or automatically pre-fetched for the input while the user is typing.
+        // If any such intent is already detected, we use that.
+        if (detectedIntent) {
+            return {
+                intent: detectedIntent,
+                intentScores: detectedIntentScores || [],
+            }
+        }
+
+        const response = await this.detectChatIntent({
+            requestID,
+            text: input,
+        })
+            .then(async response => {
+                signal.throwIfAborted()
+                return response
+            })
+            .catch(() => undefined)
+
+        if (response) {
+            return { intent: response.intent, intentScores: response.allScores }
+        }
+
+        return { intent: 'chat', intentScores: [] }
+    }
+
     public async sendChat(
         {
             requestID,
@@ -736,7 +810,22 @@ export class ChatController implements vscode.Disposable, vscode.WebviewViewProv
             throw new Error('No model selected, and no default chat model is available')
         }
         this.chatBuilder.setSelectedModel(model)
+
         const isDeepCodyModel = model?.includes('deep-cody')
+        // Deep Cody is only invoked for the first 2 submitted messages.
+        const isDeepCodyEnabled = isDeepCodyModel && this.chatBuilder.getMessages().length < 4
+        // The limit could be 0, 50 * 1 (50), 50 * 2 (100)
+        const deepCodyRateLimiter = new DeepCodyRateLimiter(
+            this.featureDeepCodyRateLimitBase.value.last ? 50 : 0,
+            this.featureDeepCodyRateLimitMultiplier.value.last ? 2 : 1
+        )
+        const deepCodyLimit = deepCodyRateLimiter.isAtLimit()
+        if (isDeepCodyModel && isDeepCodyEnabled && deepCodyLimit) {
+            this.postError(deepCodyRateLimiter.getRateLimitError(deepCodyLimit), 'transcript')
+            this.handleAbort()
+            return
+        }
+
         const { isPublic: repoIsPublic, repoMetadata } = await wrapInActiveSpan(
             'chat.getRepoMetadata',
             () => firstResultFromOperation(publicRepoMetadataIfAllWorkspaceReposArePublic)
@@ -768,6 +857,34 @@ export class ChatController implements vscode.Disposable, vscode.WebviewViewProv
 
         this.postEmptyMessageInProgress(model)
 
+        const inputTextWithoutContextChips = editorState
+            ? PromptString.unsafe_fromUserQuery(
+                  inputTextWithoutContextChipsFromPromptEditorState(editorState)
+              )
+            : inputText
+
+        const { intent, intentScores } = await this.getIntentAndScores({
+            requestID,
+            input: editorState
+                ? inputTextWithMappedContextChipsFromPromptEditorState(editorState)
+                : inputText.toString(),
+            detectedIntent,
+            detectedIntentScores,
+            signal,
+        })
+
+        signal.throwIfAborted()
+        this.chatBuilder.setLastMessageIntent(intent)
+        this.postEmptyMessageInProgress(model)
+
+        if (intent === 'search') {
+            return await this.handleSearchIntent({
+                inputTextWithContextChips: inputTextWithoutContextChips.toString(),
+                mentions,
+                signal,
+            })
+        }
+
         // All mentions we receive are either source=initial or source=user. If the caller
         // forgot to set the source, assume it's from the user.
         mentions = mentions.map(m => (m.source ? m : { ...m, source: ContextItemSource.User }))
@@ -782,26 +899,6 @@ export class ChatController implements vscode.Disposable, vscode.WebviewViewProv
         signal.throwIfAborted()
         const corpusContext = contextAlternatives[0].items
 
-        const inputTextWithoutContextChips = editorState
-            ? PromptString.unsafe_fromUserQuery(
-                  inputTextWithoutContextChipsFromPromptEditorState(editorState)
-              )
-            : inputText
-
-        const repositoryMentioned = mentions.find(contextItem =>
-            ['repository', 'tree'].includes(contextItem.type)
-        )
-
-        // We are checking the feature flag here to log non-undefined intent only if the feature flag is on
-        let intent: ChatMessage['intent'] | undefined = this.featureCodyExperimentalOneBox
-            ? detectedIntent
-            : undefined
-
-        let intentScores: { intent: string; score: number }[] | undefined | null = this
-            .featureCodyExperimentalOneBox
-            ? detectedIntentScores
-            : undefined
-
         const userSpecifiedIntent =
             manuallySelectedIntent && detectedIntent
                 ? detectedIntent
@@ -809,27 +906,9 @@ export class ChatController implements vscode.Disposable, vscode.WebviewViewProv
                   ? 'auto'
                   : 'chat'
 
-        const finalIntentDetectionResponse = detectedIntent
-            ? { intent: detectedIntent, allScores: detectedIntentScores }
-            : this.featureCodyExperimentalOneBox && repositoryMentioned && !isDeepCodyModel
-              ? await this.detectChatIntent({
-                    requestID,
-                    text: inputTextWithoutContextChips.toString(),
-                })
-                    .then(async response => {
-                        signal.throwIfAborted()
-                        this.chatBuilder.setLastMessageIntent(response?.intent)
-                        this.postEmptyMessageInProgress(model)
-                        return response
-                    })
-                    .catch(() => undefined)
-              : undefined
-
-        intent = finalIntentDetectionResponse?.intent
-        intentScores = finalIntentDetectionResponse?.allScores
         signal.throwIfAborted()
 
-        if (['search', 'edit', 'insert'].includes(intent || '')) {
+        if (['edit', 'insert'].includes(intent || '')) {
             telemetryEvents['cody.chat-question/executed'].record(
                 {
                     ...telemetryProperties,
@@ -854,16 +933,8 @@ export class ChatController implements vscode.Disposable, vscode.WebviewViewProv
             })
         }
 
-        if (intent === 'search') {
-            return await this.handleSearchIntent({
-                context: corpusContext,
-                signal,
-                contextAlternatives,
-            })
-        }
-
         // Experimental Feature: Deep Cody
-        if (isDeepCodyModel) {
+        if (isDeepCodyEnabled) {
             const agenticContext = await new DeepCodyAgent(
                 this.chatBuilder,
                 this.chatClient,
@@ -925,8 +996,15 @@ export class ChatController implements vscode.Disposable, vscode.WebviewViewProv
     private async detectChatIntent({
         requestID,
         text,
-    }: { requestID?: string; text: string }): Promise<
-        { intent: ChatMessage['intent']; allScores: { intent: string; score: number }[] } | undefined
+    }: {
+        requestID?: string
+        text: string
+    }): Promise<
+        | {
+              intent: ChatMessage['intent']
+              allScores: { intent: string; score: number }[]
+          }
+        | undefined
     > {
         const response = await wrapInActiveSpan('chat.detectChatIntent', () => {
             return this.chatIntentAPIClient?.detectChatIntent(requestID || '', text).catch(() => null)
@@ -943,27 +1021,128 @@ export class ChatController implements vscode.Disposable, vscode.WebviewViewProv
     }
 
     private async handleSearchIntent({
-        context,
+        inputTextWithContextChips,
+        mentions,
         signal,
-        contextAlternatives,
     }: {
-        context: ContextItem[]
+        inputTextWithContextChips: string
+        mentions: ContextItem[]
         signal: AbortSignal
-        contextAlternatives: RankedContext[]
     }): Promise<void> {
         signal.throwIfAborted()
 
-        this.chatBuilder.setLastMessageContext(context, contextAlternatives)
         this.chatBuilder.setLastMessageIntent('search')
-        this.chatBuilder.addBotMessage(
-            {
-                text: ps`"cody-experimental-one-box" feature flag is turned on.`,
+        const scopes: string[] = await this.getSearchScopesFromMentions(mentions)
+        const query = `${inputTextWithContextChips} (${scopes.join(' OR ')})`
+        try {
+            const response = await graphqlClient.nlsSearchQuery({ query, signal })
+
+            this.chatBuilder.addSearchResultAsBotMessage({
+                query,
+                response,
+            })
+
+            void this.saveSession()
+            this.postViewTranscript()
+        } catch (err) {
+            this.chatBuilder.addErrorAsBotMessage(err as Error, ChatBuilder.NO_MODEL)
+            void this.saveSession()
+            this.postViewTranscript()
+        }
+    }
+
+    private async getSearchScopesFromMentions(mentions: ContextItem[]): Promise<string[]> {
+        const validMentions = mentions.reduce(
+            (groups, mention) => {
+                switch (mention.type) {
+                    case 'repository':
+                        groups.repository.push(mention)
+                        break
+                    case 'file':
+                        groups[mention.type].push(mention)
+                        break
+                    case 'openctx':
+                        if (mention.providerUri === REMOTE_REPOSITORY_PROVIDER_URI) {
+                            groups.repository.push(mention)
+                        } else {
+                            groups.openctx.push(mention)
+                        }
+                }
+
+                return groups
             },
-            ChatBuilder.NO_MODEL
+            { repository: [], file: [], openctx: [] } as {
+                repository: (ContextItemRepository | ContextItemOpenCtx)[]
+                file: ContextItemFile[]
+                openctx: ContextItemOpenCtx[]
+            }
         )
 
-        void this.saveSession()
-        this.postViewTranscript()
+        const scopes: string[] = []
+
+        // Convert all repo mentions to a single search filter.
+        // Example: repo:^(github\.com/sourcegraph/sourcegraph|github\.com/sourcegraph/cody)$
+        if (validMentions.repository.length > 0) {
+            const escapedRepoNames = validMentions.repository
+                .filter(({ repoName }) => !!repoName)
+                .map(({ repoName }) => escapeRegExp(repoName || ''))
+                .join('|')
+            scopes.push(`(repo:^(${escapedRepoNames})$)`)
+        }
+
+        // Convert all local file mentions to combination of file & repo filters.
+        // Example: (repo:a file:myfile)
+        await Promise.all(
+            validMentions.file.map(async mention => {
+                const repoName =
+                    (mention as ContextItemFile).remoteRepositoryName ||
+                    (await getFirstRepoNameContainingUri(mention.uri))
+
+                const workspace = vscode.workspace.getWorkspaceFolder(mention.uri)
+                if (!repoName || !workspace) {
+                    return
+                }
+
+                const filePath = escapeRegExp(
+                    mention.uri.toString().split(`${workspace.name}/`)[1] || ''
+                )
+
+                if (!filePath || !repoName) {
+                    return
+                }
+
+                return scopes.push(`(file:^${filePath}$ repo:^${repoName}$)`)
+            })
+        )
+
+        // Convert all remote file & directory mentions to combination of file & repo filters.
+        // Example: (repo:a file:mydir)
+        // biome-ignore lint/complexity/noForEach: <explanation>
+        validMentions.openctx.forEach(mention => {
+            switch ((mention as ContextItemOpenCtx).providerUri) {
+                case REMOTE_FILE_PROVIDER_URI:
+                    {
+                        const filePath = escapeRegExp(mention.mention?.data?.filepath || '')
+                        const repoName = escapeRegExp(mention.mention?.data?.reponame || '')
+                        if (!filePath || !repoName) {
+                            return
+                        }
+                        scopes.push(`(file:^${filePath}$ repo:^${repoName}$)`)
+                    }
+                    break
+                case REMOTE_DIRECTORY_PROVIDER_URI: {
+                    const filePath = escapeRegExp(mention.mention?.data?.directoryPath || '')
+                    const repoName = escapeRegExp(mention.mention?.data?.repoName || '')
+                    if (!filePath || !repoName) {
+                        return
+                    }
+
+                    scopes.push(`(file:^${filePath} repo:^${repoName}$)`)
+                }
+            }
+        })
+
+        return scopes
     }
 
     private async handleEditMode({
