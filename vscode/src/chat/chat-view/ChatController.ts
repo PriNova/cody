@@ -826,6 +826,11 @@ export class ChatController implements vscode.Disposable, vscode.WebviewViewProv
             return
         }
 
+        if (isDeepCodyModel) {
+            const { quota, lastUsed } = localStorage.getDeepCodyUsage()
+            logDebug('DeepCody:', ` Quota: ${quota} - last usage Date: ${lastUsed}`)
+        }
+
         const { isPublic: repoIsPublic, repoMetadata } = await wrapInActiveSpan(
             'chat.getRepoMetadata',
             () => firstResultFromOperation(publicRepoMetadataIfAllWorkspaceReposArePublic)

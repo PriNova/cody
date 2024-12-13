@@ -216,4 +216,8 @@ body[data-vscode-theme-kind='vscode-light'] .content pre > code {
 .file-name-container {
     color: var(--vscode-descriptionForeground);
     margin-left: auto;
+    cursor: pointer;
+    &:hover {
+        text-decoration: underline;
+    }
 }
