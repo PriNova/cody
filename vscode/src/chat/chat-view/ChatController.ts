@@ -373,6 +373,25 @@ export class ChatController implements vscode.Disposable, vscode.WebviewViewProv
                     viewColumn: vscode.ViewColumn.Beside,
                 })
                 break
+            case 'openRelativeFile': {
+                const workspaceFolders = vscode.workspace.workspaceFolders
+
+                if (!workspaceFolders) {
+                    // No workspace folders open
+                    return
+                }
+
+                // Use first workspace folder as base path
+                const baseFolder = workspaceFolders[0]
+                const absoluteUri = vscode.Uri.joinPath(baseFolder.uri, message.uri.path)
+                await vscode.commands.executeCommand('vscode.open', absoluteUri, {
+                    preserveFocus: true,
+                    background: false,
+                    preview: true,
+                    viewColumn: vscode.ViewColumn.Beside,
+                })
+                break
+            }
             case 'newFile':
                 await handleCodeFromSaveToNewFile(message.text, this.editor)
                 break

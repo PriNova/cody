@@ -144,6 +144,10 @@ export type WebviewMessage =
           chatID: string
           newTitle: string
       }
+    | {
+          command: 'openRelativeFile'
+          uri: Uri
+      }
 
 export interface SmartApplyResult {
     taskId: FixupTaskID

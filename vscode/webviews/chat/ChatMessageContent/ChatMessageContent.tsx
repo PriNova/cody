@@ -189,10 +189,11 @@ export const ChatMessageContent: React.FunctionComponent<ChatMessageContentProps
                     fileNameContainer.title = fileName
 
                     fileNameContainer.addEventListener('click', () => {
-                        // Using the existing vscode.workspace.openTextDocument API
+                        // Get workspace URI attributes from document root
+                        const uri = URI.file(fileName)
                         getVSCodeAPI().postMessage({
-                            command: 'openFileLink',
-                            uri: URI.file(fileName),
+                            command: 'openRelativeFile',
+                            uri: uri,
                         })
                     })
 
