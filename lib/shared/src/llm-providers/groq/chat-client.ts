@@ -40,12 +40,14 @@ export async function groqChatClient({
     const chatParams = {
         ...config?.options,
         model: config?.model,
-        messages: await Promise.all(
-            params.messages.map(async msg => ({
-                role: msg.speaker === 'human' ? 'user' : 'assistant',
-                content: (await msg.text?.toFilteredString(contextFiltersProvider)) ?? '',
-            }))
-        ),
+        messages: (
+            await Promise.all(
+                params.messages.map(async msg => ({
+                    role: msg.speaker === 'human' ? 'user' : 'assistant',
+                    content: (await msg.text?.toFilteredString(contextFiltersProvider)) ?? '',
+                }))
+            )
+        ).filter((_, i, arr) => i !== arr.length - 1 || arr[i].role !== 'assistant'),
         ...(isCortex && {
             max_tokens: 1000,
             stop: [],
