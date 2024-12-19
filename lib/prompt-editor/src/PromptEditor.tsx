@@ -16,7 +16,14 @@ import {
     $setSelection,
     type LexicalEditor,
 } from 'lexical'
-import type { EditorState, SerializedEditorState, SerializedLexicalNode } from 'lexical'
+import type {
+    EditorState,
+    KlassConstructor,
+    LexicalNode,
+    NodeMutation,
+    SerializedEditorState,
+    SerializedLexicalNode,
+} from 'lexical'
 import isEqual from 'lodash/isEqual'
 import { type FunctionComponent, useCallback, useEffect, useImperativeHandle, useRef } from 'react'
 import { BaseEditor } from './BaseEditor'
@@ -75,6 +82,10 @@ export interface PromptEditorRefAPI {
     filterMentions(filter: (item: SerializedContextItem) => boolean): Promise<void>
     setInitialContextMentions(items: ContextItem[]): Promise<void>
     setEditorState(state: SerializedPromptEditorState): void
+    registerMutationListener: (
+        klass: KlassConstructor<typeof LexicalNode>,
+        listener: (mutatedNodes: Map<string, NodeMutation>) => void
+    ) => () => void
 }
 
 /**
@@ -327,6 +338,12 @@ export const PromptEditor: FunctionComponent<Props> = ({
 
                     return updated
                 })
+            },
+            registerMutationListener: (klass, listener) => {
+                if (!editorRef.current) {
+                    return () => {}
+                }
+                return editorRef.current.registerMutationListener(klass, listener)
             },
         }),
         []
