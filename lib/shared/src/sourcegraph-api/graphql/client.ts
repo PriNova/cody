@@ -33,7 +33,6 @@ import {
     CURRENT_SITE_CODY_LLM_PROVIDER,
     CURRENT_SITE_GRAPHQL_FIELDS_QUERY,
     CURRENT_SITE_HAS_CODY_ENABLED_QUERY,
-    CURRENT_SITE_IDENTIFICATION,
     CURRENT_SITE_VERSION_QUERY,
     CURRENT_USER_CODY_PRO_ENABLED_QUERY,
     CURRENT_USER_CODY_SUBSCRIPTION_QUERY,
@@ -56,6 +55,7 @@ import {
     NLS_SEARCH_QUERY,
     PACKAGE_LIST_QUERY,
     PROMPTS_QUERY,
+    PROMPT_TAGS_QUERY,
     PromptsOrderBy,
     RECORD_TELEMETRY_EVENTS_MUTATION,
     REPOSITORY_IDS_QUERY,
@@ -168,13 +168,6 @@ interface GetURLContentResponse {
         title: string | null
         content: string
     }
-}
-
-interface SiteIdentificationResponse {
-    site: {
-        siteID: string
-        productSubscription: { license: { hashedKey: string } }
-    } | null
 }
 
 interface SiteGraphqlFieldsResponse {
@@ -344,9 +337,19 @@ export interface NLSSearchFileMatch {
 
 export type NLSSearchResult = NLSSearchFileMatch | { __typename: 'unknown' }
 
+export interface NLSSearchDynamicFilter {
+    value: string
+    label: string
+    count: number
+    kind: NLSSearchDynamicFilterKind | string
+}
+
+export type NLSSearchDynamicFilterKind = 'repo' | 'lang' | 'type' | 'file'
+
 export interface NLSSearchResponse {
     search: {
         results: {
+            dynamicFilters?: NLSSearchDynamicFilter[]
             results: NLSSearchResult[]
         }
     }
@@ -524,6 +527,11 @@ export enum PromptMode {
     INSERT = 'INSERT',
 }
 
+export interface PromptTag {
+    id: string
+    name: string
+}
+
 interface ContextFiltersResponse {
     site: {
         codyContextFilters: {
@@ -664,7 +672,7 @@ interface HighlightLineRange {
     startLine: number
 }
 
-type GraphQLAPIClientConfig = PickResolvedConfiguration<{
+export type GraphQLAPIClientConfig = PickResolvedConfiguration<{
     auth: true
     configuration: 'telemetryLevel' | 'customHeaders'
     clientState: 'anonymousUserID'
@@ -672,7 +680,7 @@ type GraphQLAPIClientConfig = PickResolvedConfiguration<{
 
 const QUERY_TO_NAME_REGEXP = /^\s*(?:query|mutation)\s+(\w+)/m
 
-export class SourcegraphGraphQLAPIClient implements Disposable {
+export class SourcegraphGraphQLAPIClient {
     private isAgentTesting = process.env.CODY_SHIM_TESTING === 'true'
     private readonly resultCacheFactory: ObservableInvalidatedGraphQLResultCacheFactory
     private readonly siteVersionCache: GraphQLResultCache<string>
@@ -709,8 +717,8 @@ export class SourcegraphGraphQLAPIClient implements Disposable {
         this.siteVersionCache = this.resultCacheFactory.create<string>('SiteProductVersion')
     }
 
-    [Symbol.dispose]() {
-        this.resultCacheFactory[Symbol.dispose]()
+    dispose(): void {
+        this.resultCacheFactory.dispose()
     }
 
     public async getSiteVersion(signal?: AbortSignal): Promise<string | Error> {
@@ -821,23 +829,6 @@ export class SourcegraphGraphQLAPIClient implements Disposable {
         )
     }
 
-    public async getSiteIdentification(): Promise<{ siteid: string; hashedLicenseKey: string } | Error> {
-        const response = await this.fetchSourcegraphAPI<APIResponse<SiteIdentificationResponse>>(
-            CURRENT_SITE_IDENTIFICATION,
-            {}
-        )
-        return extractDataOrError(response, data =>
-            data.site?.siteID
-                ? data.site?.productSubscription?.license?.hashedKey
-                    ? {
-                          siteid: data.site?.siteID,
-                          hashedLicenseKey: data.site?.productSubscription?.license?.hashedKey,
-                      }
-                    : new Error('site hashed license key not found')
-                : new Error('site ID not found')
-        )
-    }
-
     public async getSiteHasIsCodyEnabledField(signal?: AbortSignal): Promise<boolean | Error> {
         return this.fetchSourcegraphAPI<APIResponse<SiteGraphqlFieldsResponse>>(
             CURRENT_SITE_GRAPHQL_FIELDS_QUERY,
@@ -859,10 +850,11 @@ export class SourcegraphGraphQLAPIClient implements Disposable {
         ).then(response => extractDataOrError(response, data => data.site?.isCodyEnabled ?? false))
     }
 
-    public async getCurrentUserId(): Promise<string | null | Error> {
+    public async getCurrentUserId(signal?: AbortSignal): Promise<string | null | Error> {
         return this.fetchSourcegraphAPI<APIResponse<CurrentUserIdResponse>>(
             CURRENT_USER_ID_QUERY,
-            {}
+            {},
+            signal
         ).then(response =>
             extractDataOrError(response, data => (data.currentUser ? data.currentUser.id : null))
         )
@@ -1301,17 +1293,29 @@ export class SourcegraphGraphQLAPIClient implements Disposable {
         query,
         first,
         recommendedOnly,
+        tags,
         signal,
         orderByMultiple,
+        owner,
+        includeViewerDrafts,
+        builtinOnly,
     }: {
         query?: string
         first: number | undefined
         recommendedOnly?: boolean
+        tags?: string[]
         signal?: AbortSignal
         orderByMultiple?: PromptsOrderBy[]
+        owner?: string
+        includeViewerDrafts?: boolean
+        builtinOnly?: boolean
     }): Promise<Prompt[]> {
         const hasIncludeViewerDraftsArg = await this.isValidSiteVersion({
             minimumVersion: '5.9.0',
+        })
+        const hasPromptTagsField = await this.isValidSiteVersion({
+            minimumVersion: '5.11.0',
+            insider: true,
         })
 
         const response = await this.fetchSourcegraphAPI<APIResponse<{ prompts: { nodes: Prompt[] } }>>(
@@ -1324,6 +1328,10 @@ export class SourcegraphGraphQLAPIClient implements Disposable {
                     PromptsOrderBy.PROMPT_RECOMMENDED,
                     PromptsOrderBy.PROMPT_UPDATED_AT,
                 ],
+                tags: hasPromptTagsField ? tags : undefined,
+                owner,
+                includeViewerDrafts: includeViewerDrafts ?? true,
+                builtinOnly,
             },
             signal
         )
@@ -1410,6 +1418,29 @@ export class SourcegraphGraphQLAPIClient implements Disposable {
         }
 
         return
+    }
+
+    public async queryPromptTags({
+        signal,
+    }: {
+        signal?: AbortSignal
+    }): Promise<PromptTag[]> {
+        const hasPromptTags = await this.isValidSiteVersion({
+            minimumVersion: '5.11.0',
+            insider: true,
+        })
+        if (!hasPromptTags) {
+            return []
+        }
+
+        const response = await this.fetchSourcegraphAPI<
+            APIResponse<{ promptTags: { nodes: PromptTag[] } }>
+        >(PROMPT_TAGS_QUERY, signal)
+        const result = extractDataOrError(response, data => data.promptTags.nodes)
+        if (result instanceof Error) {
+            throw result
+        }
+        return result
     }
 
     /**
@@ -1499,10 +1530,11 @@ export class SourcegraphGraphQLAPIClient implements Disposable {
         ).then(response => extractDataOrError(response, data => data.evaluateFeatureFlag))
     }
 
-    public async viewerSettings(): Promise<Record<string, any> | Error> {
+    public async viewerSettings(signal?: AbortSignal): Promise<Record<string, any> | Error> {
         const response = await this.fetchSourcegraphAPI<APIResponse<ViewerSettingsResponse>>(
             VIEWER_SETTINGS_QUERY,
-            {}
+            {},
+            signal
         )
         return extractDataOrError(response, data => JSON.parse(data.viewerSettings.final))
     }
@@ -1557,13 +1589,19 @@ export class SourcegraphGraphQLAPIClient implements Disposable {
         method: string,
         urlPath: string,
         body?: string,
-        signal?: AbortSignal
+        signal?: AbortSignal,
+        configOverride?: GraphQLAPIClientConfig
     ): Promise<T | Error> {
-        if (!this.config) {
-            throw new Error('SourcegraphGraphQLAPIClient config not set')
-        }
-        const config = await firstValueFrom(this.config)
-        signal?.throwIfAborted()
+        const config =
+            configOverride ??
+            (await (async () => {
+                if (!this.config) {
+                    throw new Error('SourcegraphGraphQLAPIClient config not set')
+                }
+                const resolvedConfig = await firstValueFrom(this.config)
+                signal?.throwIfAborted()
+                return resolvedConfig
+            })())
 
         const headers = new Headers(config.configuration?.customHeaders as HeadersInit | undefined)
         headers.set('Content-Type', 'application/json; charset=utf-8')

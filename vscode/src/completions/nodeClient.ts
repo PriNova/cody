@@ -215,7 +215,6 @@ export class SourcegraphNodeCompletionsClient extends SourcegraphCompletionsClie
                         this.sendEvents(parseResult.events, cb, span)
                         bufferText = parseResult.remainingBuffer
                     })
-
                     res.on('error', e => handleError(e))
                 }
             )

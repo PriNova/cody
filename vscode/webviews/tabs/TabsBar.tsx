@@ -6,12 +6,10 @@ import {
     BookTextIcon,
     Cog,
     DownloadIcon,
-    ExternalLink,
     HistoryIcon,
     type LucideProps,
     MessageSquarePlusIcon,
     MessagesSquareIcon,
-    PlusCircle,
     Trash2Icon,
 } from 'lucide-react'
 import { getVSCodeAPI } from '../utils/VSCodeApi'
@@ -349,9 +347,6 @@ TabButton.displayName = 'TabButton'
  */
 function useTabs(input: Pick<TabsBarProps, 'user'>): TabConfig[] {
     const IDE = input.user.IDE
-    const {
-        config: { serverEndpoint },
-    } = useConfig()
 
     const extensionAPI = useExtensionAPI<'userHistory'>()
 
@@ -413,23 +408,9 @@ function useTabs(input: Pick<TabsBarProps, 'user'>): TabConfig[] {
                         title: 'Prompts',
                         Icon: BookTextIcon,
                         changesView: true,
-                        subActions: [
-                            {
-                                title: 'Create Prompt',
-                                Icon: PlusCircle,
-                                command: '',
-                                uri: `${serverEndpoint}prompts/new`,
-                            },
-                            {
-                                title: 'Prompts Library',
-                                Icon: ExternalLink,
-                                command: '',
-                                uri: `${serverEndpoint}prompts`,
-                            },
-                        ],
                     },
                 ] as (TabConfig | null)[]
             ).filter(isDefined),
-        [IDE, extensionAPI, serverEndpoint]
+        [IDE, extensionAPI]
     )
 }
