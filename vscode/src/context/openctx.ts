@@ -94,9 +94,7 @@ export function exposeOpenCtxClient(
                     secrets: context.secrets,
                     outputChannel: openctxOutputChannel!,
                     features: clientCapabilities().isVSCode ? { annotations: true } : {},
-                    providers: clientCapabilities().isCodyWeb
-                        ? getCodyWebOpenCtxProviders()
-                        : getOpenCtxProviders(authStatus, isValidSiteVersion),
+                    providers: getCodyWebOpenCtxProviders(),
                     mergeConfiguration,
                 })
                 setOpenCtx({
