@@ -10,7 +10,7 @@ export function getCompletionsModelConfig(modelID: string): CompletionsModelConf
     const { id, clientSideConfig = {} } = provider
     const { apiKey = '', apiEndpoint, options = {} } = clientSideConfig
 
-    const model = id.split('/').pop() || id
+    const model = id.includes('/') ? id.substring(id.indexOf('/') + 1) : id
     const stream = Boolean(options?.stream ?? true)
 
     const { stream: _, ...restOptions } = options || {}
