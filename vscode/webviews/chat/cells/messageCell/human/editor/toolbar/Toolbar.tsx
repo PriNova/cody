@@ -7,10 +7,12 @@ import { ModelSelectField } from '../../../../../../components/modelSelectField/
 import { PromptSelectField } from '../../../../../../components/promptSelectField/PromptSelectField'
 import toolbarStyles from '../../../../../../components/shadcn/ui/toolbar.module.css'
 import { useActionSelect } from '../../../../../../prompts/PromptsTab'
+import { isGeminiFlash2Model } from '../../../../../../utils/modelUtils'
 import { useClientConfig } from '../../../../../../utils/useClientConfig'
 import { AddContextButton } from './AddContextButton'
 import { SubmitButton, type SubmitButtonState } from './SubmitButton'
 import { TokenDisplay } from './TokenDisplay'
+import { UploadImageButton } from './UploadImageButton'
 
 /**
  * The toolbar for the human message editor.
@@ -39,6 +41,8 @@ export const Toolbar: FunctionComponent<{
     contextWindow?: number
     transcriptTokens?: number
     isLastInteraction?: boolean
+    imageFile?: File
+    setImageFile: (file: File | undefined) => void
 }> = ({
     userInfo,
     isEditorFocused,
@@ -56,6 +60,8 @@ export const Toolbar: FunctionComponent<{
     contextWindow,
     transcriptTokens,
     isLastInteraction,
+    imageFile,
+    setImageFile,
 }) => {
     /**
      * If the user clicks in a gap or on the toolbar outside of any of its buttons, report back to
@@ -73,6 +79,10 @@ export const Toolbar: FunctionComponent<{
         [onGapClick]
     )
 
+    const isGoogleModel = useCallback((model: Model) => {
+        return isGeminiFlash2Model(model)
+    }, [])
+
     return (
         // biome-ignore lint/a11y/useKeyWithClickEvents: only relevant to click areas
         <menu
@@ -89,6 +99,13 @@ export const Toolbar: FunctionComponent<{
         >
             <div className="tw-flex tw-items-center">
                 {/* Can't use tw-gap-1 because the popover creates an empty element when open. */}
+                {isGoogleModel(models[0]) && (
+                    <UploadImageButton
+                        className="tw-opacity-60"
+                        imageFile={imageFile}
+                        onClick={setImageFile}
+                    />
+                )}
                 {onMentionClick && (
                     <AddContextButton
                         onClick={onMentionClick}
@@ -101,6 +118,7 @@ export const Toolbar: FunctionComponent<{
                     userInfo={userInfo}
                     focusEditor={focusEditor}
                     className="tw-mr-1"
+                    supportsImageUpload={isGoogleModel(models[0])}
                 />
 
                 {tokenCount !== undefined &&
@@ -149,7 +167,8 @@ const ModelSelectFieldToolbarItem: FunctionComponent<{
     userInfo: UserAccountInfo
     focusEditor?: () => void
     className?: string
-}> = ({ userInfo, focusEditor, className, models }) => {
+    supportsImageUpload?: boolean
+}> = ({ userInfo, focusEditor, className, models, supportsImageUpload }) => {
     const clientConfig = useClientConfig()
     const serverSentModelsEnabled = !!clientConfig?.modelsAPIEnabled
 

@@ -33,6 +33,7 @@ import {
 import type { UserAccountInfo } from '../../../../../Chat'
 import { type ClientActionListener, useClientActionListener } from '../../../../../client/clientState'
 import { promptModeToIntent } from '../../../../../prompts/PromptsTab'
+import { getVSCodeAPI } from '../../../../../utils/VSCodeApi'
 import { useTelemetryRecorder } from '../../../../../utils/telemetry'
 import { useExperimentalOneBox } from '../../../../../utils/useExperimentalOneBox'
 import styles from './HumanMessageEditor.module.css'
@@ -77,6 +78,8 @@ export const HumanMessageEditor: FunctionComponent<{
 
     initialIntent?: ChatMessage['intent']
     transcriptTokens?: number
+    imageFile?: File
+    setImageFile: (file: File | undefined) => void
 }> = ({
     models,
     userInfo,
@@ -98,6 +101,8 @@ export const HumanMessageEditor: FunctionComponent<{
     onEditorFocusChange: parentOnEditorFocusChange,
     initialIntent,
     transcriptTokens,
+    imageFile,
+    setImageFile,
 }) => {
     const telemetryRecorder = useTelemetryRecorder()
 
@@ -199,6 +204,35 @@ export const HumanMessageEditor: FunctionComponent<{
             }
 
             const value = editorRef.current.getSerializedValue()
+
+            const processImage = async () => {
+                if (imageFile) {
+                    const readFileGetBase64String = (file: File): Promise<string> => {
+                        return new Promise((resolve, reject) => {
+                            const reader = new FileReader()
+                            reader.onload = () => {
+                                const base64 = reader.result
+                                if (base64 && typeof base64 === 'string') {
+                                    resolve(base64.split(',')[1])
+                                } else {
+                                    reject(new Error('Failed to read file'))
+                                }
+                            }
+                            reader.onerror = () => reject(new Error('Failed to read file'))
+                            reader.readAsDataURL(file)
+                        })
+                    }
+
+                    const base64 = await readFileGetBase64String(imageFile)
+                    getVSCodeAPI().postMessage({
+                        command: 'chat/upload-image',
+                        image: base64,
+                    })
+                }
+            }
+            setImageFile(undefined)
+            processImage()
+
             parentOnSubmit(intent)
 
             telemetryRecorder.recordEvent('cody.humanMessageEditor', 'submit', {
@@ -215,7 +249,16 @@ export const HumanMessageEditor: FunctionComponent<{
                 },
             })
         },
-        [submitState, parentOnSubmit, onStop, telemetryRecorder.recordEvent, isFirstMessage, isSent]
+        [
+            submitState,
+            parentOnSubmit,
+            onStop,
+            telemetryRecorder.recordEvent,
+            isFirstMessage,
+            isSent,
+            imageFile,
+            setImageFile,
+        ]
     )
 
     const onEditorEnterKey = useCallback(
@@ -518,6 +561,8 @@ export const HumanMessageEditor: FunctionComponent<{
                     contextWindow={totalContextWindow}
                     transcriptTokens={transcriptTokens}
                     isLastInteraction={isLastInteraction}
+                    imageFile={imageFile}
+                    setImageFile={setImageFile}
                 />
             )}
         </div>
