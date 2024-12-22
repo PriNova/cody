@@ -178,6 +178,8 @@ function renderWithMocks(props: Partial<ComponentProps<typeof HumanMessageEditor
         onStop,
         models: MOCK_MODELS,
         setImageFile: vi.fn(),
+        isGoogleSearchEnabled: false,
+        setIsGoogleSearchEnabled: vi.fn(),
     }
 
     const { container } = render(<HumanMessageEditor {...DEFAULT_PROPS} {...props} />, {

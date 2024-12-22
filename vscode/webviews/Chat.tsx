@@ -227,6 +227,8 @@ export const Chat: React.FunctionComponent<React.PropsWithChildren<ChatboxProps>
     }, [transcript])
     const [activeChatContext, setActiveChatContext] = useState<Context>()
 
+    const [isGoogleSearchEnabled, setIsGoogleSearchEnabled] = useState(false)
+
     return (
         <>
             {!chatEnabled && (
@@ -249,6 +251,8 @@ export const Chat: React.FunctionComponent<React.PropsWithChildren<ChatboxProps>
                 postMessage={postMessage}
                 guardrails={guardrails}
                 smartApplyEnabled={smartApplyEnabled}
+                isGoogleSearchEnabled={isGoogleSearchEnabled}
+                setIsGoogleSearchEnabled={setIsGoogleSearchEnabled}
             />
             {transcript.length === 0 && showWelcomeMessage && (
                 <>
