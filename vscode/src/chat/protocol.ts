@@ -227,6 +227,7 @@ export interface WebviewSubmitMessage extends WebviewContextMessage {
     intentScores?: { intent: string; score: number }[] | undefined | null
     manuallySelectedIntent?: boolean | undefined | null
     traceparent?: string | undefined | null
+    isGoogleSearchEnabled?: boolean
 }
 
 interface WebviewEditMessage extends WebviewContextMessage {

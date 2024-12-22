@@ -5,6 +5,7 @@ import { type FunctionComponent, useCallback } from 'react'
 import type { UserAccountInfo } from '../../../../../../Chat'
 import { ModelSelectField } from '../../../../../../components/modelSelectField/ModelSelectField'
 import { PromptSelectField } from '../../../../../../components/promptSelectField/PromptSelectField'
+import { Checkbox } from '../../../../../../components/shadcn/ui/checkbox'
 import toolbarStyles from '../../../../../../components/shadcn/ui/toolbar.module.css'
 import { useActionSelect } from '../../../../../../prompts/PromptsTab'
 import { isGeminiFlash2Model } from '../../../../../../utils/modelUtils'
@@ -43,6 +44,8 @@ export const Toolbar: FunctionComponent<{
     isLastInteraction?: boolean
     imageFile?: File
     setImageFile: (file: File | undefined) => void
+    isGoogleSearchEnabled: boolean
+    setIsGoogleSearchEnabled: (value: boolean) => void
 }> = ({
     userInfo,
     isEditorFocused,
@@ -62,6 +65,8 @@ export const Toolbar: FunctionComponent<{
     isLastInteraction,
     imageFile,
     setImageFile,
+    isGoogleSearchEnabled,
+    setIsGoogleSearchEnabled,
 }) => {
     /**
      * If the user clicks in a gap or on the toolbar outside of any of its buttons, report back to
@@ -132,14 +137,31 @@ export const Toolbar: FunctionComponent<{
                         />
                     )}
             </div>
-            <div className="tw-flex-1 tw-flex tw-justify-end">
-                <SubmitButton
-                    onClick={onSubmitClick}
-                    isEditorFocused={isEditorFocused}
-                    state={submitState}
-                    intent={intent}
-                    onSelectIntent={onSelectIntent}
-                />
+            <div className="tw-flex tw-items-center tw-gap-2">
+                {isGoogleModel(models[0]) && (
+                    <div className="tw-flex tw-items-center">
+                        <Checkbox
+                            id="google-search-toggle"
+                            checked={isGoogleSearchEnabled}
+                            onCheckedChange={setIsGoogleSearchEnabled}
+                        />
+                        <label
+                            htmlFor="google-search-toggle"
+                            className="tw-text-sm tw-text-secondary-foreground tw-ml-1 tw-cursor-pointer"
+                        >
+                            Google Search
+                        </label>
+                    </div>
+                )}
+                <div className="tw-flex-1 tw-flex tw-justify-end">
+                    <SubmitButton
+                        onClick={onSubmitClick}
+                        isEditorFocused={isEditorFocused}
+                        state={submitState}
+                        intent={intent}
+                        onSelectIntent={onSelectIntent}
+                    />
+                </div>
             </div>
         </menu>
     )

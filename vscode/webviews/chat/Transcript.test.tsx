@@ -24,6 +24,8 @@ const PROPS: Omit<ComponentProps<typeof Transcript>, 'transcript'> = {
     postMessage: () => {},
     models: MOCK_MODELS,
     setActiveChatContext: () => {},
+    isGoogleSearchEnabled: false,
+    setIsGoogleSearchEnabled: () => {},
 }
 
 vi.mock('@vscode/webview-ui-toolkit/react', () => ({

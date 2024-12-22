@@ -45,6 +45,8 @@ const meta: Meta<typeof Transcript> = {
         chatEnabled: true,
         models: mockedModels,
         setActiveChatContext: () => {},
+        isGoogleSearchEnabled: false,
+        setIsGoogleSearchEnabled: () => {},
     } satisfies ComponentProps<typeof Transcript>,
 
     decorators: [

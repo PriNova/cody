@@ -38,6 +38,8 @@ interface HumanMessageCellProps {
     editorRef?: React.RefObject<PromptEditorRefAPI | null>
     __storybook__focus?: boolean
     transcriptTokens?: number
+    isGoogleSearchEnabled: boolean
+    setIsGoogleSearchEnabled: (enabled: boolean) => void
 }
 
 export const HumanMessageCell: FC<HumanMessageCellProps> = ({ message, ...otherProps }) => {
@@ -64,6 +66,8 @@ type HumanMessageCellContent = {
     intent: ChatMessage['intent']
     imageFile?: File
     setImageFile: (file: File | undefined) => void
+    isGoogleSearchEnabled: boolean
+    setIsGoogleSearchEnabled: (enabled: boolean) => void
 } & Omit<HumanMessageCellProps, 'message'>
 
 const HumanMessageCellContent = memo<HumanMessageCellContent>(props => {
@@ -164,6 +168,8 @@ const HumanMessageCellContent = memo<HumanMessageCellContent>(props => {
                         imageFile={props.imageFile}
                         setImageFile={props.setImageFile}
                         transcriptTokens={props.transcriptTokens}
+                        isGoogleSearchEnabled={props.isGoogleSearchEnabled}
+                        setIsGoogleSearchEnabled={props.setIsGoogleSearchEnabled}
                     />
                 </div>
             }

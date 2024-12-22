@@ -70,6 +70,8 @@ interface TranscriptProps {
     insertButtonOnSubmit?: CodeBlockActionsProps['insertButtonOnSubmit']
     smartApply?: CodeBlockActionsProps['smartApply']
     smartApplyEnabled?: boolean
+    isGoogleSearchEnabled: boolean
+    setIsGoogleSearchEnabled: (enabled: boolean) => void
 }
 
 export const Transcript: FC<TranscriptProps> = props => {
@@ -88,6 +90,8 @@ export const Transcript: FC<TranscriptProps> = props => {
         insertButtonOnSubmit,
         smartApply,
         smartApplyEnabled,
+        isGoogleSearchEnabled,
+        setIsGoogleSearchEnabled,
     } = props
 
     const interactions = useMemo(
@@ -200,6 +204,8 @@ export const Transcript: FC<TranscriptProps> = props => {
                         editorRef={i === interactions.length - 1 ? lastHumanEditorRef : undefined}
                         onAddToFollowupChat={onAddToFollowupChat}
                         transcriptTokens={transcriptTokens}
+                        isGoogleSearchEnabled={isGoogleSearchEnabled}
+                        setIsGoogleSearchEnabled={setIsGoogleSearchEnabled}
                     />
                 ))}
             </LastEditorContext.Provider>
@@ -282,6 +288,8 @@ interface TranscriptInteractionProps
         fileURL: string
     }) => void
     transcriptTokens?: number
+    isGoogleSearchEnabled: boolean
+    setIsGoogleSearchEnabled: (enabled: boolean) => void
 }
 
 const TranscriptInteraction: FC<TranscriptInteractionProps> = memo(props => {
@@ -303,6 +311,8 @@ const TranscriptInteraction: FC<TranscriptInteractionProps> = memo(props => {
         smartApplyEnabled,
         editorRef: parentEditorRef,
         transcriptTokens,
+        isGoogleSearchEnabled,
+        setIsGoogleSearchEnabled,
     } = props
     const [intentResults, setIntentResults] = useMutatedValue<
         | {
@@ -362,10 +372,10 @@ const TranscriptInteraction: FC<TranscriptInteractionProps> = memo(props => {
         } else {
             submitHumanMessage({
                 ...commonProps,
+                isGoogleSearchEnabled: isGoogleSearchEnabled,
             })
         }
     }
-
     const onEditSubmit = useCallback(
         (intentFromSubmit?: ChatMessage['intent']): void => {
             onUserAction('edit', intentFromSubmit)
@@ -607,7 +617,7 @@ const TranscriptInteraction: FC<TranscriptInteractionProps> = memo(props => {
         .contextItems.some(item => item.type === 'repository')
 
     const onHumanMessageSubmit = useCallback(
-        (intent?: ChatMessage['intent']) => {
+        (intent?: ChatMessage['intent'], isGoogleSearchEnabled?: boolean) => {
             if (humanMessage.isUnsentFollowup) {
                 return onFollowupSubmit(intent)
             }
@@ -647,6 +657,8 @@ const TranscriptInteraction: FC<TranscriptInteractionProps> = memo(props => {
                 className={!isFirstInteraction && isLastInteraction ? 'tw-mt-auto' : ''}
                 onEditorFocusChange={resetIntent}
                 transcriptTokens={transcriptTokens}
+                isGoogleSearchEnabled={isGoogleSearchEnabled}
+                setIsGoogleSearchEnabled={setIsGoogleSearchEnabled}
             />
             {experimentalOneBoxEnabled && (
                 <SwitchIntent
@@ -760,12 +772,14 @@ function submitHumanMessage({
     intentScores,
     manuallySelectedIntent,
     traceparent,
+    isGoogleSearchEnabled,
 }: {
     editorValue: SerializedPromptEditorValue
     intent?: ChatMessage['intent']
     intentScores?: { intent: string; score: number }[]
     manuallySelectedIntent?: boolean
     traceparent: string
+    isGoogleSearchEnabled: boolean
 }): void {
     getVSCodeAPI().postMessage({
         command: 'submit',
@@ -776,6 +790,7 @@ function submitHumanMessage({
         intentScores,
         manuallySelectedIntent,
         traceparent,
+        isGoogleSearchEnabled,
     })
     focusLastHumanMessageEditor()
 }

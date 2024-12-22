@@ -63,7 +63,7 @@ export const HumanMessageEditor: FunctionComponent<{
 
     onEditorFocusChange?: (focused: boolean) => void
     onChange?: (editorState: SerializedPromptEditorValue) => void
-    onSubmit: (intent?: ChatMessage['intent']) => void
+    onSubmit: (intent?: ChatMessage['intent'], isGoogleSearchEnabled?: boolean) => void
     onStop: () => void
 
     isFirstInteraction?: boolean
@@ -80,6 +80,8 @@ export const HumanMessageEditor: FunctionComponent<{
     transcriptTokens?: number
     imageFile?: File
     setImageFile: (file: File | undefined) => void
+    isGoogleSearchEnabled: boolean
+    setIsGoogleSearchEnabled: (enabled: boolean) => void
 }> = ({
     models,
     userInfo,
@@ -103,6 +105,8 @@ export const HumanMessageEditor: FunctionComponent<{
     transcriptTokens,
     imageFile,
     setImageFile,
+    isGoogleSearchEnabled,
+    setIsGoogleSearchEnabled,
 }) => {
     const telemetryRecorder = useTelemetryRecorder()
 
@@ -233,7 +237,7 @@ export const HumanMessageEditor: FunctionComponent<{
             setImageFile(undefined)
             processImage()
 
-            parentOnSubmit(intent)
+            parentOnSubmit(intent, isGoogleSearchEnabled)
 
             telemetryRecorder.recordEvent('cody.humanMessageEditor', 'submit', {
                 metadata: {
@@ -258,6 +262,7 @@ export const HumanMessageEditor: FunctionComponent<{
             isSent,
             imageFile,
             setImageFile,
+            isGoogleSearchEnabled,
         ]
     )
 
@@ -563,6 +568,8 @@ export const HumanMessageEditor: FunctionComponent<{
                     isLastInteraction={isLastInteraction}
                     imageFile={imageFile}
                     setImageFile={setImageFile}
+                    isGoogleSearchEnabled={isGoogleSearchEnabled}
+                    setIsGoogleSearchEnabled={setIsGoogleSearchEnabled}
                 />
             )}
         </div>
