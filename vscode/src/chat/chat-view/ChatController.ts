@@ -286,6 +286,7 @@ export class ChatController implements vscode.Disposable, vscode.WebviewViewProv
                     intentScores: message.intentScores,
                     manuallySelectedIntent: message.manuallySelectedIntent,
                     traceparent: message.traceparent,
+                    isGoogleSearchEnabled: message.isGoogleSearchEnabled,
                 })
                 break
             }
@@ -673,6 +674,7 @@ export class ChatController implements vscode.Disposable, vscode.WebviewViewProv
         intentScores: detectedIntentScores,
         manuallySelectedIntent,
         traceparent,
+        isGoogleSearchEnabled,
     }: {
         requestID: string
         inputText: PromptString
@@ -685,6 +687,7 @@ export class ChatController implements vscode.Disposable, vscode.WebviewViewProv
         intentScores?: { intent: string; score: number }[] | undefined | null
         manuallySelectedIntent?: boolean | undefined | null
         traceparent?: string | undefined | null
+        isGoogleSearchEnabled?: boolean
     }): Promise<void> {
         return context.with(extractContextFromTraceparent(traceparent), () => {
             return tracer.startActiveSpan('chat.handleUserMessage', async (span): Promise<void> => {
@@ -725,6 +728,7 @@ export class ChatController implements vscode.Disposable, vscode.WebviewViewProv
                         intent: detectedIntent,
                         intentScores: detectedIntentScores,
                         manuallySelectedIntent,
+                        isGoogleSearchEnabled,
                     },
                     span
                 )
@@ -794,6 +798,7 @@ export class ChatController implements vscode.Disposable, vscode.WebviewViewProv
             intent: detectedIntent,
             intentScores: detectedIntentScores,
             manuallySelectedIntent,
+            isGoogleSearchEnabled,
         }: Parameters<typeof this.handleUserMessage>[0],
         span: Span
     ): Promise<void> {

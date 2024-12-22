@@ -24,6 +24,7 @@ export async function googleChatClient({
     completionsEndpoint,
     logger,
     signal,
+    isGoogleSearchEnabled,
 }: ChatNetworkClientParams): Promise<void> {
     if (!params.model) {
         return
@@ -88,6 +89,13 @@ export async function googleChatClient({
                 },
             })
         }
+    }
+
+    const tools = isGoogleSearchEnabled ? [{ google_search: {} }] : []
+
+    const body = {
+        contents: messages,
+        tools,
     }
 
     // Sends the completion parameters and callbacks to the API.
