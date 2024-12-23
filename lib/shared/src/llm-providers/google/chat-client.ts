@@ -84,6 +84,7 @@ export async function googleChatClient({
             const reader = response.body.getReader()
             onAbort(signal, () => reader.cancel())
 
+            const textDecoder = new TextDecoder()
             let responseText = ''
 
             // Handles the response stream to accumulate the full completion text.
@@ -91,7 +92,6 @@ export async function googleChatClient({
                 if (!response.ok) {
                     let body: string | undefined
                     try {
-                        const textDecoder = new TextDecoder()
                         body = textDecoder.decode((await reader.read()).value)
                     } catch (error) {
                         logDebug('googleChatClient', `error reading body: ${error}`)
@@ -107,21 +107,30 @@ export async function googleChatClient({
 
                 // Create a streaming json parser to handle this without reading the whole stream first
                 const { done, value } = await reader.read()
-                const textDecoder = new TextDecoder()
+
                 const decoded = textDecoder.decode(value, { stream: true })
                 // Split the stream into individual messages
+                let buffer = ''
                 const messages = decoded.split(/^data: /).filter(Boolean)
                 for (const message of messages) {
                     // Remove the "data: " prefix from each message
                     const jsonString = message.replace(/^data: /, '').trim()
+
+                    // Add to buffer and try to parse
+                    buffer += jsonString
                     try {
-                        const parsed = JSON.parse(jsonString) as GeminiCompletionResponse
+                        const parsed = JSON.parse(buffer) as GeminiCompletionResponse
                         const streamText = parsed.candidates?.[0]?.content?.parts[0]?.text
                         if (streamText) {
                             responseText += streamText
                             cb.onChange(responseText)
                         }
+                        // Reset buffer after successful parse
+                        buffer = ''
                     } catch (error) {
+                        if (error instanceof SyntaxError) {
+                            continue
+                        }
                         console.error('Error parsing response:', error)
                         log?.onError(`Response parsing error: ${error}`)
                         break
