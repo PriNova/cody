@@ -16,5 +16,6 @@
    - Add copy functionality to assistant messages.
    - Implement configurable temperature for chat completions.
    - Image modality for the Gemini Flash 2.0 models via own API key
+   - Google Search integration for Google models with toggle functionality
 
 6. **Use external repositories, directories and files for context
