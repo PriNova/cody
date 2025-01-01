@@ -1,6 +1,7 @@
 import {
     type ChatMessage,
     FAST_CHAT_INPUT_TOKEN_BUDGET,
+    FeatureFlag,
     type Model,
     ModelTag,
     type SerializedPromptEditorState,
@@ -15,6 +16,7 @@ import {
     ContextItemMentionNode,
     PromptEditor,
     type PromptEditorRefAPI,
+    PromptEditorV2,
     useDefaultContextForChat,
     useExtensionAPI,
 } from '@sourcegraph/prompt-editor'
@@ -36,6 +38,7 @@ import { promptModeToIntent } from '../../../../../prompts/PromptsTab'
 import { getVSCodeAPI } from '../../../../../utils/VSCodeApi'
 import { useTelemetryRecorder } from '../../../../../utils/telemetry'
 import { useExperimentalOneBox } from '../../../../../utils/useExperimentalOneBox'
+import { useFeatureFlag } from '../../../../../utils/useFeatureFlags'
 import styles from './HumanMessageEditor.module.css'
 import type { SubmitButtonState } from './toolbar/SubmitButton'
 import { Toolbar } from './toolbar/Toolbar'
@@ -175,6 +178,7 @@ export const HumanMessageEditor: FunctionComponent<{
           ? 'emptyEditorValue'
           : 'submittable'
 
+    const experimentalPromptEditorEnabled = useFeatureFlag(FeatureFlag.CodyExperimentalPromptEditor)
     const experimentalOneBoxEnabled = useExperimentalOneBox()
     const [submitIntent, setSubmitIntent] = useState<ChatMessage['intent'] | undefined>(
         initialIntent || (experimentalOneBoxEnabled ? undefined : 'chat')
@@ -444,6 +448,7 @@ export const HumanMessageEditor: FunctionComponent<{
                 if (setPromptAsInput) {
                     // set the intent
                     promptIntent = promptModeToIntent(setPromptAsInput.mode)
+                    setSubmitIntent(promptIntent)
 
                     updates.push(
                         // biome-ignore lint/suspicious/noAsyncPromiseExecutor: <explanation>
@@ -512,6 +517,7 @@ export const HumanMessageEditor: FunctionComponent<{
         currentChatModel?.contextWindow?.context?.user ||
         currentChatModel?.contextWindow?.input ||
         FAST_CHAT_INPUT_TOKEN_BUDGET
+    const Editor = experimentalPromptEditorEnabled ? PromptEditorV2 : PromptEditor
 
     const totalContextWindow =
         (currentChatModel?.contextWindow?.context?.user || 0) +
@@ -535,7 +541,7 @@ export const HumanMessageEditor: FunctionComponent<{
             onFocus={onFocus}
             onBlur={onBlur}
         >
-            <PromptEditor
+            <Editor
                 seamless={true}
                 placeholder={placeholder}
                 initialEditorState={initialEditorState}

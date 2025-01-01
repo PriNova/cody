@@ -218,7 +218,7 @@ export interface Interaction {
     /** The human message, either sent or not. */
     humanMessage: ChatMessage & { index: number; isUnsentFollowup: boolean }
 
-    /** `null` if the {@link Interaction.humanMessage} has not yet been sent. */
+    /** `null` if the {@link Interaction["humanMessage"]} has not yet been sent. */
     assistantMessage: (ChatMessage & { index: number; isLoading: boolean }) | null
 }
 
@@ -575,6 +575,7 @@ const TranscriptInteraction: FC<TranscriptInteractionProps> = memo(props => {
                     privateMetadata: {
                         query: editorState.text,
                     },
+                    billingMetadata: { product: 'cody', category: 'billable' },
                 })
             }
         },
@@ -663,6 +664,7 @@ const TranscriptInteraction: FC<TranscriptInteractionProps> = memo(props => {
             {experimentalOneBoxEnabled && (
                 <SwitchIntent
                     intent={humanMessage?.intent}
+                    manuallySelected={!!humanMessage.manuallySelectedIntent}
                     onSwitch={
                         humanMessage?.intent === 'search'
                             ? reSubmitWithChatIntent
@@ -670,7 +672,6 @@ const TranscriptInteraction: FC<TranscriptInteractionProps> = memo(props => {
                     }
                 />
             )}
-
             {(humanMessage.contextFiles || assistantMessage || isContextLoading) && !isSearchIntent && (
                 <ContextCell
                     experimentalOneBoxEnabled={experimentalOneBoxEnabled}
@@ -692,6 +693,12 @@ const TranscriptInteraction: FC<TranscriptInteractionProps> = memo(props => {
                             ? EditContextButtonSearch
                             : EditContextButtonChat
                     }
+                    defaultOpen={
+                        isContextLoading &&
+                        assistantMessage?.model?.includes('deep-cody') &&
+                        humanMessage.index < 3
+                    } // Open the context cell for the first 2 human messages when Deep Cody is run.
+                    processes={humanMessage?.processes ?? undefined}
                 />
             )}
             {assistantMessage && !isContextLoading && (

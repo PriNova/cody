@@ -14,11 +14,11 @@ import {
     executeWorkflow,
     replaceIndexedInputs,
     sanitizeForShell,
-    topologicalSort,
 } from '../workflow-executor'
 
 import * as os from 'node:os'
 import { PersistentShell } from '../../commands/context/shell'
+import { processGraphComposition } from '../node-sorting'
 import { executeCLINode } from '../workflow-executor'
 
 describe('createEdgeIndex', () => {
@@ -124,7 +124,7 @@ describe('Topology Ordering', () => {
         ]
         const edges = [{ id: uuidv4(), source: id1, target: id2 }]
 
-        const sortedNodes = topologicalSort(nodes, edges)
+        const sortedNodes = processGraphComposition(nodes, edges)
         expect(sortedNodes[0].id).toBe(id1)
         expect(sortedNodes[1].id).toBe(id2)
     })
@@ -160,7 +160,7 @@ describe('Topology Ordering', () => {
             { id: uuidv4(), source: id2, target: id3 },
         ]
 
-        const sortedNodes = topologicalSort(nodes, edges)
+        const sortedNodes = processGraphComposition(nodes, edges)
         expect(sortedNodes).toHaveLength(3)
         expect(sortedNodes[0].id).toBe(id1)
         expect(sortedNodes[1].id).toBe(id2)

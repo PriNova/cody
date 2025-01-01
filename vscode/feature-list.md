@@ -1,11 +1,11 @@
 # Features Implemented
 
-1. **LLM Provider Improvement (OpenRouter)**:
+1. **LLM Provider Improvement (BYOK)**:
+   - Added support for OpenRouter model configuration as a LLM provider.
+   - Filters out last assistant messages in the chat stream for BYOK models (Groq).
 
 2. **AI Visual Workflow Editor**:
-
-3. **GROQ Filtering for last assistant message**:
-   - Filters out last assistant messages in the chat stream for Cody dev models.
+   - https://youtu.be/-U3HLyGLIZ4
 
 4. **Add clickable file names in chat messages (Smart Apply)**:
 

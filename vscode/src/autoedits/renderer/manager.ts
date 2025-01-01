@@ -3,7 +3,7 @@ import * as vscode from 'vscode'
 import type { DocumentContext } from '@sourcegraph/cody-shared'
 
 import { completionMatchesSuffix } from '../../completions/is-completion-visible'
-import { autoeditsLogger } from '../logger'
+import { autoeditsOutputChannelLogger } from '../output-channel-logger'
 import type { CodeToReplaceData } from '../prompt/prompt-utils'
 import {
     adjustPredictionIfInlineCompletionPossible,
@@ -45,6 +45,15 @@ export interface AutoEditsManagerOptions {
     decorationInfo: DecorationInfo
 }
 
+export interface AutoeditRendererManagerArgs {
+    prediction: string
+    codeToReplaceData: CodeToReplaceData
+    document: vscode.TextDocument
+    position: vscode.Position
+    docContext: DocumentContext
+    decorationInfo: DecorationInfo
+}
+
 /**
  * This is a temporary split while we have to maintain two renderer, the default one and the inline one.
  * I (valery) plan to iterate on this interface in a follow up PRs and it most probably will be removed
@@ -55,14 +64,14 @@ export interface AutoEditsRendererManager extends vscode.Disposable {
      * Tries to extract inline completions from the prediction data and returns them if they are available.
      * Depending on the renderer type might also render line decoration.
      */
-    maybeRenderDecorationsAndTryMakeInlineCompletionResponse(
-        originalPrediction: string,
-        codeToReplace: CodeToReplaceData,
-        document: vscode.TextDocument,
-        position: vscode.Position,
-        docContext: DocumentContext,
-        decorationInfo: DecorationInfo
-    ): Promise<{
+    maybeRenderDecorationsAndTryMakeInlineCompletionResponse({
+        prediction,
+        codeToReplaceData,
+        document,
+        position,
+        docContext,
+        decorationInfo,
+    }: AutoeditRendererManagerArgs): Promise<{
         inlineCompletions: vscode.InlineCompletionItem[] | null
         updatedDecorationInfo: DecorationInfo
     }>
@@ -129,6 +138,7 @@ export class AutoEditsDefaultRendererManager implements AutoEditsRendererManager
             decorator.dispose()
         }
         this.activeEdit = null
+        await vscode.commands.executeCommand('editor.action.inlineSuggest.hide')
         await vscode.commands.executeCommand('setContext', 'cody.supersuggest.active', false)
     }
 
@@ -179,35 +189,35 @@ export class AutoEditsDefaultRendererManager implements AutoEditsRendererManager
         }
     }
 
-    async maybeRenderDecorationsAndTryMakeInlineCompletionResponse(
-        originalPrediction: string,
-        codeToReplaceData: CodeToReplaceData,
-        document: vscode.TextDocument,
-        position: vscode.Position,
-        docContext: DocumentContext,
-        decorationInfo: DecorationInfo
-    ): Promise<{
+    async maybeRenderDecorationsAndTryMakeInlineCompletionResponse({
+        prediction,
+        codeToReplaceData,
+        document,
+        position,
+        docContext,
+        decorationInfo,
+    }: AutoeditRendererManagerArgs): Promise<{
         inlineCompletions: vscode.InlineCompletionItem[] | null
         updatedDecorationInfo: DecorationInfo
     }> {
-        const prediction = adjustPredictionIfInlineCompletionPossible(
-            originalPrediction,
+        const updatedPrediction = adjustPredictionIfInlineCompletionPossible(
+            prediction,
             codeToReplaceData.codeToRewritePrefix,
             codeToReplaceData.codeToRewriteSuffix
         )
         const codeToRewriteAfterCurrentLine = codeToReplaceData.codeToRewriteSuffix.slice(
             docContext.currentLineSuffix.length + 1 // Additional char for newline
         )
-        const isPrefixMatch = prediction.startsWith(codeToReplaceData.codeToRewritePrefix)
+        const isPrefixMatch = updatedPrediction.startsWith(codeToReplaceData.codeToRewritePrefix)
         const isSuffixMatch =
             // The current line suffix should not require any char removals to render the completion.
-            completionMatchesSuffix({ insertText: prediction }, docContext.currentLineSuffix) &&
+            completionMatchesSuffix({ insertText: updatedPrediction }, docContext.currentLineSuffix) &&
             // The new lines suggested after the current line must be equal to the prediction.
-            prediction.endsWith(codeToRewriteAfterCurrentLine)
+            updatedPrediction.endsWith(codeToRewriteAfterCurrentLine)
 
         if (isPrefixMatch && isSuffixMatch) {
             const autocompleteInlineResponse = extractInlineCompletionFromRewrittenCode(
-                prediction,
+                updatedPrediction,
                 codeToReplaceData.codeToRewritePrefix,
                 codeToReplaceData.codeToRewriteSuffix
             )
@@ -219,14 +229,21 @@ export class AutoEditsDefaultRendererManager implements AutoEditsRendererManager
                     document.lineAt(position).range.end
                 )
             )
-            autoeditsLogger.logDebug('Autocomplete Inline Response: ', autocompleteResponse)
+            autoeditsOutputChannelLogger.logDebug(
+                'maybeRenderDecorationsAndTryMakeInlineCompletionResponse',
+                'Autocomplete Inline Response: ',
+                autocompleteResponse
+            )
             return { inlineCompletions: [inlineCompletionItem], updatedDecorationInfo: decorationInfo }
         }
-
+        autoeditsOutputChannelLogger.logDebug(
+            'maybeRenderDecorationsAndTryMakeInlineCompletionResponse',
+            'Rendering a diff view for auto-edits.'
+        )
         await this.showEdit({
             document,
             range: codeToReplaceData.range,
-            prediction,
+            prediction: updatedPrediction,
             decorationInfo,
         })
 

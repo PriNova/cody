@@ -27,6 +27,7 @@ import { type ContextRetriever, toStructuredMentions } from '../chat/chat-view/C
 import { getCorpusContextItemsForEditorState } from '../chat/initialContext'
 import { PersistentShell } from '../commands/context/shell'
 import { executeChat } from '../commands/execute/ask'
+import { processGraphComposition } from './node-sorting'
 
 interface IndexedEdges {
     bySource: Map<string, Edge[]>
@@ -88,8 +89,7 @@ export async function executeWorkflow(
             }
         }
     }
-
-    const sortedNodes = topologicalSort(nodes, edges)
+    const sortedNodes = processGraphComposition(nodes, edges)
     const persistentShell = new PersistentShell()
 
     webview.postMessage({
@@ -101,7 +101,7 @@ export async function executeWorkflow(
 
         if (node.type === NodeType.LOOP_START) {
             const loopState = context.loopStates.get(node.id) || {
-                currentIteration: 1,
+                currentIteration: 0,
                 maxIterations: (node as LoopStartNode).data.iterations,
                 variable: (node as LoopStartNode).data.loopVariable,
             }
@@ -235,22 +235,21 @@ export async function executeWorkflow(
                 break
             }
             case NodeType.LOOP_START: {
-                result = String(context.loopStates.get(node.id)?.currentIteration || 1)
+                const loopState = context.loopStates.get(node.id)!
+                result = String(loopState.currentIteration)
+
+                // Only increment for next iteration if not at max
+                if (loopState.currentIteration < loopState.maxIterations) {
+                    context.loopStates.set(node.id, {
+                        ...loopState,
+                        currentIteration: loopState.currentIteration + 1,
+                    })
+                }
                 break
             }
             case NodeType.LOOP_END: {
-                const loopNodes = findNodesInLoop(node, sortedNodes)
-                if (loopNodes.length > 0) {
-                    const matchingStart = loopNodes[0]
-                    const loopState = context.loopStates.get(matchingStart.id)
-                    if (loopState && loopState.currentIteration < loopState.maxIterations) {
-                        loopState.currentIteration++
-                        context.loopStates.set(matchingStart.id, loopState)
-                        // Jump back to the start of the loop
-                        i = sortedNodes.indexOf(loopNodes[1]) - 1
-                    }
-                }
-                result = ''
+                const inputs = combineParentOutputsByConnectionOrder(node.id, context)
+                result = await executePreviewNode(inputs.join('\n'), node.id, webview, context)
                 break
             }
 
@@ -409,7 +408,7 @@ export function combineParentOutputsByConnectionOrder(
         .filter(output => output !== undefined)
 }
 
-function findNodesInLoop(endNode: WorkflowNodes, nodes: WorkflowNodes[]): WorkflowNodes[] {
+/* function findNodesInLoop(endNode: WorkflowNodes, nodes: WorkflowNodes[]): WorkflowNodes[] {
     const endIndex = nodes.indexOf(endNode)
     if (endIndex === -1) {
         return []
@@ -421,7 +420,7 @@ function findNodesInLoop(endNode: WorkflowNodes, nodes: WorkflowNodes[]): Workfl
         }
     }
     return []
-}
+} */
 
 // #region 1 CLI Node Execution */
 
