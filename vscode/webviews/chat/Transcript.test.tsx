@@ -28,11 +28,6 @@ const PROPS: Omit<ComponentProps<typeof Transcript>, 'transcript'> = {
     setIsGoogleSearchEnabled: () => {},
 }
 
-vi.mock('@vscode/webview-ui-toolkit/react', () => ({
-    VSCodeButton: vi.fn(),
-    VSCodeCheckbox: vi.fn(),
-}))
-
 vi.mock('../utils/VSCodeApi', () => ({
     getVSCodeAPI: vi.fn().mockReturnValue({
         onMessage: () => {},

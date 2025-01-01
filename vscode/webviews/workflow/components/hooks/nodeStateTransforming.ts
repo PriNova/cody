@@ -1,5 +1,11 @@
 import { memoize } from 'lodash'
 import { useMemo } from 'react'
+import {
+    findStronglyConnectedComponents,
+    orderComponentNodes,
+    sortComponentsByDependencies,
+    tarjanSort,
+} from '../../../../src/workflow/node-sorting'
 import type { Edge } from '../CustomOrderedEdge'
 import { NodeType, type WorkflowNodes } from '../nodes/Nodes'
 
@@ -111,57 +117,28 @@ export function getInactiveNodes(edges: Edge[], startNodeId: string): Set<string
  */
 export const memoizedTopologicalSort = memoize(
     (nodes: WorkflowNodes[], edges: Edge[]) => {
-        const graph = new Map<string, string[]>()
-        const inDegree = new Map<string, number>()
-        const edgeOrder = new Map<string, number>()
+        const components = findStronglyConnectedComponents(nodes, edges)
+        const compositionNodes = nodes.filter(node => node.type === NodeType.LOOP_START)
 
-        // Initialize
-        for (const node of nodes) {
-            graph.set(node.id, [])
-            inDegree.set(node.id, 0)
+        if (compositionNodes.length === 0) {
+            const flatComponents = components.flat()
+            const componentIds = new Set(flatComponents.map(n => n.id))
+
+            const filteredEdges = edges.filter(
+                edge => componentIds.has(edge.source) && componentIds.has(edge.target)
+            )
+
+            return tarjanSort(flatComponents, filteredEdges)
         }
 
-        // Build graph and track edge order
-        edges.forEach((edge, index) => {
-            graph.get(edge.source)?.push(edge.target)
-            inDegree.set(edge.target, (inDegree.get(edge.target) || 0) + 1)
-            edgeOrder.set(`${edge.source}-${edge.target}`, index + 1)
-        })
-
-        const sourceNodes = nodes.filter(node => inDegree.get(node.id) === 0)
-        const sortedSourceNodes = sourceNodes.sort((a, b) => {
-            const aEdgeIndex = edges.findIndex(edge => edge.source === a.id)
-            const bEdgeIndex = edges.findIndex(edge => edge.source === b.id)
-            return aEdgeIndex - bEdgeIndex
-        })
-
-        const queue = sortedSourceNodes.map(node => node.id)
-        const result: string[] = []
-
-        while (queue.length > 0) {
-            const nodeId = queue.shift()!
-            result.push(nodeId)
-
-            const neighbors = graph.get(nodeId)
-            if (neighbors) {
-                neighbors.sort((a, b) => {
-                    const orderA = edgeOrder.get(`${nodeId}-${a}`) || 0
-                    const orderB = edgeOrder.get(`${nodeId}-${b}`) || 0
-                    return orderA - orderB
-                })
-
-                for (const neighbor of neighbors) {
-                    inDegree.set(neighbor, (inDegree.get(neighbor) || 0) - 1)
-                    if (inDegree.get(neighbor) === 0) {
-                        queue.push(neighbor)
-                    }
-                }
-            }
+        // Currently handling Loop compositions
+        if (compositionNodes.some(n => n.type === NodeType.LOOP_START)) {
+            return processLoopWithCycles(nodes, edges, components)
         }
 
-        return result.map(id => nodes.find(node => node.id === id)!).filter(Boolean)
+        return nodes
     },
-    // Custom resolver function for memoization key
+    // Keep existing memoization key generator
     (nodes: WorkflowNodes[], edges: Edge[]) => {
         const nodeKey = nodes
             .map(n => n.id)
@@ -174,3 +151,51 @@ export const memoizedTopologicalSort = memoize(
         return `${nodeKey}:${edgeKey}`
     }
 )
+
+const CONTROL_FLOW_NODES = new Set([NodeType.LOOP_START, NodeType.LOOP_END])
+
+function processLoopWithCycles(
+    nodes: WorkflowNodes[],
+    edges: Edge[],
+    components: WorkflowNodes[][]
+): WorkflowNodes[] {
+    const processedNodes: WorkflowNodes[] = []
+    const loopStartNodes = nodes.filter(n => n.type === NodeType.LOOP_START)
+
+    for (const loopStart of loopStartNodes) {
+        const loopEnd = nodes.find(n => n.type === NodeType.LOOP_END)
+        const entryNodeId = edges.find(e => e.source === loopStart.id)?.target
+
+        const processedComponents = components
+            .filter(comp => comp.every(n => !CONTROL_FLOW_NODES.has(n.type)))
+            .map(component => {
+                if (component.length === 1) return component
+
+                const componentEntryNode =
+                    component.find(n => n.id === entryNodeId) ||
+                    component.find(n =>
+                        edges.some(e => e.source === n.id && component.some(cn => cn.id === e.target))
+                    ) ||
+                    component[0] // Guaranteed fallback
+
+                return orderComponentNodes(component, componentEntryNode, edges)
+            })
+
+        const sortedComponents = sortComponentsByDependencies(processedComponents, edges)
+        const flattenedNodes = sortedComponents.flat()
+
+        const iterations = 1
+
+        for (let i = 0; i < iterations; i++) {
+            processedNodes.push({ ...loopStart })
+            for (const node of flattenedNodes) {
+                processedNodes.push({ ...node })
+            }
+            if (loopEnd) {
+                processedNodes.push({ ...loopEnd })
+            }
+        }
+    }
+
+    return processedNodes
+}

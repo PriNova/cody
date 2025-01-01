@@ -28,19 +28,18 @@ export class PersistentShell {
     private shell: ChildProcess | null = null
     private stdoutBuffer = ''
     private stderrBuffer = ''
+    //private buffer = ''
 
     constructor() {
         this.init()
     }
 
     private init() {
-        const shell = process.platform === 'win32' ? 'powershell.exe' : 'bash'
-        const cwd = vscode.workspace.workspaceFolders?.[0]?.uri?.path
-        const shellArgs = process.platform === 'win32' ? [] : ['-l']
-        this.shell = spawn(shell, shellArgs, {
+        const shell = process.platform === 'win32' ? 'cmd.exe' : 'bash'
+        const cwd = vscode.workspace.workspaceFolders?.[0]?.uri?.fsPath
+        this.shell = spawn(shell, [], {
             cwd,
             stdio: ['pipe', 'pipe', 'pipe'],
-            env: { ...process.env, LANG: 'en_US.UTF-8' },
         })
 
         this.shell.stdout?.on('data', data => {
@@ -52,81 +51,93 @@ export class PersistentShell {
         })
     }
 
-    async execute(cmd: string, abortSignal?: AbortSignal): Promise<string> {
+    public async execute(cmd: string, abortSignal?: AbortSignal): Promise<string> {
+        this.stdoutBuffer = ''
+        this.stderrBuffer = ''
         return new Promise((resolve, reject) => {
-            // Remove the sanitization that replaces newlines
-            // const sanitizedInput = cmd.replace(/\n/g, '\\n')
             const command = sanitizeCommand(cmd)
-
             if (!this.shell) {
-                const error = new Error('Shell not initialized')
-                void vscode.window.showErrorMessage(error.message)
-                reject(error)
+                reject(new Error('Shell not initialized'))
                 return
             }
-            this.stdoutBuffer = ''
-            this.stderrBuffer = ''
 
-            const checkInterval: NodeJS.Timeout = setInterval(() => {
-                const combinedOutput = this.stdoutBuffer + this.stderrBuffer
+            this.shell.stdin?.write(command + '\n')
 
-                for (const [errorType, patterns] of Object.entries(SHELL_ERROR_PATTERNS)) {
-                    if (Array.isArray(patterns)) {
-                        for (const pattern of patterns) {
-                            if (combinedOutput.toLowerCase().includes(pattern.toLowerCase())) {
-                                clearTimeout(timeoutId)
-                                clearInterval(checkInterval)
-                                const error = new Error(`${errorType}: ${command}`)
-                                reject(error)
-                                return
-                            }
-                        }
-                    }
-                }
+            // Use a unique marker to identify the end of command output
+            const endMarker = `__END_OF_COMMAND_${Date.now()}__`
+            this.shell.stdin?.write(`echo "${endMarker}"\n`)
 
-                if (this.stdoutBuffer.includes('__END_OF_COMMAND_')) {
-                    clearTimeout(timeoutId)
-                    clearInterval(checkInterval)
-
-                    // Only reject if we got an actual error exit code
-                    if (combinedOutput.includes('Command failed with exit code')) {
-                        reject(new Error(this.stderrBuffer.trim()))
-                    } else {
-                        resolve(this.stdoutBuffer.split('__END_OF_COMMAND_')[0].trim())
-                    }
-                }
-
-                if (abortSignal?.aborted) {
-                    clearInterval(checkInterval)
-                    clearTimeout(timeoutId)
-                    this.kill() // Forcefully kill the process
-                    reject(new Error('Command execution aborted'))
-                    return
-                }
-            }, 100)
+            const timeout = 30000 // 30 seconds timeout
 
             const timeoutId = setTimeout(() => {
-                clearInterval(checkInterval)
-                const error = new Error('Command execution timed out')
-                reject(error)
-                this.dispose()
-                this.init()
-            }, 30000)
+                reject(new Error('Command execution timed out'))
+                this.dispose() // Kill the frozen shell
+                this.init() // Reinitialize the shell
+            }, timeout)
 
-            // Key fix: Use set -o pipefail to catch pipeline failures
-            this.shell.stdin?.write(`
-                ${command}
-                CMD_EXIT=$?
-                if [ $CMD_EXIT -ne 0 ]; then
-                    echo "Command failed with exit code $CMD_EXIT" >&2
-                fi
-                echo "__END_OF_COMMAND_${Date.now()}__"
-            \n`)
+            /* setTimeout(() => {
+                if (this.stderrBuffer) {
+                    this.kill()
+                    reject(
+                        `Command failed with exit code ${this.shell?.exitCode || 1}: ${
+                            this.stderrBuffer
+                        }`
+                    )
+                } else {
+                    resolve(this.cleanUp(this.stdoutBuffer))
+                }
+            }, 100) */
+
+            const checkBuffer = () => {
+                if (this.stdoutBuffer.includes(endMarker)) {
+                    const sliceStart = process.platform === 'win32' ? 1 : 0
+                    clearTimeout(timeoutId)
+                    const output = this.stdoutBuffer
+                        .split(`echo "${endMarker}"`)[0]
+                        .trim()
+                        .split('\n')
+                        .filter(chunk => {
+                            // Filter out Microsoft-specific messages
+                            if (chunk.includes('(c) Microsoft Corporation.')) return false
+                            if (chunk.includes('Microsoft Windows')) return false
+                            //  // Filter Windows path prompts followed by the command 'command'
+                            if (chunk.match(/^[A-Za-z]:\\.*>.*$/)) return false
+                            //if (chunk.includes(command)) return false
+                            return true
+                        })
+                        .slice(sliceStart, -1)
+                        .join('\n')
+                    resolve(output)
+                } else {
+                    setTimeout(checkBuffer, 100)
+                }
+            }
+
+            checkBuffer()
         })
     }
 
+    /* private cleanUp(output: string): string {
+        const shell = process.platform === 'win32' ? 'cmd.exe' : 'bash'
+        if (shell === 'cmd.exe') {
+            const result = output
+                .trim()
+                .split('\n')
+                .filter(chunk => {
+                    if (chunk.includes('(c) Microsoft Corporation.')) return false
+                    if (chunk.includes('Microsoft Windows')) return false
+                    return true
+                })
+                .slice(1, -1)
+                .join('\n')
+            return result
+        }
+        return output
+    } */
+
     public kill(): void {
         if (this.shell) {
+            this.shell.stdin!.end()
             this.shell.kill()
             this.shell = null
         }
@@ -245,22 +256,6 @@ const BASE_DISALLOWED_COMMANDS = [
     'lsusb',
     'lspci',
 ]
-
-// Create an enum or const object for shell types
-const SHELL_ERROR_PATTERNS = {
-    COMMAND_NOT_FOUND: [
-        'command not found', // bash, zsh
-        'is not recognized', // cmd.exe
-        ': No such file or directory', // common unix
-        'CommandNotFoundException', // powershell
-        'Unknown command', // fish
-        'not found in PATH', // some shells
-        'not an executable', // some shells
-        'cannot find the path', // windows variants
-    ],
-    PERMISSION_DENIED: ['Permission denied', 'Access is denied'],
-    // Add more categories as needed
-} as const
 
 function sanitizeCommand(command: string): string {
     // Basic sanitization, should be more comprehensive in production

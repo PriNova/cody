@@ -738,6 +738,7 @@ export class ChatController implements vscode.Disposable, vscode.WebviewViewProv
                     text: inputText,
                     editorState,
                     intent: detectedIntent,
+                    manuallySelectedIntent: manuallySelectedIntent ? detectedIntent : undefined,
                 })
                 this.postViewTranscript({ speaker: 'assistant' })
 
@@ -971,12 +972,14 @@ export class ChatController implements vscode.Disposable, vscode.WebviewViewProv
 
         // Experimental Feature: Deep Cody
         if (isDeepCodyEnabled) {
-            const agenticContext = await new DeepCodyAgent(
+            const agent = new DeepCodyAgent(
                 this.chatBuilder,
                 this.chatClient,
                 this.toolProvider.getTools(),
                 corpusContext
-            ).getContext(signal)
+            )
+            agent.setStatusCallback(model => this.postEmptyMessageInProgress(model))
+            const agenticContext = await agent.getContext(requestID, signal)
             corpusContext.push(...agenticContext)
         }
 
@@ -1070,7 +1073,8 @@ export class ChatController implements vscode.Disposable, vscode.WebviewViewProv
         this.chatBuilder.setLastMessageIntent('search')
         const scopes: string[] = await this.getSearchScopesFromMentions(mentions)
 
-        const currentFile = getEditor()?.active?.document?.uri
+        const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri
+        const currentFile = getEditor()?.active?.document?.uri || workspaceRoot
         const repoName = currentFile ? await getFirstRepoNameContainingUri(currentFile) : undefined
         const boostParameter = repoName ? `boost:repo(${repoName})` : ''
 
@@ -1723,6 +1727,7 @@ export class ChatController implements vscode.Disposable, vscode.WebviewViewProv
 
             this.sendLLMRequest(
                 prompt,
+                requestID,
                 model,
                 {
                     update: content => {
@@ -1777,6 +1782,7 @@ export class ChatController implements vscode.Disposable, vscode.WebviewViewProv
      */
     private async sendLLMRequest(
         prompt: Message[],
+        requestID: string,
         model: ChatModel,
         callbacks: {
             update: (response: string) => void
@@ -1816,7 +1822,13 @@ export class ChatController implements vscode.Disposable, vscode.WebviewViewProv
                 params.stream = false
             }
 
-            const stream = await this.chatClient.chat(prompt, params, abortSignal, isGoogleSearchEnabled)
+            const stream = await this.chatClient.chat(
+                prompt,
+                params,
+                abortSignal,
+                requestID,
+                isGoogleSearchEnabled
+            )
             for await (const message of stream) {
                 switch (message.type) {
                     case 'change': {

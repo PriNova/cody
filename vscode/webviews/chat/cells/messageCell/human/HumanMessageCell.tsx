@@ -54,7 +54,7 @@ export const HumanMessageCell: FC<HumanMessageCellProps> = ({ message, ...otherP
         <HumanMessageCellContent
             {...otherProps}
             initialEditorState={initialEditorState}
-            intent={message.intent}
+            intent={message.manuallySelectedIntent}
             imageFile={imageFile}
             setImageFile={setImageFile}
         />

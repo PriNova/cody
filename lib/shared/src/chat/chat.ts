@@ -50,6 +50,7 @@ export class ChatClient {
         messages: Message[],
         params: Partial<ChatParameters> & Pick<ChatParameters, 'maxTokensToSample'>,
         abortSignal?: AbortSignal,
+        interactionId?: string,
         isGoogleSearchEnabled?: boolean
     ): Promise<AsyncGenerator<CompletionGeneratorValue>> {
         // Replace internal models used for wrapper models with the actual model ID.
@@ -104,6 +105,7 @@ export class ChatClient {
             completionParams,
             {
                 apiVersion: useApiV1 ? versions.codyAPIVersion : 0,
+                interactionId: interactionId,
                 customHeaders,
             },
             abortSignal,
