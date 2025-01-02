@@ -16,6 +16,7 @@ import {
 import type { VSCodeEditor } from '../../editor/vscode-editor'
 import type { SymfRunner } from '../../local-context/symf'
 import { logDebug, logError } from '../../output-channel-logger'
+import { isIgnored } from '../context/gitignore-context-files'
 
 export interface HumanInput {
     text: PromptString
@@ -55,6 +56,10 @@ export async function searchSymf(
         const r0 = (await symf.getResults(userText, [workspaceRoot])).flatMap(async results => {
             const items = (await results).flatMap(
                 async (result: Result): Promise<ContextItem[] | ContextItem> => {
+                    const isIgnoredFile = await isIgnored(result.file.path, workspaceRoot.path)
+                    if (isIgnoredFile) {
+                        return []
+                    }
                     const range = new vscode.Range(
                         result.range.startPoint.row,
                         result.range.startPoint.col,
