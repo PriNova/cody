@@ -122,8 +122,7 @@ export abstract class SourcegraphCompletionsClient {
     public async *stream(
         params: CompletionParameters,
         requestParams: CompletionRequestParameters,
-        signal?: AbortSignal,
-        isGoogleSearchEnabled?: boolean
+        signal?: AbortSignal
     ): AsyncGenerator<CompletionGeneratorValue> {
         // Provide default stop sequence for starchat models.
         if (!params.stopSequences && params?.model?.startsWith('openaicompatible/starchat')) {
@@ -166,7 +165,6 @@ export abstract class SourcegraphCompletionsClient {
             cb: callbacks,
             logger: this.logger,
             signal,
-            isGoogleSearchEnabled,
         })
 
         if (!isNonSourcegraphProvider) {

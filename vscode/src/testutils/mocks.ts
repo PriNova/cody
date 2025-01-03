@@ -935,4 +935,5 @@ export const DEFAULT_VSCODE_SETTINGS = {
     overrideAuthToken: undefined,
     overrideServerEndpoint: undefined,
     chatTemperature: 0.2,
+    experimentalChatContextIncludeReadme: true,
 } satisfies ClientConfiguration

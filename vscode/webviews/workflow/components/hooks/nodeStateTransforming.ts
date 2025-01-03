@@ -141,7 +141,7 @@ export const memoizedTopologicalSort = memoize(
     // Keep existing memoization key generator
     (nodes: WorkflowNodes[], edges: Edge[]) => {
         const nodeKey = nodes
-            .map(n => n.id)
+            .map(n => `${n.id}-${n.data.title}`)
             .sort()
             .join('|')
         const edgeKey = edges

@@ -5,6 +5,7 @@ export interface GeminiCompletionResponse {
             role: string
         }
         finishReason: string
+        groundingMetaData: any
         index: number
         safetyRatings: {
             category: string

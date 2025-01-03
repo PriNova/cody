@@ -172,6 +172,10 @@ export function getConfiguration(
          */
         overrideAuthToken: getHiddenSetting<string | undefined>('override.authToken'),
         overrideServerEndpoint: getHiddenSetting<string | undefined>('override.serverEndpoint'),
+        experimentalChatContextIncludeReadme: getHiddenSetting(
+            'experimental.chatContext.includeReadme',
+            true
+        ),
     }
 }
 

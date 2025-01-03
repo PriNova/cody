@@ -39,6 +39,7 @@ export interface CompletionParameters {
     model?: string
     stream?: boolean
     images?: ImageData[]
+    googleSearch?: boolean
     // Configuration for a Predicted Output, which can greatly improve response
     // times when large parts of the model response are known ahead of time.
     // https://platform.openai.com/docs/guides/latency-optimization#use-predicted-outputs
