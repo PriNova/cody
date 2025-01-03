@@ -2,7 +2,7 @@ import { Background, Controls, ReactFlow } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import type { GenericVSCodeWrapper } from '@sourcegraph/cody-shared'
 import type React from 'react'
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import type { WorkflowFromExtension, WorkflowToExtension } from '../services/WorkflowProtocol'
 import { CustomOrderedEdge } from './CustomOrderedEdge'
 import styles from './Flow.module.css'
@@ -113,6 +113,12 @@ export const Flow: React.FC<{
         },
     }))
 
+    // Recalculate sortedNodes on each render
+    const sortedNodes = useMemo(
+        () => memoizedTopologicalSort(nodesWithState, edges),
+        [nodesWithState, edges]
+    )
+
     return (
         <div className="tw-flex tw-h-screen tw-w-full tw-border-2 tw-border-solid tw-border-[var(--vscode-panel-border)] tw-text-[14px] tw-overflow-hidden">
             <div
@@ -183,7 +189,7 @@ export const Flow: React.FC<{
                         className="tw-flex-shrink-0 tw-border-r tw-border-solid tw-border-[var(--vscode-panel-border)] tw-bg-[var(--vscode-sideBar-background)] tw-h-full tw-overflow-y-auto"
                     >
                         <RightSidebar
-                            sortedNodes={memoizedTopologicalSort(nodesWithState, edges)}
+                            sortedNodes={sortedNodes}
                             nodeResults={nodeResults}
                             executingNodeId={executingNodeId}
                             pendingApprovalNodeId={pendingApprovalNodeId}

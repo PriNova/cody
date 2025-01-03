@@ -15,12 +15,22 @@ import type { Message } from '../../sourcegraph-api'
  * @returns An array of `GeminiChatMessage` objects.
  */
 export async function constructGeminiChatMessages(messages: Message[]): Promise<GeminiChatMessage[]> {
-    return (
-        await Promise.all(
-            messages.map(async msg => ({
-                role: msg.speaker === 'human' ? 'user' : 'model',
-                parts: [{ text: (await msg.text?.toFilteredString(contextFiltersProvider)) ?? '' }],
-            }))
-        )
-    ).filter((_, i, arr) => i !== arr.length - 1 || arr[i].role !== 'model')
+    const geminiMessages = await Promise.all(
+        messages.map(async msg => ({
+            role: msg.speaker === 'human' ? 'user' : 'model',
+            parts: [{ text: (await msg.text?.toFilteredString(contextFiltersProvider)) ?? '' }],
+        }))
+    )
+
+    if (geminiMessages.length >= 3) {
+        // Remove the first message (index 0)
+        geminiMessages.splice(0, 1)
+
+        // Remove the second message (index 1) if its role is 'model'
+        if (geminiMessages[0]?.role === 'model') {
+            geminiMessages.splice(0, 1)
+        }
+    }
+
+    return geminiMessages.filter((_, i, arr) => i !== arr.length - 1 || arr[i].role !== 'model')
 }

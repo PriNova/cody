@@ -8,7 +8,7 @@ import {
     TrashIcon,
 } from 'lucide-react'
 import type React from 'react'
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useMemo, useRef, useState } from 'react'
 import type { WebviewType } from '../../src/chat/protocol'
 import { getRelativeChatPeriod } from '../../src/common/time-date'
 import { LoadingDots } from '../chat/components/LoadingDots'
@@ -51,6 +51,7 @@ export const HistoryTabWithData: React.FC<
     const nonEmptyChats = useMemo(() => chats.filter(chat => chat.interactions.length > 0), [chats])
     const [editingId, setEditingId] = useState<string | null>(null)
     const [newTitle, setNewTitle] = useState('')
+    const inputRef = useRef<HTMLInputElement>(null)
 
     const chatByPeriod = useMemo(
         () =>
@@ -92,6 +93,11 @@ export const HistoryTabWithData: React.FC<
             setEditingId(id)
             const chat = chats.find(chat => chat.id === id)
             setNewTitle(chat?.chatTitle || '')
+            setTimeout(() => {
+                if (inputRef.current) {
+                    inputRef.current.focus()
+                }
+            }, 0)
         },
         [chats]
     )
@@ -134,17 +140,14 @@ export const HistoryTabWithData: React.FC<
                                 {editingId === id ? (
                                     <div className="tw-flex tw-w-full tw-gap-2">
                                         <input
+                                            ref={inputRef}
                                             type="text"
                                             value={newTitle}
                                             onChange={e => setNewTitle(e.target.value)}
                                             className="tw-w-full tw-px-2 tw-py-1 tw-rounded tw-bg-transparent tw-border"
                                             onKeyDown={e => {
                                                 if (e.key === 'Enter') {
-                                                    getVSCodeAPI().postMessage({
-                                                        command: 'updateChatTitle',
-                                                        chatID: id,
-                                                        newTitle,
-                                                    })
+                                                    onSaveTitle(id, newTitle)
                                                     setEditingId(null)
                                                 } else if (e.key === 'Escape') {
                                                     setEditingId(null)

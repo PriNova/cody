@@ -13,6 +13,7 @@ import {
     uriBasename,
     wrapInActiveSpan,
 } from '@sourcegraph/cody-shared'
+import { getConfiguration } from '../../configuration'
 import type { VSCodeEditor } from '../../editor/vscode-editor'
 import type { SymfRunner } from '../../local-context/symf'
 import { logDebug, logError } from '../../output-channel-logger'
@@ -137,7 +138,10 @@ export async function getPriorityContext(
         if (needsUserAttentionContext(text)) {
             // Query refers to current editor
             priorityContext.push(...(await getVisibleEditorContext(editor)))
-        } else if (needsReadmeContext(editor, text)) {
+        } else if (
+            needsReadmeContext(editor, text) &&
+            getConfiguration().experimentalChatContextIncludeReadme
+        ) {
             // Query refers to project, so include the README
             let containsREADME = false
             for (const contextItem of retrievedContext) {

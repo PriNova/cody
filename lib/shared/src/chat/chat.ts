@@ -50,8 +50,7 @@ export class ChatClient {
         messages: Message[],
         params: Partial<ChatParameters> & Pick<ChatParameters, 'maxTokensToSample'>,
         abortSignal?: AbortSignal,
-        interactionId?: string,
-        isGoogleSearchEnabled?: boolean
+        interactionId?: string
     ): Promise<AsyncGenerator<CompletionGeneratorValue>> {
         // Replace internal models used for wrapper models with the actual model ID.
         if (params.model?.includes('deep-cody')) {
@@ -108,8 +107,7 @@ export class ChatClient {
                 interactionId: interactionId,
                 customHeaders,
             },
-            abortSignal,
-            isGoogleSearchEnabled
+            abortSignal
         )
     }
 }
