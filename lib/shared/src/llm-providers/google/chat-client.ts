@@ -24,7 +24,6 @@ export async function googleChatClient({
     completionsEndpoint,
     logger,
     signal,
-    isGoogleSearchEnabled,
 }: ChatNetworkClientParams): Promise<void> {
     if (!params.model) {
         return
@@ -70,14 +69,6 @@ export async function googleChatClient({
         }
     }
 
-    const tools = params.googleSearch ? [{ google_search: {} }] : []
-
-    const body = {
-        contents: messages,
-        ...(system_instruction ? { system_instruction } : {}),
-        tools: tools,
-    }
-
     // Adds an inline image data part to the last user message in the `messages` array, if the `params.images` array has at least one element.
     if (params.images !== undefined) {
         const lastUserMessage = messages.at(-1) as GeminiChatMessage | undefined
@@ -91,11 +82,12 @@ export async function googleChatClient({
         }
     }
 
-    const tools = isGoogleSearchEnabled ? [{ google_search: {} }] : []
+    const tools = params.googleSearch ? [{ google_search: {} }] : []
 
     const body = {
         contents: messages,
-        tools,
+        ...(system_instruction ? { system_instruction } : {}),
+        tools: tools,
     }
 
     // Sends the completion parameters and callbacks to the API.
@@ -151,6 +143,7 @@ export async function googleChatClient({
                     buffer += jsonString
                     try {
                         const parsed = JSON.parse(buffer) as GeminiCompletionResponse
+                        console.log('chat-client Response: ', JSON.parse(buffer))
                         const streamText = parsed.candidates?.[0]?.content?.parts[0]?.text
                         if (streamText) {
                             responseText += streamText

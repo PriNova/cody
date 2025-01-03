@@ -107,8 +107,7 @@ export class ChatClient {
                 interactionId: interactionId,
                 customHeaders,
             },
-            abortSignal,
-            isGoogleSearchEnabled
+            abortSignal
         )
     }
 }
