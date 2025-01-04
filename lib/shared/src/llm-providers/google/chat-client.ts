@@ -69,10 +69,6 @@ export async function googleChatClient({
         }
     }
 
-    // TODO(PriNova): Remove this when the Google API supports the `google_search` tool.
-    console.log('chat-client Google: ', messages)
-    console.log('chat-client Google: ', params.googleSearch)
-
     const tools = params.googleSearch ? [{ google_search: {} }] : []
 
     const body = {
@@ -134,7 +130,6 @@ export async function googleChatClient({
                     buffer += jsonString
                     try {
                         const parsed = JSON.parse(buffer) as GeminiCompletionResponse
-                        console.log('chat-client Response: ', JSON.parse(buffer))
                         const streamText = parsed.candidates?.[0]?.content?.parts[0]?.text
                         if (streamText) {
                             responseText += streamText
