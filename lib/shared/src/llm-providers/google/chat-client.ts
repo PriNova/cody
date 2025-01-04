@@ -69,10 +69,6 @@ export async function googleChatClient({
         }
     }
 
-    // TODO(PriNova): Remove this when the Google API supports the `google_search` tool.
-    console.log('chat-client Google: ', messages)
-    console.log('chat-client Google: ', params.googleSearch)
-
     const tools = params.googleSearch ? [{ google_search: {} }] : []
 
     const body = {
