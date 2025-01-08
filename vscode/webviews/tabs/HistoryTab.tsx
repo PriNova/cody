@@ -7,13 +7,16 @@ import {
     PenIcon,
     TrashIcon,
 } from 'lucide-react'
+import { SearchIcon } from 'lucide-react'
+import { XCircleIcon } from 'lucide-react'
 import type React from 'react'
-import { useCallback, useMemo, useRef, useState } from 'react'
+import { memo, useCallback, useMemo, useRef, useState } from 'react'
 import type { WebviewType } from '../../src/chat/protocol'
 import { getRelativeChatPeriod } from '../../src/common/time-date'
 import { LoadingDots } from '../chat/components/LoadingDots'
 import { CollapsiblePanel } from '../components/CollapsiblePanel'
 import { Button } from '../components/shadcn/ui/button'
+import { Input } from '../components/shadcn/ui/input'
 import { getVSCodeAPI } from '../utils/VSCodeApi'
 import { View } from './types'
 import { getCreateNewChatCommand } from './utils'
@@ -45,29 +48,61 @@ export const HistoryTab: React.FC<HistoryTabProps> = props => {
     )
 }
 
+const filterChatsBySearch = (chats: SerializedChatTranscript[], term: string) => {
+    if (!term) return chats
+
+    // Split search term into individual words and remove empty strings
+    const searchTerms = term.toLowerCase().split(' ').filter(Boolean)
+
+    return chats.filter(chat => {
+        const chatTitle = chat.chatTitle?.toLowerCase() || ''
+
+        // Check if all search terms are present in the title
+        const titleMatch = searchTerms.every(term => chatTitle.includes(term))
+        if (titleMatch) return true
+
+        // Check interactions for all search terms
+        return chat.interactions.some(interaction => {
+            const humanText = interaction.humanMessage?.text?.toLowerCase() || ''
+            const assistantText = interaction.assistantMessage?.text?.toLowerCase() || ''
+
+            // Return true if all search terms are found in either message
+            return searchTerms.every(term => humanText.includes(term) || assistantText.includes(term))
+        })
+    })
+}
+
 export const HistoryTabWithData: React.FC<
     HistoryTabProps & { chats: UserLocalHistory['chat'][string][] }
 > = ({ IDE, webviewType, multipleWebviewsEnabled, setView, chats }) => {
-    const nonEmptyChats = useMemo(() => chats.filter(chat => chat.interactions.length > 0), [chats])
+    //const nonEmptyChats = useMemo(() => chats.filter(chat => chat.interactions.length > 0), [chats])
     const [editingId, setEditingId] = useState<string | null>(null)
     const [newTitle, setNewTitle] = useState('')
     const inputRef = useRef<HTMLInputElement>(null)
+    //const [inputValue, setInputValue] = useState('')
+    const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('')
+    //const [searchTerm, setSearchTerm] = useState('')
+
+    const filteredChats = useMemo(
+        () =>
+            filterChatsBySearch(
+                chats.filter(chat => chat.interactions.length > 0),
+                debouncedSearchTerm
+            ),
+        [chats, debouncedSearchTerm]
+    )
 
     const chatByPeriod = useMemo(
         () =>
             Array.from(
-                nonEmptyChats
-                    .filter(chat => chat.interactions.length)
-                    .reverse()
-                    .reduce((acc, chat) => {
-                        const period = getRelativeChatPeriod(new Date(chat.lastInteractionTimestamp))
-                        acc.set(period, [...(acc.get(period) || []), chat])
-                        return acc
-                    }, new Map<string, SerializedChatTranscript[]>())
+                filteredChats.reverse().reduce((acc, chat) => {
+                    const period = getRelativeChatPeriod(new Date(chat.lastInteractionTimestamp))
+                    acc.set(period, [...(acc.get(period) || []), chat])
+                    return acc
+                }, new Map<string, SerializedChatTranscript[]>())
             ),
-        [nonEmptyChats]
+        [filteredChats]
     )
-
     const onDeleteButtonClick = useCallback(
         (id: string) => {
             if (chats.find(chat => chat.id === id)) {
@@ -120,8 +155,45 @@ export const HistoryTabWithData: React.FC<
         [chats]
     )
 
+    const SearchBar = memo(
+        ({ initialValue, onSearch }: { initialValue: string; onSearch: (term: string) => void }) => {
+            const [inputValue, setInputValue] = useState(initialValue)
+
+            const handleReset = () => {
+                setInputValue('')
+                onSearch('')
+            }
+
+            return (
+                <div className="tw-flex tw-gap-2 tw-mb-2">
+                    <Input
+                        type="text"
+                        placeholder="Search in chat history..."
+                        value={inputValue}
+                        onChange={e => setInputValue(e.target.value)}
+                        onKeyDown={e => {
+                            if (e.key === 'Enter') {
+                                onSearch(inputValue)
+                            }
+                        }}
+                        className="tw-flex-1"
+                    />
+                    {inputValue && (
+                        <Button variant="ghost" onClick={handleReset} title="Clear search">
+                            <XCircleIcon size={16} strokeWidth={1.25} />
+                        </Button>
+                    )}
+                    <Button variant="ghost" onClick={() => onSearch(inputValue)} title="Search">
+                        <SearchIcon size={16} strokeWidth={1.25} />
+                    </Button>
+                </div>
+            )
+        }
+    )
+
     return (
         <div className="tw-flex tw-flex-col tw-gap-10">
+            <SearchBar initialValue={debouncedSearchTerm} onSearch={setDebouncedSearchTerm} />
             {chatByPeriod.map(([period, chats]) => (
                 <CollapsiblePanel
                     id={`history-${period}`.replaceAll(' ', '-').toLowerCase()}
@@ -216,7 +288,7 @@ export const HistoryTabWithData: React.FC<
                 </CollapsiblePanel>
             ))}
 
-            {nonEmptyChats.length === 0 && (
+            {filteredChats.length === 0 && (
                 <div className="tw-flex tw-flex-col tw-items-center tw-mt-6">
                     <HistoryIcon
                         size={20}
