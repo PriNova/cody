@@ -448,7 +448,7 @@ export const LoopStartNode: React.FC<BaseNodeProps> = ({ data, selected }) => (
         <Handle type="target" position={Position.Top} />
         <div className="tw-flex tw-flex-col tw-gap-2">
             <span>{data.title}</span>
-            <span className="tw-text-sm tw-opacity-70">Iterations: {data.iterations || 0}</span>
+            <span className="tw-text-sm tw-opacity-70">Iterations: {data.iterations || 1}</span>
         </div>
         <Handle type="source" position={Position.Bottom} />
     </div>

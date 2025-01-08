@@ -2,7 +2,13 @@ import type { GenericVSCodeWrapper } from '@sourcegraph/cody-shared'
 import { type NodeChange, applyNodeChanges, useReactFlow } from '@xyflow/react'
 import { useCallback, useMemo, useState } from 'react'
 import type { WorkflowFromExtension, WorkflowToExtension } from '../../services/WorkflowProtocol'
-import { type LLMNode, NodeType, type WorkflowNodes, createNode } from '../nodes/Nodes'
+import {
+    type LLMNode,
+    type LoopStartNode,
+    NodeType,
+    type WorkflowNodes,
+    createNode,
+} from '../nodes/Nodes'
 
 interface IndexedNodes {
     byId: Map<string, WorkflowNodes>
@@ -109,6 +115,16 @@ export const useNodeOperations = (
                     case NodeType.PREVIEW:
                     case NodeType.INPUT:
                     case NodeType.CODY_OUTPUT:
+                    case NodeType.LOOP_START: {
+                        const loopStartData = sourceNode as LoopStartNode
+                        newNode.data = {
+                            ...newNode.data,
+                            iterations: loopStartData.data.iterations,
+                            loopVariable: loopStartData.data.loopVariable,
+                        }
+                        break
+                    }
+                    case NodeType.LOOP_END:
                     case NodeType.SEARCH_CONTEXT:
                         newNode.data.content = sourceNode.data.content
                         break
@@ -157,6 +173,12 @@ export const useNodeOperations = (
                 case NodeType.INPUT:
                     newNode.data.content = ''
                     break
+                case NodeType.LOOP_START:
+                    newNode.data = {
+                        ...newNode.data,
+                        iterations: 1,
+                        loopVariable: 'loop',
+                    }
             }
 
             setNodes(nodes => [...nodes, newNode])

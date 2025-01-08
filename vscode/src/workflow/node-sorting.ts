@@ -228,7 +228,11 @@ export function tarjanSort(nodes: WorkflowNodes[], edges: Edge[]): WorkflowNodes
     const visited = new Set<string>()
     const sortedSet = new Set<string>()
 
-    const rootNodes = findRootNodes(nodes, edges).reverse()
+    let rootNodes = findRootNodes(nodes, edges)
+
+    if (rootNodes.length === 0) {
+        rootNodes = nodes
+    }
 
     for (const rootNode of rootNodes) {
         const { visited: newVisited, sorted: newSorted } = visitNode(rootNode, nodes, edges)
@@ -467,24 +471,27 @@ export function processLoop(nodes: WorkflowNodes[], edges: Edge[]): WorkflowNode
  * @returns An array of processed nodes, with the composition nodes handled appropriately.
  */
 export function processGraphComposition(nodes: WorkflowNodes[], edges: Edge[]): WorkflowNodes[] {
-    // Find all composition nodes (LoopStart, IfStart, etc.)
-    const components = findStronglyConnectedComponents(nodes, edges)
-    const compositionNodes = nodes.filter(node => node.type === NodeType.LOOP_START)
+    const subgraphComponents = findStronglyConnectedComponents(nodes, edges)
+    const loopStartNodes = nodes.filter(node => node.type === NodeType.LOOP_START)
 
-    if (compositionNodes.length === 0) {
-        const flatComponents = components.flat()
-        const componentIds = new Set(flatComponents.map(n => n.id))
-
-        const filteredEdges = edges.filter(
-            edge => componentIds.has(edge.source) && componentIds.has(edge.target)
-        )
-
-        return tarjanSort(flatComponents, filteredEdges)
+    if (loopStartNodes.length === 0) {
+        return subgraphComponents
+            .flatMap(component =>
+                tarjanSort(
+                    component,
+                    edges.filter(
+                        edge =>
+                            component.some(n => n.id === edge.source) &&
+                            component.some(n => n.id === edge.target)
+                    )
+                )
+            )
+            .reverse()
     }
 
     // Currently handling Loop compositions
-    if (compositionNodes.some(n => n.type === NodeType.LOOP_START)) {
-        return processLoopWithCycles(nodes, edges, components)
+    if (loopStartNodes.some(n => n.type === NodeType.LOOP_START)) {
+        return processLoopWithCycles(nodes, edges, true)
     }
 
     return nodes
@@ -531,7 +538,7 @@ export function findStronglyConnectedComponents(
 
         // Get only Simple type nodes as children for cycle detection
         const children = getChildNodes(node.id, nodes, edges).filter(
-            n => (n.type !== NodeType.LOOP_START && n.type !== NodeType.LOOP_END) || n.id === node.id
+            node => !CONTROL_FLOW_NODES.has(node.type)
         )
         for (const child of children) {
             const childState = nodeStates.get(child.id)
@@ -571,6 +578,87 @@ export function findStronglyConnectedComponents(
     return components
 }
 
+/**
+ * Finds the loop start node for the given loop end node in the workflow graph.
+ *
+ * @param loopEnd - The loop end node to find the corresponding loop start for.
+ * @param nodes - The array of workflow nodes.
+ * @param edges - The array of edges between the workflow nodes.
+ * @returns The loop start node if found, otherwise `undefined`.
+ */
+export function findLoopStartForLoopEnd(
+    loopEnd: WorkflowNodes,
+    nodes: WorkflowNodes[],
+    edges: Edge[]
+): WorkflowNodes | undefined {
+    const visited = new Set<string>()
+    const stack: WorkflowNodes[] = [loopEnd]
+
+    while (stack.length > 0) {
+        const currentNode = stack.pop()!
+
+        if (visited.has(currentNode.id)) {
+            continue
+        }
+        visited.add(currentNode.id)
+
+        if (currentNode.type === NodeType.LOOP_START) {
+            return currentNode
+        }
+
+        if (currentNode.type === NodeType.LOOP_END && currentNode.id !== loopEnd.id) {
+            continue
+        }
+
+        // Get parent nodes instead of child nodes
+        const parentEdges = edges.filter(e => e.target === currentNode.id)
+        const parentNodes = parentEdges.map(e => nodes.find(n => n.id === e.source)!)
+
+        for (const parentNode of parentNodes) {
+            if (!visited.has(parentNode.id)) {
+                stack.push(parentNode)
+            }
+        }
+    }
+
+    return undefined
+}
+
+export function findLoopEndForLoopStart(
+    loopStart: WorkflowNodes,
+    nodes: WorkflowNodes[],
+    edges: Edge[]
+): WorkflowNodes | undefined {
+    const visited = new Set<string>()
+    const stack: WorkflowNodes[] = [loopStart]
+
+    while (stack.length > 0) {
+        const currentNode = stack.pop()!
+
+        if (visited.has(currentNode.id)) {
+            continue // Skip if already visited
+        }
+        visited.add(currentNode.id)
+
+        if (currentNode.type === NodeType.LOOP_END) {
+            return currentNode // Found the LoopEnd
+        }
+
+        if (currentNode.type === NodeType.LOOP_START && currentNode.id !== loopStart.id) {
+            continue //Skip if we find another loop start node.
+        }
+
+        const childNodes = getChildNodes(currentNode.id, nodes, edges)
+        for (const childNode of childNodes) {
+            if (!visited.has(childNode.id)) {
+                stack.push(childNode) // Explore children
+            }
+        }
+    }
+
+    return undefined // No LoopEnd found for this LoopStart
+}
+
 const CONTROL_FLOW_NODES = new Set([NodeType.LOOP_START, NodeType.LOOP_END])
 
 /**
@@ -581,45 +669,47 @@ const CONTROL_FLOW_NODES = new Set([NodeType.LOOP_START, NodeType.LOOP_END])
  * @param components - The components of the workflow graph.
  * @returns The processed workflow nodes.
  */
-function processLoopWithCycles(
+export function processLoopWithCycles(
     nodes: WorkflowNodes[],
     edges: Edge[],
-    components: WorkflowNodes[][]
+    shouldIterateLoops = true
 ): WorkflowNodes[] {
     const processedNodes: WorkflowNodes[] = []
     const loopStartNodes = nodes.filter(n => n.type === NodeType.LOOP_START)
 
     for (const loopStart of loopStartNodes) {
-        const loopEnd = nodes.find(n => n.type === NodeType.LOOP_END)
-        const entryNodeId = edges.find(e => e.source === loopStart.id)?.target
+        const loopEnd = findLoopEndForLoopStart(loopStart, nodes, edges)
 
-        const processedComponents = components
-            .filter(comp => comp.every(n => !CONTROL_FLOW_NODES.has(n.type)))
-            .map(component => {
-                if (component.length === 1) return component
+        // Process pre-loop nodes
+        const preLoopNodes = findPreLoopNodes(loopStart, nodes, edges)
+        for (const node of preLoopNodes) {
+            if (!processedNodes.some(processedNode => processedNode.id === node.id)) {
+                processedNodes.push({ ...node })
+            }
+        }
 
-                const componentEntryNode =
-                    component.find(n => n.id === entryNodeId) ||
-                    component.find(n =>
-                        edges.some(e => e.source === n.id && component.some(cn => cn.id === e.target))
-                    ) ||
-                    component[0] // Guaranteed fallback
+        // Find post-loop nodes first to exclude them from loop processing
+        const postLoopNodes = loopEnd ? findPostLoopNodes(loopEnd, nodes, edges) : []
+        const preLoopNodeIds = new Set(preLoopNodes.map(node => node.id))
+        const nodesInsideLoop = findLoopNodes(loopStart, nodes, edges, preLoopNodeIds)
 
-                return orderComponentNodes(component, componentEntryNode, edges)
-            })
-
-        const sortedComponents = sortComponentsByDependencies(processedComponents, edges)
-        const flattenedNodes = sortedComponents.flat()
-
-        const iterations = (loopStart as LoopStartNode).data.iterations || 1
+        // Process loop iterations
+        const iterations = shouldIterateLoops ? (loopStart as LoopStartNode).data.iterations : 1
 
         for (let i = 0; i < iterations; i++) {
             processedNodes.push({ ...loopStart })
-            for (const node of flattenedNodes) {
+            for (const node of nodesInsideLoop) {
                 processedNodes.push({ ...node })
             }
             if (loopEnd) {
                 processedNodes.push({ ...loopEnd })
+            }
+        }
+
+        // Process post-loop nodes after all iterations
+        if (postLoopNodes.length > 0) {
+            for (const node of postLoopNodes) {
+                processedNodes.push({ ...node })
             }
         }
     }

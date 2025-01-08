@@ -2,8 +2,7 @@ import { memoize } from 'lodash'
 import { useMemo } from 'react'
 import {
     findStronglyConnectedComponents,
-    orderComponentNodes,
-    sortComponentsByDependencies,
+    processLoopWithCycles,
     tarjanSort,
 } from '../../../../src/workflow/node-sorting'
 import type { Edge } from '../CustomOrderedEdge'
@@ -133,7 +132,7 @@ export const memoizedTopologicalSort = memoize(
 
         // Currently handling Loop compositions
         if (compositionNodes.some(n => n.type === NodeType.LOOP_START)) {
-            return processLoopWithCycles(nodes, edges, components)
+            return processLoopWithCycles(nodes, edges, false)
         }
 
         return nodes
@@ -151,51 +150,3 @@ export const memoizedTopologicalSort = memoize(
         return `${nodeKey}:${edgeKey}`
     }
 )
-
-const CONTROL_FLOW_NODES = new Set([NodeType.LOOP_START, NodeType.LOOP_END])
-
-function processLoopWithCycles(
-    nodes: WorkflowNodes[],
-    edges: Edge[],
-    components: WorkflowNodes[][]
-): WorkflowNodes[] {
-    const processedNodes: WorkflowNodes[] = []
-    const loopStartNodes = nodes.filter(n => n.type === NodeType.LOOP_START)
-
-    for (const loopStart of loopStartNodes) {
-        const loopEnd = nodes.find(n => n.type === NodeType.LOOP_END)
-        const entryNodeId = edges.find(e => e.source === loopStart.id)?.target
-
-        const processedComponents = components
-            .filter(comp => comp.every(n => !CONTROL_FLOW_NODES.has(n.type)))
-            .map(component => {
-                if (component.length === 1) return component
-
-                const componentEntryNode =
-                    component.find(n => n.id === entryNodeId) ||
-                    component.find(n =>
-                        edges.some(e => e.source === n.id && component.some(cn => cn.id === e.target))
-                    ) ||
-                    component[0] // Guaranteed fallback
-
-                return orderComponentNodes(component, componentEntryNode, edges)
-            })
-
-        const sortedComponents = sortComponentsByDependencies(processedComponents, edges)
-        const flattenedNodes = sortedComponents.flat()
-
-        const iterations = 1
-
-        for (let i = 0; i < iterations; i++) {
-            processedNodes.push({ ...loopStart })
-            for (const node of flattenedNodes) {
-                processedNodes.push({ ...node })
-            }
-            if (loopEnd) {
-                processedNodes.push({ ...loopEnd })
-            }
-        }
-    }
-
-    return processedNodes
-}

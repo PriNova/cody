@@ -92,27 +92,25 @@ export async function executeWorkflow(
     const sortedNodes = processGraphComposition(nodes, edges)
     const persistentShell = new PersistentShell()
 
-    webview.postMessage({
+    await webview.postMessage({
         type: 'execution_started',
     } as WorkflowFromExtension)
 
-    for (let i = 0; i < sortedNodes.length; i++) {
-        const node = sortedNodes[i]
-
+    for (const node of sortedNodes) {
         if (node.type === NodeType.LOOP_START) {
-            const loopState = context.loopStates.get(node.id) || {
+            context.loopStates.set(node.id, {
                 currentIteration: 0,
                 maxIterations: (node as LoopStartNode).data.iterations,
                 variable: (node as LoopStartNode).data.loopVariable,
-            }
-            context.loopStates.set(node.id, loopState)
+            })
         }
-
+    }
+    for (const node of sortedNodes) {
         if (allInactiveNodes.has(node.id)) {
             continue
         }
 
-        webview.postMessage({
+        await webview.postMessage({
             type: 'node_execution_status',
             data: { nodeId: node.id, status: 'running' },
         } as WorkflowFromExtension)
@@ -143,12 +141,12 @@ export async function executeWorkflow(
 
                     void vscode.window.showErrorMessage(`CLI Node Error: ${errorMessage}`)
 
-                    webview.postMessage({
+                    await webview.postMessage({
                         type: 'node_execution_status',
                         data: { nodeId: node.id, status, result: errorMessage },
                     } as WorkflowFromExtension)
 
-                    webview.postMessage({
+                    await webview.postMessage({
                         type: 'execution_completed',
                     } as WorkflowFromExtension)
                     return
@@ -221,12 +219,12 @@ export async function executeWorkflow(
                     const errorMessage = error instanceof Error ? error.message : String(error)
                     const status = errorMessage.includes('aborted') ? 'interrupted' : 'error'
 
-                    webview.postMessage({
+                    await webview.postMessage({
                         type: 'node_execution_status',
                         data: { nodeId: node.id, status, result: errorMessage },
                     } as WorkflowFromExtension)
 
-                    webview.postMessage({
+                    await webview.postMessage({
                         type: 'execution_completed',
                     } as WorkflowFromExtension)
 
@@ -235,8 +233,12 @@ export async function executeWorkflow(
                 break
             }
             case NodeType.LOOP_START: {
-                const loopState = context.loopStates.get(node.id)!
-                result = String(loopState.currentIteration)
+                const loopState = context.loopStates.get(node.id) || {
+                    currentIteration: 1,
+                    maxIterations: (node as LoopStartNode).data.iterations,
+                    variable: (node as LoopStartNode).data.loopVariable,
+                }
+                result = String(loopState.currentIteration + 1)
 
                 // Only increment for next iteration if not at max
                 if (loopState.currentIteration < loopState.maxIterations) {
@@ -259,7 +261,7 @@ export async function executeWorkflow(
         }
 
         context.nodeOutputs.set(node.id, result)
-        webview.postMessage({
+        await webview.postMessage({
             type: 'node_execution_status',
             data: { nodeId: node.id, status: 'completed', result },
         } as WorkflowFromExtension)
@@ -408,20 +410,6 @@ export function combineParentOutputsByConnectionOrder(
         .filter(output => output !== undefined)
 }
 
-/* function findNodesInLoop(endNode: WorkflowNodes, nodes: WorkflowNodes[]): WorkflowNodes[] {
-    const endIndex = nodes.indexOf(endNode)
-    if (endIndex === -1) {
-        return []
-    }
-
-    for (let i = endIndex - 1; i >= 0; i--) {
-        if (nodes[i].type === NodeType.LOOP_START) {
-            return nodes.slice(i, endIndex + 1)
-        }
-    }
-    return []
-} */
-
 // #region 1 CLI Node Execution */
 
 /**
@@ -461,7 +449,7 @@ export async function executeCLINode(
     let commandToExecute = convertQuotes
 
     if (node.data.needsUserApproval) {
-        webview.postMessage({
+        await webview.postMessage({
             type: 'node_execution_status',
             data: {
                 nodeId: node.id,
@@ -609,7 +597,7 @@ async function executePreviewNode(
     const trimmedInput = processedInput.trim()
     const tokenCount = await TokenCounterUtils.encode(trimmedInput)
 
-    webview.postMessage({
+    await webview.postMessage({
         type: 'token_count',
         data: {
             nodeId,
