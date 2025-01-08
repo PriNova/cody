@@ -157,7 +157,7 @@ export const TabsBar = memo<TabsBarProps>(props => {
                                 isProUser={isCodyProUser}
                                 endpointHistory={endpointHistory}
                                 setView={setView}
-                                className="!tw-opacity-100"
+                                className="!tw-opacity-100 tw-h-full"
                             />
                         )}
                     </div>

@@ -355,3 +355,9 @@ export const StreamingThenFinish: StoryObj<typeof meta> = {
         )
     },
 }
+
+export const WithToolUseResponse: StoryObj<typeof meta> = {
+    args: {
+        transcript: transcriptFixture([...FIXTURE_TRANSCRIPT.toolUse]),
+    },
+}

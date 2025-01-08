@@ -18,6 +18,7 @@ import {
     type Guardrails,
     ModelUsage,
     type NLSSearchDynamicFilter,
+    type ProcessingStep,
     PromptString,
     type SerializedChatInteraction,
     type SerializedChatTranscript,
@@ -71,6 +72,7 @@ import * as vscode from 'vscode'
 
 import { type Span, context } from '@opentelemetry/api'
 import { captureException } from '@sentry/core'
+import type { SubMessage } from '@sourcegraph/cody-shared/src/chat/transcript/messages'
 import type { TelemetryEventParameters } from '@sourcegraph/telemetry'
 import { Subject, map } from 'observable-fns'
 import type { URI } from 'vscode-uri'
@@ -104,7 +106,7 @@ import {
 import { openExternalLinks } from '../../services/utils/workspace-action'
 import { TestSupport } from '../../test-support'
 import type { MessageErrorType } from '../MessageProvider'
-import { CodyToolProvider } from '../agentic/CodyToolProvider'
+import { toolboxManager } from '../agentic/ToolboxManager'
 import { getMentionMenuData } from '../context/chatContext'
 import type { ChatIntentAPIClient } from '../context/chatIntentAPIClient'
 import { observeDefaultContext } from '../initialContext'
@@ -179,7 +181,6 @@ export class ChatController implements vscode.Disposable, vscode.WebviewViewProv
     private readonly chatClient: ChatControllerOptions['chatClient']
 
     private readonly contextRetriever: ChatControllerOptions['contextRetriever']
-    private readonly toolProvider: CodyToolProvider
 
     private readonly editor: ChatControllerOptions['editor']
     private readonly extensionClient: ChatControllerOptions['extensionClient']
@@ -213,7 +214,6 @@ export class ChatController implements vscode.Disposable, vscode.WebviewViewProv
         this.editor = editor
         this.extensionClient = extensionClient
         this.contextRetriever = contextRetriever
-        this.toolProvider = CodyToolProvider.instance(this.contextRetriever)
 
         this.chatBuilder = new ChatBuilder(undefined)
 
@@ -568,10 +568,6 @@ export class ChatController implements vscode.Disposable, vscode.WebviewViewProv
         featureFlagProvider.evaluatedFeatureFlag(FeatureFlag.CodyExperimentalOneBox)
     )
 
-    private featureDeepCodyShellContext = storeLastValue(
-        featureFlagProvider.evaluatedFeatureFlag(FeatureFlag.DeepCodyShellContext)
-    )
-
     private async getConfigForWebview(): Promise<ConfigurationSubsetForWebview & LocalEnv> {
         const { configuration, auth } = await currentResolvedConfig()
         const sidebarViewOnly = this.extensionClient.capabilities?.webviewNativeConfig?.view === 'single'
@@ -579,11 +575,6 @@ export class ChatController implements vscode.Disposable, vscode.WebviewViewProv
         const webviewType = isEditorViewType && !sidebarViewOnly ? 'editor' : 'sidebar'
         const uiKindIsWeb = (cenv.CODY_OVERRIDE_UI_KIND ?? vscode.env.uiKind) === vscode.UIKind.Web
         const endpoints = localStorage.getEndpointHistory() ?? []
-        this.toolProvider.setShellConfig({
-            instance: this.featureDeepCodyShellContext.value?.last,
-            user: Boolean(configuration.agenticContextExperimentalShell),
-            client: Boolean(vscode.env.shell),
-        })
 
         return {
             uiKindIsWeb,
@@ -685,6 +676,7 @@ export class ChatController implements vscode.Disposable, vscode.WebviewViewProv
         intentScores?: { intent: string; score: number }[] | undefined | null
         manuallySelectedIntent?: boolean | undefined | null
         traceparent?: string | undefined | null
+        selectedAgent?: string | undefined | null
     }): Promise<void> {
         return context.with(extractContextFromTraceparent(traceparent), () => {
             return tracer.startActiveSpan('chat.handleUserMessage', async (span): Promise<void> => {
@@ -702,11 +694,14 @@ export class ChatController implements vscode.Disposable, vscode.WebviewViewProv
                     return this.clearAndRestartSession()
                 }
 
+                const selectedAgent = this.chatBuilder.selectedAgent
+
                 this.chatBuilder.addHumanMessage({
                     text: inputText,
                     editorState,
                     intent: detectedIntent,
                     manuallySelectedIntent: manuallySelectedIntent ? detectedIntent : undefined,
+                    agent: selectedAgent,
                 })
                 this.postViewTranscript({ speaker: 'assistant' })
 
@@ -725,6 +720,7 @@ export class ChatController implements vscode.Disposable, vscode.WebviewViewProv
                         intent: detectedIntent,
                         intentScores: detectedIntentScores,
                         manuallySelectedIntent,
+                        selectedAgent,
                     },
                     span
                 )
@@ -794,6 +790,7 @@ export class ChatController implements vscode.Disposable, vscode.WebviewViewProv
             intent: detectedIntent,
             intentScores: detectedIntentScores,
             manuallySelectedIntent,
+            selectedAgent,
         }: Parameters<typeof this.handleUserMessage>[0],
         span: Span
     ): Promise<void> {
@@ -817,6 +814,7 @@ export class ChatController implements vscode.Disposable, vscode.WebviewViewProv
             sessionID: this.chatBuilder.sessionID,
             traceId: span.spanContext().traceId,
             promptText: inputText,
+            chatAgent: selectedAgent,
         })
         recorder.recordChatQuestionSubmitted(mentions)
 
@@ -836,12 +834,11 @@ export class ChatController implements vscode.Disposable, vscode.WebviewViewProv
 
         const agentName = ['search', 'edit', 'insert'].includes(intent ?? '')
             ? (intent as string)
-            : model
-        const agent = getAgent(agentName, {
+            : selectedAgent ?? 'chat'
+        const agent = getAgent(agentName, model, {
             contextRetriever: this.contextRetriever,
             editor: this.editor,
             chatClient: this.chatClient,
-            codyToolProvider: this.toolProvider,
         })
 
         recorder.setIntentInfo({
@@ -856,7 +853,7 @@ export class ChatController implements vscode.Disposable, vscode.WebviewViewProv
         })
 
         this.postEmptyMessageInProgress(model)
-        let messageInProgress: ChatMessage | undefined = undefined
+        let messageInProgress: ChatMessage = { speaker: 'assistant', model }
         try {
             await agent.handle(
                 {
@@ -873,9 +870,17 @@ export class ChatController implements vscode.Disposable, vscode.WebviewViewProv
                     postError: (error: Error, type?: MessageErrorType): void => {
                         this.postError(error, type)
                     },
-                    postMessageInProgress: (message?: ChatMessage): void => {
+                    postMessageInProgress: (message: ChatMessage): void => {
                         messageInProgress = message
                         this.postViewTranscript(message)
+                    },
+                    postStatuses: (steps: ProcessingStep[]): void => {
+                        this.chatBuilder.setLastMessageProcesses(steps)
+                        this.postViewTranscript(messageInProgress)
+                    },
+                    experimentalPostMessageInProgress: (subMessages: SubMessage[]): void => {
+                        messageInProgress.subMessages = subMessages
+                        this.postViewTranscript(messageInProgress)
                     },
                     postDone: (op?: { abort: boolean }): void => {
                         if (op?.abort) {
@@ -892,6 +897,11 @@ export class ChatController implements vscode.Disposable, vscode.WebviewViewProv
                             (['search', 'insert', 'edit'].includes(messageInProgress?.intent ?? '') ||
                                 messageInProgress?.search ||
                                 messageInProgress?.error)
+                        ) {
+                            this.chatBuilder.addBotMessage(messageInProgress, model)
+                        } else if (
+                            messageInProgress.subMessages &&
+                            messageInProgress.subMessages.length > 0
                         ) {
                             this.chatBuilder.addBotMessage(messageInProgress, model)
                         } else if (messageInProgress?.text) {
@@ -1575,6 +1585,13 @@ export class ChatController implements vscode.Disposable, vscode.WebviewViewProv
                         userProductSubscription.pipe(
                             map(value => (value === pendingOperation ? null : value))
                         ),
+                    toolboxSettings: () => toolboxManager.observable,
+                    updateToolboxSettings: settings => {
+                        return promiseFactoryToObservable(async () => {
+                            this.chatBuilder.setSelectedAgent(settings.agent?.name)
+                            await toolboxManager.updateSettings(settings)
+                        })
+                    },
                 }
             )
         )

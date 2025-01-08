@@ -23,6 +23,7 @@ import {
 
 import type { ImageData, MimeType } from '@sourcegraph/cody-shared/src/llm-providers/google'
 import { Observable, Subject, map } from 'observable-fns'
+import { toolboxManager } from '../agentic/ToolboxManager'
 import { getChatPanelTitle } from './chat-helpers'
 
 /**
@@ -98,7 +99,8 @@ export class ChatBuilder {
         private messages: ChatMessage[] = [],
         private customChatTitle?: string,
         private images: ImageData[] = [],
-        private isGoogleSearchEnabled = false
+        private isGoogleSearchEnabled = false,
+        private selectedChatAgent: string | undefined | null = null
     ) {}
 
     /** An observable that emits whenever the {@link ChatBuilder}'s chat changes. */
@@ -114,6 +116,18 @@ export class ChatBuilder {
     public setSelectedModel(newModelID: ChatModel | undefined): void {
         this.selectedModel = newModelID
         this.changeNotifications.next()
+    }
+
+    public setSelectedAgent(newAgentName?: string): void {
+        this.selectedChatAgent = newAgentName
+    }
+
+    public get selectedAgent(): string | undefined {
+        // SelectedChatAgent initially is null, so we will set it to the last user's agent.
+        if (this.selectedChatAgent === null) {
+            this.setSelectedAgent(toolboxManager.getSettings()?.agent?.name)
+        }
+        return this.selectedChatAgent || undefined
     }
 
     public isEmpty(): boolean {

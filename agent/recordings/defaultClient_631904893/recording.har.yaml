@@ -14,11 +14,20 @@ log:
         headers:
           - _fromType: array
             name: authorization
+          - _fromType: array
+            name: authorization
             value: token
               REDACTED_fc324d3667e841181b0779375f26dedc911d26b303d23b29b1a2d7ee63dc77eb
           - _fromType: array
             name: content-type
+          - _fromType: array
+            name: content-type
             value: application/json; charset=utf-8
+          - _fromType: array
+            name: user-agent
+            value: defaultclient/v1 (Node.js v20.4.0)
+          - _fromType: array
+            name: x-requested-with
           - _fromType: array
             name: user-agent
             value: defaultclient/v1 (Node.js v20.4.0)
@@ -31,8 +40,15 @@ log:
           - _fromType: array
             name: accept-encoding
             value: gzip,deflate
+          - _fromType: array
+            name: accept
+            value: "*/*"
+          - _fromType: array
+            name: accept-encoding
+            value: gzip,deflate
           - name: host
             value: sourcegraph.com
+        headersSize: 400
         headersSize: 400
         httpVersion: HTTP/1.1
         method: GET
@@ -51,6 +67,7 @@ log:
         cookies: []
         headers:
           - name: date
+            value: Fri, 27 Dec 2024 20:51:21 GMT
             value: Fri, 27 Dec 2024 20:51:21 GMT
           - name: content-type
             value: text/plain; charset=utf-8
@@ -78,10 +95,13 @@ log:
           - name: content-encoding
             value: gzip
         headersSize: 1337
+        headersSize: 1337
         httpVersion: HTTP/1.1
         redirectURL: ""
         status: 200
         statusText: OK
+      startedDateTime: 2024-12-27T20:51:21.755Z
+      time: 115
       startedDateTime: 2024-12-27T20:51:21.755Z
       time: 115
       timings:
@@ -2424,6 +2444,7 @@ log:
       cache: {}
       request:
         bodySize: 2080
+        bodySize: 2080
         cookies: []
         headers:
           - name: accept-encoding
@@ -2492,6 +2513,11 @@ log:
               - speaker: assistant
                 text: Ok.
               - speaker: human
+                text: >-
+                  You have access to the provided codebase context.
+
+
+                  Question: Explain what @src/animal.ts:1-6 ( @src/animal.ts ) does in simple terms. Assume the audience is a beginner programmer who has just learned the language features and basic syntax. Focus on explaining: 1) The purpose of the code 2) What input(s) it takes 3) What output(s) it produces 4) How it achieves its purpose through the logic and algorithm. 5) Any important logic flows or data transformations happening. Use simple language a beginner could understand. Include enough detail to give a full picture of what the code aims to accomplish without getting too technical. Format the explanation in coherent paragraphs, using proper punctuation and grammar. Write the explanation assuming no prior context about the code is known. Do not make assumptions about variables or functions not shown in the shared code. Start the answer with the name of the code that is being explained.
                 text: >-
                   You have access to the provided codebase context.
 
@@ -2574,6 +2600,7 @@ log:
       cache: {}
       request:
         bodySize: 1876
+        bodySize: 1876
         cookies: []
         headers:
           - name: accept-encoding
@@ -2642,6 +2669,11 @@ log:
               - speaker: assistant
                 text: Ok.
               - speaker: human
+                text: >-
+                  You have access to the provided codebase context.
+
+
+                  Question: Please review and analyze @src/animal.ts:1-6 ( @src/animal.ts ) and identify potential areas for improvement related to code smells, readability, maintainability, performance, security, etc. Do not list issues already addressed in the given code. Focus on providing up to 5 constructive suggestions that could make the code more robust, efficient, or align with best practices. For each suggestion, provide a brief explanation of the potential benefits. After listing any recommendations, summarize if you found notable opportunities to enhance the code quality overall or if the code generally follows sound design principles. If no issues found, reply 'There are no errors.'
                 text: >-
                   You have access to the provided codebase context.
 
@@ -2728,11 +2760,20 @@ log:
         headers:
           - _fromType: array
             name: authorization
+          - _fromType: array
+            name: authorization
             value: token
               REDACTED_fc324d3667e841181b0779375f26dedc911d26b303d23b29b1a2d7ee63dc77eb
           - _fromType: array
             name: content-type
+          - _fromType: array
+            name: content-type
             value: application/json; charset=utf-8
+          - _fromType: array
+            name: user-agent
+            value: defaultclient/v1 (Node.js v20.4.0)
+          - _fromType: array
+            name: x-requested-with
           - _fromType: array
             name: user-agent
             value: defaultclient/v1 (Node.js v20.4.0)
@@ -2748,8 +2789,18 @@ log:
           - _fromType: array
             name: accept-encoding
             value: gzip,deflate
+          - _fromType: array
+            name: accept
+            value: "*/*"
+          - _fromType: array
+            name: content-length
+            value: "318"
+          - _fromType: array
+            name: accept-encoding
+            value: gzip,deflate
           - name: host
             value: sourcegraph.com
+        headersSize: 448
         headersSize: 448
         httpVersion: HTTP/1.1
         method: POST
@@ -2800,6 +2851,7 @@ log:
         headers:
           - name: date
             value: Fri, 27 Dec 2024 20:51:22 GMT
+            value: Fri, 27 Dec 2024 20:51:22 GMT
           - name: content-type
             value: application/json
           - name: transfer-encoding
@@ -2826,10 +2878,13 @@ log:
           - name: content-encoding
             value: gzip
         headersSize: 1468
+        headersSize: 1468
         httpVersion: HTTP/1.1
         redirectURL: ""
         status: 200
         statusText: OK
+      startedDateTime: 2024-12-27T20:51:21.903Z
+      time: 213
       startedDateTime: 2024-12-27T20:51:21.903Z
       time: 213
       timings:
@@ -2840,6 +2895,7 @@ log:
         send: 0
         ssl: -1
         wait: 213
+        wait: 213
     - _id: 0484c4d780805faf3dd3ddabae814640
       _order: 0
       cache: {}
@@ -2849,11 +2905,20 @@ log:
         headers:
           - _fromType: array
             name: authorization
+          - _fromType: array
+            name: authorization
             value: token
               REDACTED_fc324d3667e841181b0779375f26dedc911d26b303d23b29b1a2d7ee63dc77eb
           - _fromType: array
             name: content-type
+          - _fromType: array
+            name: content-type
             value: application/json; charset=utf-8
+          - _fromType: array
+            name: user-agent
+            value: defaultclient/v1 (Node.js v20.4.0)
+          - _fromType: array
+            name: x-requested-with
           - _fromType: array
             name: user-agent
             value: defaultclient/v1 (Node.js v20.4.0)
@@ -2869,8 +2934,18 @@ log:
           - _fromType: array
             name: accept-encoding
             value: gzip,deflate
+          - _fromType: array
+            name: accept
+            value: "*/*"
+          - _fromType: array
+            name: content-length
+            value: "165"
+          - _fromType: array
+            name: accept-encoding
+            value: gzip,deflate
           - name: host
             value: sourcegraph.com
+        headersSize: 448
         headersSize: 448
         httpVersion: HTTP/1.1
         method: POST
@@ -2909,6 +2984,7 @@ log:
         headers:
           - name: date
             value: Fri, 27 Dec 2024 20:51:22 GMT
+            value: Fri, 27 Dec 2024 20:51:22 GMT
           - name: content-type
             value: application/json
           - name: transfer-encoding
@@ -2935,10 +3011,13 @@ log:
           - name: content-encoding
             value: gzip
         headersSize: 1468
+        headersSize: 1468
         httpVersion: HTTP/1.1
         redirectURL: ""
         status: 200
         statusText: OK
+      startedDateTime: 2024-12-27T20:51:21.933Z
+      time: 151
       startedDateTime: 2024-12-27T20:51:21.933Z
       time: 151
       timings:
@@ -2949,6 +3028,7 @@ log:
         send: 0
         ssl: -1
         wait: 151
+        wait: 151
     - _id: e141c56e63809042300db9bf8551d492
       _order: 0
       cache: {}
@@ -2958,11 +3038,20 @@ log:
         headers:
           - _fromType: array
             name: authorization
+          - _fromType: array
+            name: authorization
             value: token
               REDACTED_fc324d3667e841181b0779375f26dedc911d26b303d23b29b1a2d7ee63dc77eb
           - _fromType: array
             name: content-type
+          - _fromType: array
+            name: content-type
             value: application/json; charset=utf-8
+          - _fromType: array
+            name: user-agent
+            value: defaultclient/v1 (Node.js v20.4.0)
+          - _fromType: array
+            name: x-requested-with
           - _fromType: array
             name: user-agent
             value: defaultclient/v1 (Node.js v20.4.0)
@@ -2978,8 +3067,18 @@ log:
           - _fromType: array
             name: accept-encoding
             value: gzip,deflate
+          - _fromType: array
+            name: accept
+            value: "*/*"
+          - _fromType: array
+            name: content-length
+            value: "150"
+          - _fromType: array
+            name: accept-encoding
+            value: gzip,deflate
           - name: host
             value: sourcegraph.com
+        headersSize: 443
         headersSize: 443
         httpVersion: HTTP/1.1
         method: POST
@@ -3018,6 +3117,7 @@ log:
         headers:
           - name: date
             value: Fri, 27 Dec 2024 20:51:22 GMT
+            value: Fri, 27 Dec 2024 20:51:22 GMT
           - name: content-type
             value: application/json
           - name: transfer-encoding
@@ -3044,10 +3144,13 @@ log:
           - name: content-encoding
             value: gzip
         headersSize: 1468
+        headersSize: 1468
         httpVersion: HTTP/1.1
         redirectURL: ""
         status: 200
         statusText: OK
+      startedDateTime: 2024-12-27T20:51:21.918Z
+      time: 174
       startedDateTime: 2024-12-27T20:51:21.918Z
       time: 174
       timings:
@@ -3058,6 +3161,7 @@ log:
         send: 0
         ssl: -1
         wait: 174
+        wait: 174
     - _id: fc5ac2b541030783436b1d351c2ef46e
       _order: 0
       cache: {}
@@ -3067,11 +3171,20 @@ log:
         headers:
           - _fromType: array
             name: authorization
+          - _fromType: array
+            name: authorization
             value: token
               REDACTED_01674b70e20ba9df9ac4af0d1a3308132d10c88e63d9b10a4a7e1e74ca1da0d4
           - _fromType: array
             name: content-type
+          - _fromType: array
+            name: content-type
             value: application/json; charset=utf-8
+          - _fromType: array
+            name: user-agent
+            value: defaultclient/v1 (Node.js v20.4.0)
+          - _fromType: array
+            name: x-requested-with
           - _fromType: array
             name: user-agent
             value: defaultclient/v1 (Node.js v20.4.0)
@@ -3087,8 +3200,18 @@ log:
           - _fromType: array
             name: accept-encoding
             value: gzip,deflate
+          - _fromType: array
+            name: accept
+            value: "*/*"
+          - _fromType: array
+            name: content-length
+            value: "341"
+          - _fromType: array
+            name: accept-encoding
+            value: gzip,deflate
           - name: host
             value: sourcegraph.com
+        headersSize: 428
         headersSize: 428
         httpVersion: HTTP/1.1
         method: POST
@@ -3132,6 +3255,7 @@ log:
         headers:
           - name: date
             value: Fri, 27 Dec 2024 20:51:21 GMT
+            value: Fri, 27 Dec 2024 20:51:21 GMT
           - name: content-type
             value: text/plain; charset=utf-8
           - name: content-length
@@ -3155,10 +3279,13 @@ log:
           - name: strict-transport-security
             value: max-age=31536000; includeSubDomains; preload
         headersSize: 1398
+        headersSize: 1398
         httpVersion: HTTP/1.1
         redirectURL: ""
         status: 401
         statusText: Unauthorized
+      startedDateTime: 2024-12-27T20:51:21.463Z
+      time: 153
       startedDateTime: 2024-12-27T20:51:21.463Z
       time: 153
       timings:
@@ -3169,6 +3296,7 @@ log:
         send: 0
         ssl: -1
         wait: 153
+        wait: 153
     - _id: 5b9030a4e18d1e000c71d6000a7cef6f
       _order: 0
       cache: {}
@@ -3178,11 +3306,20 @@ log:
         headers:
           - _fromType: array
             name: authorization
+          - _fromType: array
+            name: authorization
             value: token
               REDACTED_fc324d3667e841181b0779375f26dedc911d26b303d23b29b1a2d7ee63dc77eb
           - _fromType: array
             name: content-type
+          - _fromType: array
+            name: content-type
             value: application/json; charset=utf-8
+          - _fromType: array
+            name: user-agent
+            value: defaultclient/v1 (Node.js v20.4.0)
+          - _fromType: array
+            name: x-requested-with
           - _fromType: array
             name: user-agent
             value: defaultclient/v1 (Node.js v20.4.0)
@@ -3198,8 +3335,18 @@ log:
           - _fromType: array
             name: accept-encoding
             value: gzip,deflate
+          - _fromType: array
+            name: accept
+            value: "*/*"
+          - _fromType: array
+            name: content-length
+            value: "341"
+          - _fromType: array
+            name: accept-encoding
+            value: gzip,deflate
           - name: host
             value: sourcegraph.com
+        headersSize: 428
         headersSize: 428
         httpVersion: HTTP/1.1
         method: POST
@@ -3260,6 +3407,7 @@ log:
         headers:
           - name: date
             value: Fri, 27 Dec 2024 20:51:21 GMT
+            value: Fri, 27 Dec 2024 20:51:21 GMT
           - name: content-type
             value: application/json
           - name: transfer-encoding
@@ -3286,10 +3434,13 @@ log:
           - name: content-encoding
             value: gzip
         headersSize: 1468
+        headersSize: 1468
         httpVersion: HTTP/1.1
         redirectURL: ""
         status: 200
         statusText: OK
+      startedDateTime: 2024-12-27T20:51:21.629Z
+      time: 123
       startedDateTime: 2024-12-27T20:51:21.629Z
       time: 123
       timings:
@@ -3300,6 +3451,7 @@ log:
         send: 0
         ssl: -1
         wait: 123
+        wait: 123
     - _id: 2af9a176de37be11dff4f113b3a1f7aa
       _order: 0
       cache: {}
@@ -3309,11 +3461,20 @@ log:
         headers:
           - _fromType: array
             name: authorization
+          - _fromType: array
+            name: authorization
             value: token
               REDACTED_0ba08837494d00e3943c46999589eb29a210ba8063f084fff511c8e4d1503909
           - _fromType: array
             name: content-type
+          - _fromType: array
+            name: content-type
             value: application/json; charset=utf-8
+          - _fromType: array
+            name: user-agent
+            value: defaultclient/v1 (Node.js v20.4.0)
+          - _fromType: array
+            name: x-requested-with
           - _fromType: array
             name: user-agent
             value: defaultclient/v1 (Node.js v20.4.0)
@@ -3329,8 +3490,18 @@ log:
           - _fromType: array
             name: accept-encoding
             value: gzip,deflate
+          - _fromType: array
+            name: accept
+            value: "*/*"
+          - _fromType: array
+            name: content-length
+            value: "341"
+          - _fromType: array
+            name: accept-encoding
+            value: gzip,deflate
           - name: host
             value: sourcegraph.com
+        headersSize: 440
         headersSize: 440
         httpVersion: HTTP/1.1
         method: POST
@@ -3374,6 +3545,7 @@ log:
         headers:
           - name: date
             value: Fri, 27 Dec 2024 20:51:22 GMT
+            value: Fri, 27 Dec 2024 20:51:22 GMT
           - name: content-type
             value: text/plain; charset=utf-8
           - name: content-length
@@ -3397,10 +3569,13 @@ log:
           - name: strict-transport-security
             value: max-age=31536000; includeSubDomains; preload
         headersSize: 1398
+        headersSize: 1398
         httpVersion: HTTP/1.1
         redirectURL: ""
         status: 401
         statusText: Unauthorized
+      startedDateTime: 2024-12-27T20:51:22.709Z
+      time: 118
       startedDateTime: 2024-12-27T20:51:22.709Z
       time: 118
       timings:
@@ -3411,6 +3586,7 @@ log:
         send: 0
         ssl: -1
         wait: 118
+        wait: 118
     - _id: aef0c9fe7483280d9c05ac8e97e37571
       _order: 0
       cache: {}
@@ -3420,11 +3596,20 @@ log:
         headers:
           - _fromType: array
             name: authorization
+          - _fromType: array
+            name: authorization
             value: token
               REDACTED_fc324d3667e841181b0779375f26dedc911d26b303d23b29b1a2d7ee63dc77eb
           - _fromType: array
             name: content-type
+          - _fromType: array
+            name: content-type
             value: application/json; charset=utf-8
+          - _fromType: array
+            name: user-agent
+            value: defaultclient/v1 (Node.js v20.4.0)
+          - _fromType: array
+            name: x-requested-with
           - _fromType: array
             name: user-agent
             value: defaultclient/v1 (Node.js v20.4.0)
@@ -3440,8 +3625,18 @@ log:
           - _fromType: array
             name: accept-encoding
             value: gzip,deflate
+          - _fromType: array
+            name: accept
+            value: "*/*"
+          - _fromType: array
+            name: content-length
+            value: "268"
+          - _fromType: array
+            name: accept-encoding
+            value: gzip,deflate
           - name: host
             value: sourcegraph.com
+        headersSize: 444
         headersSize: 444
         httpVersion: HTTP/1.1
         method: POST
@@ -3469,9 +3664,15 @@ log:
         url: https://sourcegraph.com/.api/graphql?CurrentUserCodySubscription
       response:
         bodySize: 228
+        bodySize: 228
         content:
           encoding: base64
           mimeType: application/json
+          size: 228
+          text: "[\"H4sIAAAAAAAAA1zMsQrCMBSF4Xc5cwtNrEu2Ih0EwdJWB7fYZAjUJNzcDqXk3UWhg47n5\
+            +NsMJo11IZpIbKeb8nSdwazDsszTeQiu+A/LbHmJUGhOY3ne4sCcdYeCl1/RQEd47x2\
+            FHrN9uJejhMU02KL/buz5IIZWBM3DAVZyboUshT1KKUSQh3kA3+69Wa3x7ISvzbnnN8\
+            AAAD//wMAGcWkRMIAAAA=\"]"
           size: 228
           text: "[\"H4sIAAAAAAAAA1zMsQrCMBSF4Xc5cwtNrEu2Ih0EwdJWB7fYZAjUJNzcDqXk3UWhg47n5\
             +NsMJo11IZpIbKeb8nSdwazDsszTeQiu+A/LbHmJUGhOY3ne4sCcdYeCl1/RQEd47x2\
@@ -3484,11 +3685,14 @@ log:
                   applyProRateLimits: true
                   currentPeriodEndAt: 2025-01-14T22:11:32Z
                   currentPeriodStartAt: 2024-12-14T22:11:32Z
+                  currentPeriodEndAt: 2025-01-14T22:11:32Z
+                  currentPeriodStartAt: 2024-12-14T22:11:32Z
                   plan: PRO
                   status: ACTIVE
         cookies: []
         headers:
           - name: date
+            value: Fri, 27 Dec 2024 20:51:22 GMT
             value: Fri, 27 Dec 2024 20:51:22 GMT
           - name: content-type
             value: application/json
@@ -3516,10 +3720,13 @@ log:
           - name: content-encoding
             value: gzip
         headersSize: 1468
+        headersSize: 1468
         httpVersion: HTTP/1.1
         redirectURL: ""
         status: 200
         statusText: OK
+      startedDateTime: 2024-12-27T20:51:21.966Z
+      time: 241
       startedDateTime: 2024-12-27T20:51:21.966Z
       time: 241
       timings:
@@ -3530,6 +3737,7 @@ log:
         send: 0
         ssl: -1
         wait: 241
+        wait: 241
     - _id: 4504fab53d7cb602861f73dc2aa883d2
       _order: 0
       cache: {}
@@ -3539,11 +3747,20 @@ log:
         headers:
           - _fromType: array
             name: authorization
+          - _fromType: array
+            name: authorization
             value: token
               REDACTED_fc324d3667e841181b0779375f26dedc911d26b303d23b29b1a2d7ee63dc77eb
           - _fromType: array
             name: content-type
+          - _fromType: array
+            name: content-type
             value: application/json; charset=utf-8
+          - _fromType: array
+            name: user-agent
+            value: defaultclient/v1 (Node.js v20.4.0)
+          - _fromType: array
+            name: x-requested-with
           - _fromType: array
             name: user-agent
             value: defaultclient/v1 (Node.js v20.4.0)
@@ -3559,8 +3776,18 @@ log:
           - _fromType: array
             name: accept-encoding
             value: gzip,deflate
+          - _fromType: array
+            name: accept
+            value: "*/*"
+          - _fromType: array
+            name: content-length
+            value: "101"
+          - _fromType: array
+            name: accept-encoding
+            value: gzip,deflate
           - name: host
             value: sourcegraph.com
+        headersSize: 435
         headersSize: 435
         httpVersion: HTTP/1.1
         method: POST
@@ -3582,6 +3809,7 @@ log:
         url: https://sourcegraph.com/.api/graphql?SiteProductVersion
       response:
         bodySize: 136
+        bodySize: 136
         content:
           encoding: base64
           mimeType: application/json
@@ -3592,9 +3820,17 @@ log:
             data:
               site:
                 productVersion: 305408_2024-12-27_5.11-e3d65d4230e9
+          size: 136
+          text: "[\"H4sIAAAAAAAAA6pWSkksSVSyqlYqzixJBdEFRfkppcklYalFxZn5eUpWSsYGpiYGFvFGB\
+            kYmuoZGukbm8aZ6hoa6qcYpZqYpJkbGBqmWSrW1tQAAAAD//wMAFmrK4koAAAA=\"]"
+          textDecoded:
+            data:
+              site:
+                productVersion: 305408_2024-12-27_5.11-e3d65d4230e9
         cookies: []
         headers:
           - name: date
+            value: Fri, 27 Dec 2024 20:51:22 GMT
             value: Fri, 27 Dec 2024 20:51:22 GMT
           - name: content-type
             value: application/json
@@ -3622,10 +3858,13 @@ log:
           - name: content-encoding
             value: gzip
         headersSize: 1468
+        headersSize: 1468
         httpVersion: HTTP/1.1
         redirectURL: ""
         status: 200
         statusText: OK
+      startedDateTime: 2024-12-27T20:51:21.950Z
+      time: 150
       startedDateTime: 2024-12-27T20:51:21.950Z
       time: 150
       timings:
@@ -3635,6 +3874,7 @@ log:
         receive: 0
         send: 0
         ssl: -1
+        wait: 150
         wait: 150
     - _id: fd0fee4687419870bc82cba9d1023319
       _order: 0
@@ -3652,6 +3892,7 @@ log:
             value: application/json; charset=utf-8
           - _fromType: array
             name: user-agent
+            value: defaultclient/v1 (Node.js v20.4.0)
             value: defaultclient/v1 (Node.js v20.4.0)
           - _fromType: array
             name: x-requested-with
@@ -3709,6 +3950,7 @@ log:
         headers:
           - name: date
             value: Fri, 27 Dec 2024 20:51:22 GMT
+            value: Fri, 27 Dec 2024 20:51:22 GMT
           - name: content-type
             value: application/json
           - name: transfer-encoding
@@ -3735,10 +3977,13 @@ log:
           - name: content-encoding
             value: gzip
         headersSize: 1468
+        headersSize: 1468
         httpVersion: HTTP/1.1
         redirectURL: ""
         status: 200
         statusText: OK
+      startedDateTime: 2024-12-27T20:51:22.273Z
+      time: 237
       startedDateTime: 2024-12-27T20:51:22.273Z
       time: 237
       timings:
@@ -3749,6 +3994,7 @@ log:
         send: 0
         ssl: -1
         wait: 237
+        wait: 237
     - _id: fbb23499ae0eec5c2e188687b429531b
       _order: 0
       cache: {}
@@ -3758,8 +4004,15 @@ log:
         headers:
           - _fromType: array
             name: authorization
+          - _fromType: array
+            name: authorization
             value: token
               REDACTED_fc324d3667e841181b0779375f26dedc911d26b303d23b29b1a2d7ee63dc77eb
+          - _fromType: array
+            name: user-agent
+            value: defaultclient/v1 (Node.js v20.4.0)
+          - _fromType: array
+            name: x-requested-with
           - _fromType: array
             name: user-agent
             value: defaultclient/v1 (Node.js v20.4.0)
@@ -3772,14 +4025,22 @@ log:
           - _fromType: array
             name: accept-encoding
             value: gzip,deflate
+          - _fromType: array
+            name: accept
+            value: "*/*"
+          - _fromType: array
+            name: accept-encoding
+            value: gzip,deflate
           - name: host
             value: sourcegraph.com
+        headersSize: 314
         headersSize: 314
         httpVersion: HTTP/1.1
         method: GET
         queryString: []
         url: https://sourcegraph.com/.api/modelconfig/supported-models.json
       response:
+        bodySize: 1930
         bodySize: 1930
         content:
           encoding: base64
@@ -3814,9 +4075,40 @@ log:
             qzVxyWBksjcy3EDan8Zccao1GKpEDo7TRutNJltdovcXGVNl7YrAhRXbNLcqDMNi1XW\
             MKu7ZryOFWqyeyV96S+NxguKP5N7ta/JbHvA==\",\"Sedm8ZMeS0/zmXzeO5OdIY3V\
             tZl+6TXgdGGG63wTZv6TMjU6Rd/k/+PTm/8CAAD//z1KirK2RgAA\"]"
+          size: 1930
+          text: "[\"H4sIAAAAAAAA/w==\",\"7Jxfb9s2EMDf+ykEP21YqVJ0FGd+a9N2K7C0xRJkD0MfaOls\
+            E5ZIgaIcB0W++yDJlv+ItqjEjq1ZeRKku+PF/Pl4R578841lWVYn9sYQ0nuQMRO807c\
+            6jo07b/NnEqZscRvb2Ma/+TBdPIykmDIfZNzpW/9mt9K/n8VVJsT8VJdyNZYiYt5ct3\
+            jsszgK6ONXGkIq976QK8Se3u42PWQSHoScxBWmPxdyxqZHQowCqLD7Ry5kbFREwCmrM\
+            PotAv7+i7nRkMVK0qDC6s1camk2u/oxn89Q+BDsnMxM4m8Yrk1pv08wuUAORoT0+15A\
+            Ex9QF7koFpyDQgFVEKsK164zNatru9Ztpmb98hUeft3UyhxY6JgO5dGIDljAFIP1/66\
+            QAJ9tauWaY6q9P/9SrD34URpVwUjIx+yz8rxEUu9x07NYUZWkPqVXgzJqioHMGJdQeu\
+            YJrmCm/mHcFw+d/sZU5Z8WnX3hUaLuxAR4OsyFizHW/D8hnX1L1JokxnhN7mljeIgVC\
+            6kC/yadkmsRK70PCWcqI1SJie6jZIWD34HzfIa6WifF0sOlqONu+mnwndmOcRfhS4Sd\
+            FYxFlFRFlgW71jeNrJ7Y1CpKvzaYkN/3zKsxlUKNQT4XyUiKMyIyxcwUyd5+kdRF1jF\
+            lk6R2YP0z1TKNqLuGeC1A4wjAb2Nm6bmWUHNADx0yxzrOtsXMGlDmSGZRs4t7Zw1lrx\
+            FMEtd4GSfuIZG0Fxli3Sz0bPJPHyIJqUoJ7TONp6eUgxZ8ZbHvkuADY7xtmBbkFuQXg\
+            VwrCNdid5Xc0y2pWjhPCU5nFU5iO2ZcagR1SGrEzg7CZmSpV+YMkosDM2i4smsE9Qzu\
+            ewlvGWw+g8WBSb8/dfr9WFHpCb88Wxvo3Soqr3Vya+RttVYNHk2U8EQYBaCgYeU4wRd\
+            XRpAR9/J41bg5YnsFzAeIYoAJyrhAU4ICpgANaFx1tPYRILoFmFj3xPqLKbA+aHTW8K\
+            OeJxKu4nexSKQHI0mj8bv8XOtdDT9aWA8BqymoxpzuFdN0RtO1L0Y+DGkSVJUp7xMlP\
+            qXyVnGybH3Ua66vzcJ/RNkdlA6J8jELZ7aNfiQkYRaBZCFwVT5d3jeYDjnaWt0cNOcx\
+            LAtd5qBm2lYRT7N13Lonu2NpvVFbQFtAV1BJOBsy8NFIUp4EVCKfDYfGIfWGzZSkQSW\
+            iO5b7pU/TLgoYBxTAFAIUCD5CCmRYuOjHaTKQ5gEIkBO5LdmrgmdGdt7zlWM9gpBxhh\
+            zbRZp2h80+sEzYcmzX+l4WXsN2t93XKtEHNKDcO34+2pCtSsf8NPOlO5UaBomN0TCg8\
+            RjBLDIjkdjY+pyqWJ92RBIdmDsHO5Fz9teMjkckdFCD0N4WN7WMdnHJ1f1Eygwc81j5\
+            WSe+LVpqbZ8IkP/7YHnCKM7bn3MWwzx3RFez3gAxHiuZeFU10iLfvJr1PphlnEUGvMg\
+            3jYatZrWBTDZji92t0R93CBgJeQaNhLwcx10Dt8dBhdwpseqY79U7L9ysX6N1WTMv8J\
+            mWCvDXqdk5jBCOHDJEnggHjIO/w6W2QD+jAj1/f2reGo9Jdn4+ihS6qCzQv99phNZTT\
+            a2dJrS9tS9rrLYdm0fPl2ae22lEadVihKRWUsOlVu74cJ5EDtoQNB3jPaTL/XOZnTym\
+            s44iCVMGDwjjqqa3/EVUSzgLneqzzaoR9l0DVQfHB8pUwMqN+ecZHuu8y3Z5iPioo6Q\
+            qzVxyWBksjcy3EDan8Zccao1GKpEDo7TRutNJltdovcXGVNl7YrAhRXbNLcqDMNi1XW\
+            MKu7ZryOFWqyeyV96S+NxguKP5N7ta/JbHvA==\",\"Sedm8ZMeS0/zmXzeO5OdIY3V\
+            tZl+6TXgdGGG63wTZv6TMjU6Rd/k/+PTm/8CAAD//z1KirK2RgAA\"]"
         cookies: []
         headers:
           - name: date
+            value: Fri, 27 Dec 2024 20:51:22 GMT
             value: Fri, 27 Dec 2024 20:51:22 GMT
           - name: content-type
             value: text/plain; charset=utf-8
@@ -3844,10 +4136,13 @@ log:
           - name: strict-transport-security
             value: max-age=31536000; includeSubDomains; preload
         headersSize: 1337
+        headersSize: 1337
         httpVersion: HTTP/1.1
         redirectURL: ""
         status: 200
         statusText: OK
+      startedDateTime: 2024-12-27T20:51:22.522Z
+      time: 165
       startedDateTime: 2024-12-27T20:51:22.522Z
       time: 165
       timings:
@@ -3857,6 +4152,7 @@ log:
         receive: 0
         send: 0
         ssl: -1
+        wait: 165
         wait: 165
   pages: []
   version: "1.2"

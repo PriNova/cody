@@ -31,6 +31,7 @@ import { LoadingDots } from '../../../components/LoadingDots'
 import { BaseMessageCell, MESSAGE_CELL_AVATAR_SIZE } from '../BaseMessageCell'
 import { ContextFocusActions } from './ContextFocusActions'
 import { SearchResults } from './SearchResults'
+import { SubMessageCell } from './SubMessageCell'
 
 /**
  * A component that displays a chat message from the assistant.
@@ -142,7 +143,8 @@ export const AssistantMessageCell: FunctionComponent<{
                                 smartApply={smartApply}
                             />
                         ) : (
-                            isLoading && (
+                            isLoading &&
+                            message.subMessages === undefined && (
                                 <div>
                                     {hasLongerResponseTime && (
                                         <p className="tw-m-4 tw-mt-0 tw-text-muted-foreground">
@@ -154,6 +156,12 @@ export const AssistantMessageCell: FunctionComponent<{
                                 </div>
                             )
                         )}
+                        {message.subMessages?.length &&
+                            message.subMessages.length > 0 &&
+                            message.subMessages.map((piece, i) => (
+                                // biome-ignore lint/suspicious/noArrayIndexKey:
+                                <SubMessageCell key={`piece-${i}`} piece={piece} />
+                            ))}
                     </>
                 }
                 footer={
@@ -287,7 +295,7 @@ function useChatModelByID(
         (model
             ? {
                   id: model,
-                  title: model,
+                  title: model?.includes('deep-cody') ? 'Deep Cody (Experimental)' : model,
                   provider: 'unknown',
                   tags: [],
               }
