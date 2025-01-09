@@ -376,7 +376,7 @@ export class ChatController implements vscode.Disposable, vscode.WebviewViewProv
                     preserveFocus: true,
                     background: false,
                     preview: true,
-                    viewColumn: vscode.ViewColumn.Beside,
+                    viewColumn: vscode.ViewColumn.Active,
                 })
                 break
             }

@@ -20,5 +20,10 @@
    - Google Search integration for Google models with toggle functionality
    - Configuration to enable/disable automatic inclusion of a README file from the context
    - Consider context filtering via .gitignore.
+   - Add support for loading custom system instructions from `.cody/configs/system.md`
 
-6. **Use external repositories, directories and files for context
+6. ** Chat History**:
+   - Change chat history title.
+   - Search across both chat titles and message content with support for multi-word search queries
+
+7. **Use external repositories, directories and files for context

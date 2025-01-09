@@ -1,13 +1,16 @@
+import path from 'node:path'
 import {
     type ContextItem,
     type Message,
     PromptMixin,
+    PromptString,
     currentResolvedConfig,
     firstResultFromOperation,
     getSimplePreamble,
     isDefined,
     wrapInActiveSpan,
 } from '@sourcegraph/cody-shared'
+import * as vscode from 'vscode'
 import { logDebug } from '../../output-channel-logger'
 import { PromptBuilder } from '../../prompt-builder'
 import { DeepCodyAgent } from '../agentic/DeepCody'
@@ -36,6 +39,43 @@ export class DefaultPrompter {
          */
         private isCommand = false
     ) {}
+
+    /**
+     * Retrieves the custom system instruction from a configuration file in the workspace.
+     * The system instruction is expected to be located at `.cody/configs/system.md` within the first workspace folder.
+     * If the file is not found, the content is empty or an error occurs, this method will return `undefined`.
+     *
+     * @returns The custom system instruction as a PromptString, or `undefined` if the file is not found or an error occurs.
+     */
+    public async getCustomSystemInstruction(): Promise<PromptString | undefined> {
+        try {
+            const workspaceFolders = vscode.workspace.workspaceFolders
+            if (!workspaceFolders) {
+                return undefined
+            }
+
+            const systemInstructionPath = path.join(
+                workspaceFolders[0].uri.path,
+                '.cody',
+                'configs',
+                'system.md'
+            )
+
+            const fileUri = vscode.Uri.file(systemInstructionPath)
+            const content = await vscode.workspace.fs.readFile(fileUri)
+            const instruction = Buffer.from(content).toString('utf-8')
+
+            // Return undefined if content is empty or only whitespace
+            if (!instruction.trim()) {
+                return undefined
+            }
+
+            return PromptString.unsafe_fromLLMResponse(instruction)
+        } catch {
+            return undefined
+        }
+    }
+
     // Constructs the raw prompt to send to the LLM, with message order reversed, so we can construct
     // an array with the most important messages (which appear most important first in the reverse-prompt.
     //
@@ -49,7 +89,9 @@ export class DefaultPrompter {
         return wrapInActiveSpan('chat.prompter', async () => {
             const contextWindow = await firstResultFromOperation(ChatBuilder.contextWindowForChat(chat))
             const promptBuilder = await PromptBuilder.create(contextWindow)
-            const preInstruction = (await currentResolvedConfig()).configuration.chatPreInstruction
+            const customInstruction = await this.getCustomSystemInstruction()
+            const preInstruction =
+                customInstruction || (await currentResolvedConfig()).configuration.chatPreInstruction
 
             // Add preamble messages
             const chatModel = await firstResultFromOperation(ChatBuilder.resolvedModelForChat(chat))
