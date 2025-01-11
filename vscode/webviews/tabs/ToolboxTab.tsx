@@ -26,7 +26,7 @@ const ToolboxTab: FC<ToolboxTabProps> = ({ setView }) => {
                         })
                     }}
                 >
-                    Workflow Editor
+                    AI Visual Workflow Editor
                 </Button>
             </div>
         </div>

@@ -69,25 +69,12 @@ export async function googleChatClient({
         }
     }
 
-    // Adds an inline image data part to the last user message in the `messages` array, if the `params.images` array has at least one element.
-    if (params.images !== undefined) {
-        const lastUserMessage = messages.at(-1) as GeminiChatMessage | undefined
-        if (lastUserMessage?.role === 'user') {
-            lastUserMessage.parts.push({
-                inline_data: {
-                    mime_type: params.images[0].mimeType,
-                    data: params.images[0].data,
-                },
-            })
-        }
-    }
-
     const tools = params.googleSearch ? [{ google_search: {} }] : []
 
     const body = {
         contents: messages,
         ...(system_instruction ? { system_instruction } : {}),
-        tools: tools,
+        tools,
     }
 
     // Sends the completion parameters and callbacks to the API.
