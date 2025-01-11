@@ -1,3 +1,4 @@
+import type { Model } from '@sourcegraph/cody-shared'
 import type React from 'react'
 import { useEffect, useState } from 'react'
 import {
@@ -21,6 +22,7 @@ interface WorkflowSidebarProps {
     onClear?: () => void
     isExecuting?: boolean
     onAbort?: () => void
+    models: Model[]
 }
 
 export const WorkflowSidebar: React.FC<WorkflowSidebarProps> = ({
@@ -33,6 +35,7 @@ export const WorkflowSidebar: React.FC<WorkflowSidebarProps> = ({
     onClear,
     isExecuting,
     onAbort,
+    models,
 }) => {
     const handleSave = async (): Promise<void> => {
         // Send message to VSCode extension to handle file saving
@@ -208,6 +211,7 @@ export const WorkflowSidebar: React.FC<WorkflowSidebarProps> = ({
                                 <PropertyEditor
                                     node={selectedNode}
                                     onUpdate={onNodeUpdate || (() => {})}
+                                    models={models}
                                 />
                             ) : (
                                 <p className="tw-text-sm tw-text-muted-foreground tw-mt-2">

@@ -1,6 +1,6 @@
 import { Background, Controls, ReactFlow } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
-import type { GenericVSCodeWrapper } from '@sourcegraph/cody-shared'
+import type { GenericVSCodeWrapper, Model } from '@sourcegraph/cody-shared'
 import type React from 'react'
 import { useMemo, useState } from 'react'
 import type { WorkflowFromExtension, WorkflowToExtension } from '../services/WorkflowProtocol'
@@ -36,6 +36,7 @@ export const Flow: React.FC<{
     const [selectedNode, setSelectedNode] = useState<WorkflowNodes | null>(null)
     const [nodeResults, setNodeResults] = useState<Map<string, string>>(new Map())
     const [pendingApprovalNodeId, setPendingApprovalNodeId] = useState<string | null>(null)
+    const [models, setModels] = useState<Model[]>([])
 
     // Edge-related state
     const [edges, setEdges] = useState(defaultWorkflow.edges)
@@ -87,7 +88,9 @@ export const Flow: React.FC<{
         setIsExecuting,
         onNodeUpdate,
         calculatePreviewNodeTokens,
-        setPendingApprovalNodeId
+        setPendingApprovalNodeId,
+        setModels,
+        vscodeAPI
     )
 
     const { sidebarWidth, handleMouseDown } = useSidebarResize()
@@ -114,10 +117,14 @@ export const Flow: React.FC<{
     }))
 
     // Recalculate sortedNodes on each render
-    const sortedNodes = useMemo(
-        () => memoizedTopologicalSort(nodesWithState, edges),
-        [nodesWithState, edges]
-    )
+    const sortedNodes = useMemo(() => {
+        const sorted = memoizedTopologicalSort(nodesWithState, edges)
+        // Preserve all node data including active state
+        return sorted.map(node => ({
+            ...node,
+            data: { ...node.data }, // Ensure data object is properly cloned
+        }))
+    }, [nodesWithState, edges])
 
     return (
         <div className="tw-flex tw-h-screen tw-w-full tw-border-2 tw-border-solid tw-border-[var(--vscode-panel-border)] tw-text-[14px] tw-overflow-hidden">
@@ -135,6 +142,7 @@ export const Flow: React.FC<{
                     onClear={resetExecutionState}
                     isExecuting={isExecuting}
                     onAbort={onAbort}
+                    models={models}
                 />
             </div>
             <div

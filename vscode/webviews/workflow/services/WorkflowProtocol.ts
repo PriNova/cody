@@ -1,5 +1,6 @@
+import type { Model } from '@sourcegraph/cody-shared'
 import type { Edge } from '../components/CustomOrderedEdge'
-import type { WorkflowNode } from '../components/nodes/Nodes'
+import type { WorkflowNodes } from '../components/nodes/Nodes'
 /**
  * Workflow extension communication protocol types.
  *
@@ -20,7 +21,7 @@ interface BaseWorkflowMessage {
 }
 
 interface WorkflowPayload {
-    nodes?: WorkflowNode[]
+    nodes?: WorkflowNodes[]
     edges?: Edge[]
 }
 
@@ -48,6 +49,9 @@ interface ExecuteWorkflowCommand extends BaseWorkflowMessage {
 
 interface AbortWorkflowCommand extends BaseWorkflowMessage {
     type: 'abort_workflow'
+}
+interface GetModelsCommand extends BaseWorkflowMessage {
+    type: 'get_models'
 }
 
 // Messages FROM Extension (Events)
@@ -93,8 +97,14 @@ interface NodeApprovalCommand extends BaseWorkflowMessage {
     }
 }
 
+interface ModelsLoadedEvent extends BaseWorkflowMessage {
+    type: 'models_loaded'
+    data: Model[]
+}
+
 // Export discriminated unions
 export type WorkflowToExtension =
+    | GetModelsCommand
     | SaveWorkflowCommand
     | LoadWorkflowCommand
     | ExecuteWorkflowCommand
@@ -103,6 +113,7 @@ export type WorkflowToExtension =
     | NodeApprovalCommand
 
 export type WorkflowFromExtension =
+    | ModelsLoadedEvent
     | WorkflowLoadedEvent
     | ExecutionStartedEvent
     | ExecutionCompletedEvent

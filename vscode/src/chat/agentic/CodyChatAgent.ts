@@ -113,7 +113,7 @@ export abstract class CodyChatAgent {
     protected abstract buildPrompt(): PromptString
 }
 
-class StringBuilder {
+export class StringBuilder {
     private parts: string[] = []
 
     append(str: string): void {

@@ -586,6 +586,7 @@ export class ChatController implements vscode.Disposable, vscode.WebviewViewProv
             webviewType,
             multipleWebviewsEnabled: !sidebarViewOnly,
             internalDebugContext: configuration.internalDebugContext,
+            allowEndpointChange: configuration.overrideServerEndpoint === undefined,
         }
     }
 
@@ -1011,6 +1012,7 @@ export class ChatController implements vscode.Disposable, vscode.WebviewViewProv
 
             this.chatBuilder.updateAssistantMessageAtIndex(index + 1, {
                 ...assistantMessage,
+                error: undefined,
                 search: {
                     ...assistantMessage.search,
                     queryWithSelectedFilters: query,
@@ -1038,7 +1040,26 @@ export class ChatController implements vscode.Disposable, vscode.WebviewViewProv
             return query
         }
 
-        return `${query} ${filters.map(f => f.value).join(' ')}`
+        /* Join all repo filters into a single repo filter */
+        const repoFilters = filters.filter(filter => filter.kind === 'repo')
+        const repoFilter = repoFilters.length
+            ? `repo:^(${repoFilters
+                  .map(filter => filter.value.replace('repo:^', '').replace(/\$$/, ''))
+                  .join('|')})$`
+            : ''
+
+        let count = 50
+        switch (filters.find(filter => filter.kind === 'type')?.value) {
+            case 'type:path':
+            case 'type:repo':
+                count = 20
+                break
+        }
+
+        return `${query} ${filters
+            .filter(f => f.kind !== 'repo')
+            .map(f => f.value)
+            .join(' ')} ${repoFilter} count:${count}`
     }
 
     /**
@@ -1534,6 +1555,12 @@ export class ChatController implements vscode.Disposable, vscode.WebviewViewProv
                         promiseFactoryToObservable(signal =>
                             mergedPromptsAndLegacyCommands(input, signal)
                         ),
+                    repos: input =>
+                        promiseFactoryToObservable(async () => {
+                            const response = await graphqlClient.getRepoList(input)
+
+                            return isError(response) ? [] : response.repositories.nodes
+                        }),
                     promptTags: () => promiseFactoryToObservable(signal => listPromptTags(signal)),
                     models: () =>
                         modelsService.modelsChanges.pipe(

@@ -4,7 +4,13 @@ import type {
     WorkflowToExtension,
 } from '../../webviews/workflow/services/WorkflowProtocol'
 
-import { type ChatClient, TokenCounterUtils } from '@sourcegraph/cody-shared'
+import {
+    type ChatClient,
+    ModelUsage,
+    TokenCounterUtils,
+    modelsService,
+    pendingOperation,
+} from '@sourcegraph/cody-shared'
 import type { ContextRetriever } from '../chat/chat-view/ContextRetriever'
 import { executeWorkflow } from './workflow-executor'
 import { handleWorkflowLoad, handleWorkflowSave } from './workflow-io'
@@ -49,6 +55,20 @@ export function registerWorkflowCommands(
             panel.webview.onDidReceiveMessage(
                 async (message: WorkflowToExtension) => {
                     switch (message.type) {
+                        case 'get_models': {
+                            const chatModelsSubscription = modelsService
+                                .getModels(ModelUsage.Chat)
+                                .subscribe(models => {
+                                    if (models !== pendingOperation) {
+                                        panel.webview.postMessage({
+                                            type: 'models_loaded',
+                                            data: models,
+                                        } as WorkflowFromExtension)
+                                        chatModelsSubscription.unsubscribe()
+                                    }
+                                })
+                            break
+                        }
                         case 'save_workflow':
                             await handleWorkflowSave(message.data)
                             break

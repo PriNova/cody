@@ -16,6 +16,34 @@ This is a log of all notable changes to Cody for VS Code.
 
 ### Uncategorized
 
+## 1.58.0
+
+### Added
+
+- feat(context-agent): tool status callbacks and process support  [pull/6451](https://github.com/sourcegraph/cody/pull/6451)
+- feat(nls): Add Cody bench command for NLS  [pull/6497](https://github.com/sourcegraph/cody/pull/6497)
+
+### Fixed
+
+- fix(release): add $ variable invocation  [pull/6509](https://github.com/sourcegraph/cody/pull/6509)
+- fix/editor: Ask Cody to Fix no longer throws exceptions in TypeScript files   [pull/6473](https://github.com/sourcegraph/cody/pull/6473)
+- fix(context-agent): add status callbacks back   [pull/6479](https://github.com/sourcegraph/cody/pull/6479)
+- chore(security): Fix closed events for sast scan  [pull/6512](https://github.com/sourcegraph/cody/pull/6512)
+- fix: Move BigQuery insertion after release step  [pull/6477](https://github.com/sourcegraph/cody/pull/6477)
+- chore(chat): Adding fixing save chat session overwriting  [pull/6457](https://github.com/sourcegraph/cody/pull/6457)
+
+### Changed
+
+- update `billingMetadata` for failed/disconnected type of events  [pull/6254](https://github.com/sourcegraph/cody/pull/6254)
+- feat(nls): add relevant repo boost  [pull/6502](https://github.com/sourcegraph/cody/pull/6502)
+- chore(chat): Decompose ChatController.sendChat into handlers for different request types  [pull/6469](https://github.com/sourcegraph/cody/pull/6469)
+- feat(autoedit): track notebook for auto-edits  [pull/6449](https://github.com/sourcegraph/cody/pull/6449)
+- chore(audoedit): consistent use of the output channel logger  [pull/6472](https://github.com/sourcegraph/cody/pull/6472)
+- feat(audoedit): ensure inline completions are also hidden on dismiss  [pull/6465](https://github.com/sourcegraph/cody/pull/6465)
+- feat(audoedit): remove the auto edit experimental command  [pull/6471](https://github.com/sourcegraph/cody/pull/6471)
+- feat(logging): Add interactionId to header of Cody Client requests (CODY-4117)  [pull/6450](https://github.com/sourcegraph/cody/pull/6450)
+- chore(audoedit): decouple `codeToReplaceData` from `getPromptForModelType`  [pull/6474](https://github.com/sourcegraph/cody/pull/6474)
+
 ## 1.56.0
 
 ### Added
@@ -24,7 +52,7 @@ This is a log of all notable changes to Cody for VS Code.
 - autoedit: address dogfooding feedback  [pull/6454](https://github.com/sourcegraph/cody/pull/6454)
 - feat(audoedit): implement basic analytics logger  [pull/6430](https://github.com/sourcegraph/cody/pull/6430)
 - feat(onebox): Use new prompt editor when onebox is enabled  [pull/6288](https://github.com/sourcegraph/cody/pull/6288)
-
+- feat(network): Support for NO_PROXY (CODY_NODE_NO_PROXY) environment variable [pull/6555](https://github.com/sourcegraph/cody/pull/6555)
 
 ### Fixed
 - feat(logging): Add interactionId to header of Cody Client requests (CODY-4117)  [pull/6450](https://github.com/sourcegraph/cody/pull/6450)
@@ -38,6 +66,8 @@ This is a log of all notable changes to Cody for VS Code.
 - chore(onebox/telemetry): add `billingMetadata`   [pull/6426](https://github.com/sourcegraph/cody/pull/6426)
 - fix(audoedit): fix renderer testing command  [pull/6408](https://github.com/sourcegraph/cody/pull/6408)
 - chore/release: Bump package version and update changelog for 1.52  [pull/6414](https://github.com/sourcegraph/cody/pull/6414)
+- fix(logging): removed unecessary logging when requests are aborted [pull/6555](https://github.com/sourcegraph/cody/pull/6555)
+- fix(network): removed dangling request handlers on network requests which could potentially cause memory leaks [pull/6555](https://github.com/sourcegraph/cody/pull/6555)
 
 ### Changed
 - feat(prompt-editor): Add new ProseMirror-based implementation  [pull/6272](https://github.com/sourcegraph/cody/pull/6272)
@@ -45,6 +75,7 @@ This is a log of all notable changes to Cody for VS Code.
 - Use omnibox ff for intent detector  [pull/6419](https://github.com/sourcegraph/cody/pull/6419)
 - Enable repo boost for inactive editor  [pull/6443](https://github.com/sourcegraph/cody/pull/6443)
 - include symbol matches in search results  [pull/6441](https://github.com/sourcegraph/cody/pull/6441)
+- improved network logging with less verbose output [pull/6555](https://github.com/sourcegraph/cody/pull/6555)
 
 ## 1.54.0
 

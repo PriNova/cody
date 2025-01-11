@@ -1,5 +1,6 @@
+import type { GenericVSCodeWrapper, Model } from '@sourcegraph/cody-shared'
 import { useCallback, useEffect } from 'react'
-import type { WorkflowFromExtension } from '../../services/WorkflowProtocol'
+import type { WorkflowFromExtension, WorkflowToExtension } from '../../services/WorkflowProtocol'
 import type { Edge } from '../CustomOrderedEdge'
 import { NodeType, type WorkflowNodes } from '../nodes/Nodes'
 
@@ -20,6 +21,7 @@ import { NodeType, type WorkflowNodes } from '../nodes/Nodes'
  * @param calculatePreviewNodeTokens - Function to calculate the token count for preview nodes.
  * @param batchUpdateNodeResults - Function to batch update the node results.
  * @param setPendingApprovalNodeId - Function to update the ID of the node pending approval.
+ * @param vscodeAPI - The VS Code API object.
  */
 export const useMessageHandler = (
     nodes: WorkflowNodes[],
@@ -32,7 +34,9 @@ export const useMessageHandler = (
     setIsExecuting: React.Dispatch<React.SetStateAction<boolean>>,
     onNodeUpdate: (nodeId: string, data: Partial<WorkflowNodes['data']>) => void,
     calculatePreviewNodeTokens: (nodes: WorkflowNodes[]) => void,
-    setPendingApprovalNodeId: React.Dispatch<React.SetStateAction<string | null>>
+    setPendingApprovalNodeId: React.Dispatch<React.SetStateAction<string | null>>,
+    setModels: React.Dispatch<React.SetStateAction<Model[]>>,
+    vscodeAPI: GenericVSCodeWrapper<WorkflowToExtension, WorkflowFromExtension>
 ) => {
     const batchUpdateNodeResults = useCallback(
         (updates: Map<string, string>, node?: WorkflowNodes) => {
@@ -40,6 +44,13 @@ export const useMessageHandler = (
         },
         [setNodeResults]
     )
+
+    useEffect(() => {
+        // Request models from the extension
+        vscodeAPI.postMessage({
+            type: 'get_models',
+        })
+    }, [vscodeAPI])
 
     useEffect(() => {
         const messageHandler = (event: MessageEvent<WorkflowFromExtension>) => {
@@ -105,6 +116,14 @@ export const useMessageHandler = (
                     batchUpdateNodeResults(updates)
                     break
                 }
+
+                case 'models_loaded': {
+                    const models = event.data.data
+                    if (models) {
+                        setModels(models)
+                    }
+                    break
+                }
             }
         }
 
@@ -123,5 +142,6 @@ export const useMessageHandler = (
         calculatePreviewNodeTokens,
         setPendingApprovalNodeId,
         batchUpdateNodeResults,
+        setModels,
     ])
 }

@@ -22,6 +22,7 @@ import {
     type WorkflowNodes,
 } from '../../webviews/workflow/components/nodes/Nodes'
 import type { WorkflowFromExtension } from '../../webviews/workflow/services/WorkflowProtocol'
+import { StringBuilder } from '../chat/agentic/CodyChatAgent'
 import { ChatController, type ChatSession } from '../chat/chat-view/ChatController'
 import { type ContextRetriever, toStructuredMentions } from '../chat/chat-view/ContextRetriever'
 import { getCorpusContextItemsForEditorState } from '../chat/initialContext'
@@ -89,7 +90,7 @@ export async function executeWorkflow(
             }
         }
     }
-    const sortedNodes = processGraphComposition(nodes, edges)
+    const sortedNodes = processGraphComposition(nodes, edges, true)
     const persistentShell = new PersistentShell()
 
     await webview.postMessage({
@@ -531,30 +532,29 @@ async function executeLLMNode(
                     {
                         stream: false,
                         maxTokensToSample: (node as LLMNode).data.maxTokens ?? 1000,
-                        fast: (node as LLMNode).data.fast ?? true,
-                        model: 'anthropic::2024-10-22::claude-3-5-sonnet-latest',
+                        model:
+                            (node as LLMNode).data.model?.id ??
+                            'anthropic::2024-10-22::claude-3-5-sonnet-latest',
                         temperature: (node as LLMNode).data.temperature ?? 0,
                     },
                     abortSignal
                 )
                 .then(async stream => {
-                    const responseBuilder: string[] = []
+                    const accumulated = new StringBuilder()
                     try {
-                        for await (const message of stream) {
-                            switch (message.type) {
-                                case 'change':
-                                    if (responseBuilder.join('').length > 1_000_000) {
-                                        reject(new Error('Response too large'))
-                                        return
-                                    }
-                                    responseBuilder.push(message.text)
-                                    break
-                                case 'complete':
-                                    resolve(responseBuilder.join(''))
-                                    break
-                                case 'error':
-                                    reject(message.error)
-                                    break
+                        for await (const msg of stream) {
+                            if (abortSignal?.aborted) reject
+                            if (msg.type === 'change') {
+                                const newText = msg.text.slice(accumulated.length)
+                                accumulated.append(newText)
+                            }
+                            if (msg.type === 'complete') {
+                                resolve(accumulated.toString())
+                                break
+                            }
+                            if (msg.type === 'error') {
+                                reject(msg.error)
+                                break
                             }
                         }
                     } catch (error) {

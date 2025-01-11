@@ -1,10 +1,6 @@
 import { memoize } from 'lodash'
 import { useMemo } from 'react'
-import {
-    findStronglyConnectedComponents,
-    processLoopWithCycles,
-    tarjanSort,
-} from '../../../../src/workflow/node-sorting'
+import { processGraphComposition } from '../../../../src/workflow/node-sorting'
 import type { Edge } from '../CustomOrderedEdge'
 import { NodeType, type WorkflowNodes } from '../nodes/Nodes'
 
@@ -116,31 +112,12 @@ export function getInactiveNodes(edges: Edge[], startNodeId: string): Set<string
  */
 export const memoizedTopologicalSort = memoize(
     (nodes: WorkflowNodes[], edges: Edge[]) => {
-        const components = findStronglyConnectedComponents(nodes, edges)
-        const compositionNodes = nodes.filter(node => node.type === NodeType.LOOP_START)
-
-        if (compositionNodes.length === 0) {
-            const flatComponents = components.flat()
-            const componentIds = new Set(flatComponents.map(n => n.id))
-
-            const filteredEdges = edges.filter(
-                edge => componentIds.has(edge.source) && componentIds.has(edge.target)
-            )
-
-            return tarjanSort(flatComponents, filteredEdges)
-        }
-
-        // Currently handling Loop compositions
-        if (compositionNodes.some(n => n.type === NodeType.LOOP_START)) {
-            return processLoopWithCycles(nodes, edges, false)
-        }
-
-        return nodes
+        return processGraphComposition(nodes, edges, false)
     },
     // Keep existing memoization key generator
     (nodes: WorkflowNodes[], edges: Edge[]) => {
         const nodeKey = nodes
-            .map(n => `${n.id}-${n.data.title}`)
+            .map(n => `${n.id}-${n.data.title}-${n.data.active}`)
             .sort()
             .join('|')
         const edgeKey = edges

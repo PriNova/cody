@@ -105,8 +105,8 @@ export const useNodeOperations = (
                         node.data = {
                             ...newNode.data,
                             temperature: llmSource.data.temperature,
-                            fast: llmSource.data.fast,
                             maxTokens: llmSource.data.maxTokens,
+                            model: llmSource.data.model,
                         }
                         break
                     }
@@ -165,8 +165,8 @@ export const useNodeOperations = (
                     newNode.data = {
                         ...newNode.data,
                         temperature: 0.0,
-                        fast: true,
                         maxTokens: 1000,
+                        model: undefined,
                     }
                     break
                 case NodeType.PREVIEW:
@@ -191,9 +191,17 @@ export const useNodeOperations = (
             setNodes(currentNodes =>
                 currentNodes.map(node => {
                     if (node.id === nodeId) {
+                        let model = (node as LLMNode).data.model
+                        if (node.type === NodeType.LLM && 'model' in data && data.model) {
+                            model = { ...data.model }
+                        }
                         const updatedNode = {
                             ...node,
-                            data: { ...node.data, ...data },
+                            data: {
+                                ...node.data,
+                                ...data,
+                                model: model,
+                            },
                         }
                         if (selectedNode?.id === nodeId) {
                             setSelectedNode(updatedNode)

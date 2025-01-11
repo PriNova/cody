@@ -143,7 +143,6 @@ export async function googleChatClient({
                     buffer += jsonString
                     try {
                         const parsed = JSON.parse(buffer) as GeminiCompletionResponse
-                        console.log('chat-client Response: ', JSON.parse(buffer))
                         const streamText = parsed.candidates?.[0]?.content?.parts[0]?.text
                         if (streamText) {
                             responseText += streamText

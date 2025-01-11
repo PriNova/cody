@@ -1,8 +1,19 @@
+import { type Model, ModelTag } from '@sourcegraph/cody-shared'
 import type React from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Button } from '../../components/shadcn/ui/button'
 import { Checkbox } from '../../components/shadcn/ui/checkbox'
+import {
+    Command,
+    CommandEmpty,
+    CommandGroup,
+    CommandInput,
+    CommandItem,
+    CommandList,
+} from '../../components/shadcn/ui/command'
 import { Input } from '../../components/shadcn/ui/input'
 import { Label } from '../../components/shadcn/ui/label'
+import { Popover, PopoverContent, PopoverTrigger } from '../../components/shadcn/ui/popover'
 import { Slider } from '../../components/shadcn/ui/slider'
 import { Textarea } from '../../components/shadcn/ui/textarea'
 import { type LLMNode, type LoopStartNode, NodeType, type WorkflowNodes } from './nodes/Nodes'
@@ -10,16 +21,37 @@ import { type LLMNode, type LoopStartNode, NodeType, type WorkflowNodes } from '
 interface PropertyEditorProps {
     node: WorkflowNodes
     onUpdate: (nodeId: string, data: Partial<WorkflowNodes['data']>) => void
+    models: Model[]
 }
 
-export const PropertyEditor: React.FC<PropertyEditorProps> = ({ node, onUpdate }) => {
+export const PropertyEditor: React.FC<PropertyEditorProps> = ({ node, onUpdate, models }) => {
+    const [open, setOpen] = useState(false)
+    const [selectedModel, setSelectedModel] = useState<Model | undefined>(undefined)
+
+    useEffect(() => {
+        if (node.type === NodeType.LLM) {
+            setSelectedModel((node as LLMNode).data.model)
+        } else {
+            setSelectedModel(undefined)
+        }
+    }, [node])
+
+    const onModelSelect = useCallback(
+        (model: Model) => {
+            setSelectedModel(model)
+            setOpen(false)
+            onUpdate(node.id, { model: { ...model } })
+        },
+        [node.id, onUpdate]
+    )
+
     return (
         <div className="tw-flex tw-flex-col tw-gap-4">
             <div className="tw-flex tw-items-center tw-space-x-2">
                 <Checkbox
                     id="node-active"
                     checked={node.data.active !== false} // Default to true if undefined
-                    onCheckedChange={checked => onUpdate(node.id, { active: checked === true })}
+                    onCheckedChange={checked => onUpdate(node.id, { active: checked !== false })}
                 />
                 <Label htmlFor="node-active">Node Active</Label>
             </div>
@@ -72,6 +104,105 @@ export const PropertyEditor: React.FC<PropertyEditorProps> = ({ node, onUpdate }
                             placeholder="Enter LLM prompt... (use ${1}, ${2} and so on for positional inputs)"
                         />
                     </div>
+                    {models && (
+                        <div>
+                            <Label htmlFor="model-select">Model</Label>
+                            <Popover open={open} onOpenChange={setOpen}>
+                                <PopoverTrigger asChild>
+                                    <Button
+                                        variant="secondary"
+                                        role="combobox"
+                                        aria-controls="model-menu"
+                                        aria-expanded={open}
+                                        className="tw-w-full justify-between"
+                                    >
+                                        {(
+                                            selectedModel?.modelRef?.modelId ||
+                                            (node as LLMNode).data.model?.modelRef?.modelId ||
+                                            'Select a model'
+                                        )
+                                            .charAt(0)
+                                            .toUpperCase() +
+                                            (
+                                                selectedModel?.modelRef?.modelId ||
+                                                (node as LLMNode).data.model?.modelRef?.modelId ||
+                                                'Select a model'
+                                            ).slice(1)}
+                                    </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="tw-p-0" side="bottom" align="start">
+                                    <Command>
+                                        <CommandInput
+                                            placeholder="Search models..."
+                                            className="tw-bg-[var(--vscode-input-background)] tw-text-[var(--vscode-input-foreground)]"
+                                        />
+                                        <CommandList className="tw-max-h-[200px] tw-overflow-y-auto">
+                                            <CommandEmpty>No models found.</CommandEmpty>
+                                            {/* First show BYOK models if any exist */}
+                                            {models.some(model =>
+                                                model.tags?.includes(ModelTag.BYOK)
+                                            ) && (
+                                                <CommandGroup
+                                                    heading="Your Custom Models (BYOK)"
+                                                    className="[&_[cmdk-group-heading]]:tw-font-semibold [&_[cmdk-group-heading]]:tw-text-[var(--vscode-editor-foreground)] [&_[cmdk-group-heading]]:tw-bg-[var(--vscode-editor-selectionBackground)] [&_[cmdk-group-heading]]:tw-px-2 [&_[cmdk-group-heading]]:tw-py-1"
+                                                >
+                                                    {models
+                                                        .filter(model =>
+                                                            model.tags?.includes(ModelTag.BYOK)
+                                                        )
+                                                        .map(model => (
+                                                            <CommandItem
+                                                                key={model.id}
+                                                                value={model.modelRef?.modelId}
+                                                                onSelect={() => onModelSelect(model)}
+                                                            >
+                                                                {model.modelRef?.modelId}
+                                                            </CommandItem>
+                                                        ))}
+                                                </CommandGroup>
+                                            )}
+                                            {/* Then show provider-based groups for non-BYOK models */}
+                                            {Object.entries(
+                                                models
+                                                    .filter(
+                                                        model => !model.tags?.includes(ModelTag.BYOK)
+                                                    )
+                                                    .reduce(
+                                                        (acc, model) => {
+                                                            const provider =
+                                                                model.modelRef?.providerId || 'Other'
+                                                            acc[provider] = acc[provider] || []
+                                                            acc[provider].push(model)
+                                                            return acc
+                                                        },
+                                                        {} as Record<string, Model[]>
+                                                    )
+                                            ).map(([provider, providerModels]) => (
+                                                <CommandGroup
+                                                    key={provider}
+                                                    heading={
+                                                        provider.charAt(0).toUpperCase() +
+                                                        provider.slice(1)
+                                                    }
+                                                    className="[&_[cmdk-group-heading]]:tw-font-semibold [&_[cmdk-group-heading]]:tw-text-[var(--vscode-editor-foreground)] [&_[cmdk-group-heading]]:tw-bg-[var(--vscode-editor-selectionBackground)] [&_[cmdk-group-heading]]:tw-px-2 [&_[cmdk-group-heading]]:tw-py-1"
+                                                >
+                                                    {providerModels.map(model => (
+                                                        <CommandItem
+                                                            key={model.id}
+                                                            value={model.modelRef?.modelId}
+                                                            onSelect={() => onModelSelect(model)}
+                                                        >
+                                                            {model.modelRef?.modelId}
+                                                        </CommandItem>
+                                                    ))}
+                                                </CommandGroup>
+                                            ))}
+                                        </CommandList>
+                                    </Command>
+                                </PopoverContent>
+                            </Popover>
+                        </div>
+                    )}
                     <div>
                         <Label htmlFor="node-temperature">Temperature</Label>
                         <Slider
@@ -88,14 +219,6 @@ export const PropertyEditor: React.FC<PropertyEditorProps> = ({ node, onUpdate }
                         </span>
                     </div>
 
-                    <div className="tw-flex tw-items-center tw-space-x-2">
-                        <Checkbox
-                            id="node-fast"
-                            checked={(node as LLMNode).data.fast || false}
-                            onCheckedChange={checked => onUpdate(node.id, { fast: checked === true })}
-                        />
-                        <Label htmlFor="node-fast">Fast Mode</Label>
-                    </div>
                     <div>
                         <Label htmlFor="node-maxTokens">Maximum Tokens</Label>
                         <Slider

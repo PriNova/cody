@@ -470,16 +470,35 @@ export function processLoop(nodes: WorkflowNodes[], edges: Edge[]): WorkflowNode
  * @param edges - An array of edges in the graph.
  * @returns An array of processed nodes, with the composition nodes handled appropriately.
  */
-export function processGraphComposition(nodes: WorkflowNodes[], edges: Edge[]): WorkflowNodes[] {
-    const subgraphComponents = findStronglyConnectedComponents(nodes, edges)
-    const loopStartNodes = nodes.filter(node => node.type === NodeType.LOOP_START)
+export function processGraphComposition(
+    nodes: WorkflowNodes[],
+    edges: Edge[],
+    shouldIterateLoops = true
+): WorkflowNodes[] {
+    // Create deep copies of nodes first to preserve all states
+    const processedNodes = nodes.map(node => ({
+        ...node,
+        data: { ...node.data },
+    }))
+
+    // Filter active nodes after creating copies
+    const activeNodes = processedNodes.filter(node => node.data.active !== false)
+
+    // Filter edges between active nodes
+    const activeEdges = edges.filter(
+        edge =>
+            activeNodes.some(node => node.id === edge.source) &&
+            activeNodes.some(node => node.id === edge.target)
+    )
+    const subgraphComponents = findStronglyConnectedComponents(activeNodes, activeEdges)
+    const loopStartNodes = activeNodes.filter(node => node.type === NodeType.LOOP_START)
 
     if (loopStartNodes.length === 0) {
         return subgraphComponents
             .flatMap(component =>
                 tarjanSort(
                     component,
-                    edges.filter(
+                    activeEdges.filter(
                         edge =>
                             component.some(n => n.id === edge.source) &&
                             component.some(n => n.id === edge.target)
@@ -491,10 +510,10 @@ export function processGraphComposition(nodes: WorkflowNodes[], edges: Edge[]): 
 
     // Currently handling Loop compositions
     if (loopStartNodes.some(n => n.type === NodeType.LOOP_START)) {
-        return processLoopWithCycles(nodes, edges, true)
+        return processLoopWithCycles(activeNodes, activeEdges, shouldIterateLoops)
     }
 
-    return nodes
+    return activeNodes
 }
 
 interface NodeState {

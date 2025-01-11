@@ -1,3 +1,4 @@
+import type { Model } from '@sourcegraph/cody-shared'
 import { Handle, Position } from '@xyflow/react'
 import type React from 'react'
 import { v4 as uuidv4 } from 'uuid'
@@ -37,12 +38,12 @@ type BaseNodeData = {
     input?: string
     output?: string
     content: string
-    active?: boolean
+    active: boolean
     needsUserApproval?: boolean
     tokenCount?: number
 }
 
-export type WorkflowNode = {
+type WorkflowNode = {
     id: string
     type: NodeType
     data: BaseNodeData
@@ -61,8 +62,8 @@ export type LLMNode = Omit<WorkflowNode, 'data'> & {
     type: NodeType.LLM
     data: BaseNodeData & {
         temperature: number
-        fast?: boolean
         maxTokens?: number
+        model?: Model
     }
 }
 
@@ -181,7 +182,7 @@ export const defaultWorkflow = (() => {
     const nodes = [
         createNode({
             type: NodeType.CLI,
-            data: { title: 'Git Diff', content: 'git diff' },
+            data: { title: 'Git Diff', content: 'git diff', active: true },
             position: { x: 0, y: 0 },
         }) as CLINode,
         createNode({
@@ -189,15 +190,16 @@ export const defaultWorkflow = (() => {
             data: {
                 title: 'Cody Generate Commit Message',
                 content: 'Generate a commit message for the following git diff: ${1}',
+                active: true,
                 temperature: 0.0,
-                fast: true,
                 maxTokens: 1000,
+                model: undefined,
             },
             position: { x: 0, y: 100 },
         }) as LLMNode,
         createNode({
             type: NodeType.CLI,
-            data: { title: 'Git Commit', content: 'git commit -m "${1}"' },
+            data: { title: 'Git Commit', content: 'git commit -m "${1}"', active: true },
             position: { x: 0, y: 200 },
         }) as CLINode,
     ]

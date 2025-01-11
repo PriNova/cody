@@ -1,5 +1,5 @@
 import clsx from 'clsx'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
     Accordion,
     AccordionContent,
@@ -8,10 +8,10 @@ import {
 } from '../../components/shadcn/ui/accordion'
 import { Button } from '../../components/shadcn/ui/button'
 import { Textarea } from '../../components/shadcn/ui/textarea'
-import { NodeType, type WorkflowNode } from './nodes/Nodes'
+import { NodeType, type WorkflowNodes } from './nodes/Nodes'
 
 interface RightSidebarProps {
-    sortedNodes: WorkflowNode[]
+    sortedNodes: WorkflowNodes[]
     nodeResults: Map<string, string>
     executingNodeId: string | null
     pendingApprovalNodeId: string | null
@@ -25,7 +25,11 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
     pendingApprovalNodeId,
     onApprove,
 }) => {
-    const filteredNodes = sortedNodes.filter(node => node.type !== NodeType.PREVIEW)
+    const filteredByActiveNodes = useMemo(
+        () => sortedNodes.filter(node => node.type !== NodeType.PREVIEW && node.data.active !== false),
+        [sortedNodes]
+    )
+
     const getBorderColorClass = (nodeId: string): string => {
         if (nodeId === executingNodeId) {
             return 'tw-border-[var(--vscode-charts-yellow)]' // Same color as executing state in Node.tsx
@@ -63,7 +67,7 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
                     Workflow Execution Order & Results
                 </h3>
                 <div className="tw-space-y-2">
-                    {filteredNodes.map((node, index) => (
+                    {filteredByActiveNodes.map((node, index) => (
                         <div
                             key={node.id}
                             className={clsx(

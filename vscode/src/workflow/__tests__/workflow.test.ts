@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, test, vi } from 'vitest'
 import type { Edge } from '../../../webviews/workflow/components/CustomOrderedEdge'
 import {
     NodeType,
-    type WorkflowNode,
+    type WorkflowNodes,
     createEdge,
     createNode,
 } from '../../../webviews/workflow/components/nodes/Nodes'
@@ -108,17 +108,17 @@ describe('Topology Ordering', () => {
         const id1 = uuidv4()
         const id2 = uuidv4()
 
-        const nodes: WorkflowNode[] = [
+        const nodes: WorkflowNodes[] = [
             {
                 id: id1,
                 type: 'cli' as NodeType,
-                data: { title: 'CLI Node', content: 'echo "hello"' },
+                data: { title: 'CLI Node', content: 'echo "hello"', active: true },
                 position: { x: 0, y: 0 },
             },
             {
                 id: id2,
                 type: 'preview' as NodeType,
-                data: { title: 'Preview Node', content: '' },
+                data: { title: 'Preview Node', content: '', active: true },
                 position: { x: 0, y: 0 },
             },
         ]
@@ -134,23 +134,23 @@ describe('Topology Ordering', () => {
         const id2 = uuidv4()
         const id3 = uuidv4()
 
-        const nodes: WorkflowNode[] = [
+        const nodes: WorkflowNodes[] = [
             {
                 id: id1,
                 type: 'cli' as NodeType,
-                data: { title: 'First CLI', content: 'echo "hello"' },
+                data: { title: 'First CLI', content: 'echo "hello"', active: true },
                 position: { x: 0, y: 0 },
             },
             {
                 id: id2,
                 type: 'llm' as NodeType,
-                data: { title: 'LLM Node', content: 'echo "hello"' },
+                data: { title: 'LLM Node', content: 'echo "hello"', active: true },
                 position: { x: 0, y: 0 },
             },
             {
                 id: id3,
                 type: 'preview' as NodeType,
-                data: { title: 'Preview', content: '' },
+                data: { title: 'Preview', content: '', active: true },
                 position: { x: 0, y: 0 },
             },
         ]
@@ -363,6 +363,7 @@ describe('executeCLINode', () => {
                 data: {
                     title: 'Echo Test',
                     content: 'echo "hello world"',
+                    active: true,
                 },
                 position: { x: 0, y: 0 },
             })
@@ -384,6 +385,7 @@ describe('executeCLINode', () => {
             data: {
                 title: 'PWD Test',
                 content: 'pwd',
+                active: true,
             },
             position: { x: 0, y: 0 },
         })
@@ -407,6 +409,7 @@ describe('executeCLINode', () => {
             data: {
                 title: 'Home Dir Test',
                 content: 'echo ~/test',
+                active: true,
             },
             position: { x: 0, y: 0 },
         })
@@ -428,6 +431,7 @@ describe('executeCLINode', () => {
             data: {
                 title: 'Forbidden Command',
                 content: 'rm -rf /',
+                active: true,
             },
             position: { x: 0, y: 0 },
         })
@@ -444,6 +448,7 @@ describe('executeCLINode', () => {
             data: {
                 title: 'Long Running Command',
                 content: 'sleep 5',
+                active: true,
             },
             position: { x: 0, y: 0 },
         })
@@ -469,6 +474,7 @@ describe('executeCLINode', () => {
                 data: {
                     title: 'Invalid Command',
                     content: 'invalidcommand123',
+                    active: true,
                 },
                 position: { x: 0, y: 0 },
             })
@@ -492,6 +498,7 @@ describe('executeCLINode', () => {
             data: {
                 title: 'Empty Command',
                 content: '',
+                active: true,
             },
             position: { x: 0, y: 0 },
         })
@@ -513,6 +520,7 @@ describe('executeCLINode', () => {
                     data: {
                         title: 'Sequential Test',
                         content: command,
+                        active: true,
                     },
                     position: { x: 0, y: 0 },
                 })
@@ -541,6 +549,7 @@ describe('executeCLINode', () => {
                     data: {
                         title: 'Sequential Test',
                         content: command,
+                        active: true,
                     },
                     position: { x: 0, y: 0 },
                 })
@@ -584,12 +593,13 @@ describe('Workflow Executor Integration Tests', () => {
     it(
         'executes a workflow with safe CLI commands and text processing',
         async () => {
-            const nodes: WorkflowNode[] = [
+            const nodes: WorkflowNodes[] = [
                 createNode({
                     type: NodeType.CLI,
                     data: {
                         title: 'List Files',
                         content: 'ls -la',
+                        active: true,
                     },
                     position: { x: 0, y: 0 },
                 }),
@@ -598,6 +608,7 @@ describe('Workflow Executor Integration Tests', () => {
                     data: {
                         title: 'Search Pattern',
                         content: '*.ts',
+                        active: true,
                     },
                     position: { x: 100, y: 0 },
                 }),
@@ -606,6 +617,7 @@ describe('Workflow Executor Integration Tests', () => {
                     data: {
                         title: 'Find Files',
                         content: 'find . -maxdepth 2 -name "${1}"',
+                        active: true,
                     },
                     position: { x: 200, y: 0 },
                 }),
@@ -614,6 +626,7 @@ describe('Workflow Executor Integration Tests', () => {
                     data: {
                         title: 'Results',
                         content: '${2}',
+                        active: true,
                     },
                     position: { x: 300, y: 0 },
                 }),
@@ -671,12 +684,13 @@ describe('Workflow Executor Integration Tests', () => {
     )
 
     it('handles special characters and escaping in CLI commands', () => {
-        const nodes: WorkflowNode[] = [
+        const nodes: WorkflowNodes[] = [
             createNode({
                 type: NodeType.INPUT,
                 data: {
                     title: 'Branch Name',
                     content: 'branch/with${special}chars\\and spaces',
+                    active: true,
                 },
                 position: { x: 0, y: 0 },
             }),
@@ -685,6 +699,7 @@ describe('Workflow Executor Integration Tests', () => {
                 data: {
                     title: 'Echio Command',
                     content: 'echo "${1}"',
+                    active: true,
                 },
                 position: { x: 100, y: 0 },
             }),
@@ -693,6 +708,7 @@ describe('Workflow Executor Integration Tests', () => {
                 data: {
                     title: 'Preview',
                     content: '${2}',
+                    active: true,
                 },
                 position: { x: 200, y: 0 },
             }),
@@ -717,12 +733,13 @@ describe('Workflow Executor Integration Tests', () => {
     })
 
     it('handles complex template characters in multi-node workflow', () => {
-        const nodes: WorkflowNode[] = [
+        const nodes: WorkflowNodes[] = [
             createNode({
                 type: NodeType.INPUT,
                 data: {
                     title: 'Template Input',
                     content: 'function sayHello() { return "Hello \'World\'!" }',
+                    active: true,
                 },
                 position: { x: 0, y: 0 },
             }),
@@ -731,6 +748,7 @@ describe('Workflow Executor Integration Tests', () => {
                 data: {
                     title: 'Echo Complex String',
                     content: 'echo "${1}" > output.txt && cat output.txt',
+                    active: true,
                 },
                 position: { x: 100, y: 0 },
             }),
@@ -739,6 +757,7 @@ describe('Workflow Executor Integration Tests', () => {
                 data: {
                     title: 'Additional Parameters',
                     content: '--flag="custom value" \'single quoted value\'',
+                    active: true,
                 },
                 position: { x: 100, y: 100 },
             }),
@@ -747,6 +766,7 @@ describe('Workflow Executor Integration Tests', () => {
                 data: {
                     title: 'Combined Echo',
                     content: 'echo ${1} ${2}',
+                    active: true,
                 },
                 position: { x: 200, y: 50 },
             }),
@@ -755,6 +775,7 @@ describe('Workflow Executor Integration Tests', () => {
                 data: {
                     title: 'Final Output',
                     content: '${3}',
+                    active: true,
                 },
                 position: { x: 300, y: 50 },
             }),
