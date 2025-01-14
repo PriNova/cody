@@ -29,7 +29,7 @@ export const useMessageHandler = (
     setEdges: React.Dispatch<React.SetStateAction<Edge[]>>,
     setNodeErrors: React.Dispatch<React.SetStateAction<Map<string, string>>>,
     setNodeResults: React.Dispatch<React.SetStateAction<Map<string, string>>>,
-    setInterruptedNodeIds: React.Dispatch<React.SetStateAction<Set<string>>>,
+    setInterruptedNodeId: React.Dispatch<React.SetStateAction<string | null>>,
     setExecutingNodeId: React.Dispatch<React.SetStateAction<string | null>>,
     setIsExecuting: React.Dispatch<React.SetStateAction<boolean>>,
     onNodeUpdate: (nodeId: string, data: Partial<WorkflowNodes['data']>) => void,
@@ -70,10 +70,7 @@ export const useMessageHandler = (
                     const { nodeId, status, result } = event.data.data
                     if (nodeId && status) {
                         if (event.data.data.status === 'interrupted') {
-                            setInterruptedNodeIds(prev => {
-                                prev.add(nodeId)
-                                return new Set(prev)
-                            })
+                            setInterruptedNodeId(nodeId)
                         }
                         if (status === 'pending_approval') {
                             setPendingApprovalNodeId(nodeId) // Set the pending approval state
@@ -134,7 +131,7 @@ export const useMessageHandler = (
         onNodeUpdate,
         setEdges,
         setExecutingNodeId,
-        setInterruptedNodeIds,
+        setInterruptedNodeId,
         setIsExecuting,
         setNodeErrors,
         setNodeResults,

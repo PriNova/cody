@@ -29,6 +29,7 @@ interface BaseNodeProps {
         needsUserApproval?: boolean
         tokenCount?: number
         iterations?: number
+        interrupted?: boolean
     }
     selected?: boolean
 }
@@ -266,7 +267,8 @@ const getNodeStyle = (
     selected?: boolean,
     executing?: boolean,
     error?: boolean,
-    active?: boolean
+    active?: boolean,
+    interrupted?: boolean
 ) => ({
     padding: '0.5rem',
     borderRadius: '0.25rem',
@@ -274,7 +276,7 @@ const getNodeStyle = (
         ? 'var(--vscode-inputValidation-errorBackground)'
         : 'var(--vscode-dropdown-background)',
     color: 'var(--vscode-dropdown-foreground)',
-    border: `2px solid ${getBorderColor(type, { error, executing, moving, selected })}`,
+    border: `2px solid ${getBorderColor(type, { error, executing, moving, interrupted, selected })}`,
     opacity: !active ? '0.4' : '1',
 })
 
@@ -287,7 +289,8 @@ export const PreviewNode: React.FC<BaseNodeProps & { tokenCount?: number }> = ({
                 selected,
                 data.executing,
                 data.error,
-                data.active
+                data.active,
+                data.interrupted
             )}
         >
             <Handle type="target" position={Position.Top} />
@@ -321,7 +324,8 @@ export const InputNode: React.FC<BaseNodeProps> = ({ data, selected }) => (
             selected,
             data.executing,
             data.error,
-            data.active
+            data.active,
+            data.interrupted
         )}
     >
         <Handle type="target" position={Position.Top} />
@@ -350,7 +354,8 @@ export const SearchContextNode: React.FC<BaseNodeProps> = ({ data, selected }) =
             selected,
             data.executing,
             data.error,
-            data.active
+            data.active,
+            data.interrupted
         )}
     >
         <Handle type="target" position={Position.Top} />
@@ -380,7 +385,8 @@ export const CLINode: React.FC<BaseNodeProps> = ({ data, selected }) => (
             selected,
             data.executing,
             data.error,
-            data.active
+            data.active,
+            data.interrupted
         )}
     >
         <Handle type="target" position={Position.Top} />
@@ -399,7 +405,8 @@ export const CodyLLMNode: React.FC<BaseNodeProps> = ({ data, selected }) => (
             selected,
             data.executing,
             data.error,
-            data.active
+            data.active,
+            data.interrupted
         )}
     >
         <Handle type="target" position={Position.Top} />
@@ -419,7 +426,8 @@ export const CodyOutputNode: React.FC<BaseNodeProps> = ({ data, selected }) => (
                 selected,
                 data.executing,
                 data.error,
-                data.active
+                data.active,
+                data.interrupted
             ),
             borderRadius: '5rem',
             backgroundColor: 'var(--vscode-focusBorder)',
@@ -442,7 +450,8 @@ export const LoopStartNode: React.FC<BaseNodeProps> = ({ data, selected }) => (
                 selected,
                 data.executing,
                 data.error,
-                data.active
+                data.active,
+                data.interrupted
             ),
             borderStyle: 'double',
         }}
@@ -465,7 +474,8 @@ export const LoopEndNode: React.FC<BaseNodeProps> = ({ data, selected }) => (
                 selected,
                 data.executing,
                 data.error,
-                data.active
+                data.active,
+                data.interrupted
             ),
             borderStyle: 'double',
         }}

@@ -30,7 +30,7 @@ export const useNodeStateTransformation = (
     executingNodeId: string | null,
     nodeErrors: Map<string, string>,
     nodeResults: Map<string, string>,
-    interruptedNodeIds: Set<string>,
+    interruptedNodeId: string | null,
     edges: Edge[] // Add edges parameter
 ) => {
     return useMemo(() => {
@@ -52,7 +52,7 @@ export const useNodeStateTransformation = (
                 ...node.data,
                 moving: node.id === movingNodeId,
                 executing: node.id === executingNodeId,
-                interrupted: interruptedNodeIds.has(node.id),
+                interrupted: node.id === interruptedNodeId,
                 error: nodeErrors.has(node.id),
                 result: nodeResults.get(node.id),
                 active: !allInactiveNodes.has(node.id) && node.data.active !== false,
@@ -69,7 +69,7 @@ export const useNodeStateTransformation = (
         executingNodeId,
         nodeErrors,
         nodeResults,
-        interruptedNodeIds,
+        interruptedNodeId,
         edges,
     ])
 }

@@ -48,13 +48,13 @@ export const Flow: React.FC<{
         isExecuting,
         executingNodeId,
         nodeErrors,
-        interruptedNodeIds,
+        interruptedNodeId,
         onExecute,
         onAbort,
         resetExecutionState,
         setExecutingNodeId,
         setIsExecuting,
-        setInterruptedNodeIds,
+        setInterruptedNodeId,
         setNodeErrors,
     } = useWorkflowExecution(vscodeAPI, nodes, edges, setNodes, setEdges)
 
@@ -83,7 +83,7 @@ export const Flow: React.FC<{
         setEdges,
         setNodeErrors,
         setNodeResults,
-        setInterruptedNodeIds,
+        setInterruptedNodeId,
         setExecutingNodeId,
         setIsExecuting,
         onNodeUpdate,
@@ -107,7 +107,7 @@ export const Flow: React.FC<{
         executingNodeId,
         nodeErrors,
         nodeResults,
-        interruptedNodeIds,
+        interruptedNodeId,
         edges
     ).map(node => ({
         ...node,
@@ -202,6 +202,7 @@ export const Flow: React.FC<{
                             executingNodeId={executingNodeId}
                             pendingApprovalNodeId={pendingApprovalNodeId}
                             onApprove={handleNodeApproval}
+                            interruptedNodeId={interruptedNodeId}
                         />
                     </div>
                 </div>

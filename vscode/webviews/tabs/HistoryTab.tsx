@@ -75,13 +75,10 @@ const filterChatsBySearch = (chats: SerializedChatTranscript[], term: string) =>
 export const HistoryTabWithData: React.FC<
     HistoryTabProps & { chats: UserLocalHistory['chat'][string][] }
 > = ({ IDE, webviewType, multipleWebviewsEnabled, setView, chats }) => {
-    //const nonEmptyChats = useMemo(() => chats.filter(chat => chat.interactions.length > 0), [chats])
     const [editingId, setEditingId] = useState<string | null>(null)
     const [newTitle, setNewTitle] = useState('')
     const inputRef = useRef<HTMLInputElement>(null)
-    //const [inputValue, setInputValue] = useState('')
     const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('')
-    //const [searchTerm, setSearchTerm] = useState('')
 
     const filteredChats = useMemo(
         () =>
@@ -165,7 +162,7 @@ export const HistoryTabWithData: React.FC<
             }
 
             return (
-                <div className="tw-flex tw-gap-2 tw-mb-2">
+                <div className="tw-flex tw-gap-2">
                     <Input
                         type="text"
                         placeholder="Search in chat history..."
@@ -176,15 +173,15 @@ export const HistoryTabWithData: React.FC<
                                 onSearch(inputValue)
                             }
                         }}
-                        className="tw-flex-1"
+                        className="tw-flex-1 tw-text-lg tw-text-muted-foreground [::placeholder:tw-text-sm] [::placeholder:tw-text-muted-foreground] tw-h-10"
                     />
                     {inputValue && (
-                        <Button variant="ghost" onClick={handleReset} title="Clear search">
-                            <XCircleIcon size={16} strokeWidth={1.25} />
+                        <Button variant="secondary" onClick={handleReset} title="Clear search">
+                            <XCircleIcon size={14} strokeWidth={1.25} />
                         </Button>
                     )}
-                    <Button variant="ghost" onClick={() => onSearch(inputValue)} title="Search">
-                        <SearchIcon size={16} strokeWidth={1.25} />
+                    <Button variant="secondary" onClick={() => onSearch(inputValue)} title="Search">
+                        <SearchIcon size={14} strokeWidth={1.25} />
                     </Button>
                 </div>
             )

@@ -117,148 +117,178 @@ export async function executeWorkflow(
         } as WorkflowFromExtension)
 
         let result: string | string[]
-        switch (node.type) {
-            case NodeType.CLI: {
-                try {
-                    const inputs = combineParentOutputsByConnectionOrder(
-                        node.id,
+        try {
+            switch (node.type) {
+                case NodeType.CLI: {
+                    try {
+                        const inputs = combineParentOutputsByConnectionOrder(
+                            node.id,
 
-                        context
-                    ).map(output => sanitizeForShell(output))
-                    const command = (node as CLINode).data.content
-                        ? replaceIndexedInputs((node as CLINode).data.content, inputs, context)
+                            context
+                        ).map(output => sanitizeForShell(output))
+                        const command = (node as CLINode).data.content
+                            ? replaceIndexedInputs((node as CLINode).data.content, inputs, context)
+                            : ''
+                        result = await executeCLINode(
+                            {
+                                ...(node as CLINode),
+                                data: { ...(node as CLINode).data, content: command },
+                            },
+                            abortSignal,
+                            persistentShell,
+                            webview,
+                            approvalHandler
+                        )
+                    } catch (error: unknown) {
+                        persistentShell.dispose()
+                        const errorMessage = error instanceof Error ? error.message : String(error)
+                        const status = errorMessage.includes('aborted') ? 'interrupted' : 'error'
+
+                        void vscode.window.showErrorMessage(`CLI Node Error: ${errorMessage}`)
+
+                        await webview.postMessage({
+                            type: 'node_execution_status',
+                            data: { nodeId: node.id, status, result: errorMessage },
+                        } as WorkflowFromExtension)
+
+                        await webview.postMessage({
+                            type: 'execution_completed',
+                        } as WorkflowFromExtension)
+                        return
+                    }
+                    break
+                }
+                case NodeType.LLM: {
+                    const inputs = combineParentOutputsByConnectionOrder(node.id, context).map(input =>
+                        sanitizeForPrompt(input)
+                    )
+                    const prompt = node.data.content
+                        ? replaceIndexedInputs(node.data.content, inputs, context)
                         : ''
-                    result = await executeCLINode(
-                        { ...(node as CLINode), data: { ...(node as CLINode).data, content: command } },
-                        abortSignal,
-                        persistentShell,
-                        webview,
-                        approvalHandler
+                    result = await executeLLMNode(
+                        { ...node, data: { ...node.data, content: prompt } },
+                        chatClient,
+                        abortSignal
                     )
-                } catch (error: unknown) {
+                    break
+                }
+                case NodeType.PREVIEW: {
+                    const inputs = combineParentOutputsByConnectionOrder(node.id, context)
+                    result = await executePreviewNode(inputs.join('\n'), node.id, webview, context)
+                    break
+                }
+
+                case NodeType.INPUT: {
+                    const inputs = combineParentOutputsByConnectionOrder(node.id, context)
+                    const text = node.data.content
+                        ? replaceIndexedInputs(node.data.content, inputs, context)
+                        : ''
+                    result = await executeInputNode(text)
+                    break
+                }
+
+                case NodeType.SEARCH_CONTEXT: {
+                    const inputs = combineParentOutputsByConnectionOrder(node.id, context)
+                    const text = node.data.content
+                        ? replaceIndexedInputs(node.data.content, inputs, context)
+                        : ''
+                    result = await executeSearchContextNode(text, contextRetriever, abortSignal)
+                    break
+                }
+                case NodeType.CODY_OUTPUT: {
+                    try {
+                        const parentEdges = context.edgeIndex.byTarget.get(node.id) || []
+                        const nonSearchContextEdges = parentEdges.filter(edge => {
+                            const sourceNode = context.nodeIndex.get(edge.source)
+                            return sourceNode?.type !== NodeType.SEARCH_CONTEXT
+                        })
+                        const inputs = combineParentOutputsByConnectionOrder(node.id, {
+                            ...context,
+                            edgeIndex: {
+                                ...context.edgeIndex,
+                                byTarget: new Map([[node.id, nonSearchContextEdges]]),
+                            },
+                        })
+
+                        const parentNodesByParentEdges = parentEdges.map(edge =>
+                            context.nodeIndex.get(edge.source)
+                        )
+                        const searchContextNode = parentNodesByParentEdges.find(
+                            node => node?.type === NodeType.SEARCH_CONTEXT
+                        )
+                        const contextItems = context.nodeOutputs.get(searchContextNode?.id || '') as
+                            | string[]
+                            | undefined
+                        result = await executeCodyOutputNode(
+                            inputs.join('\n'),
+                            contextItems,
+                            abortSignal
+                        )
+                    } catch (error) {
+                        const errorMessage = error instanceof Error ? error.message : String(error)
+                        const status = errorMessage.includes('aborted') ? 'interrupted' : 'error'
+
+                        await webview.postMessage({
+                            type: 'node_execution_status',
+                            data: { nodeId: node.id, status, result: errorMessage },
+                        } as WorkflowFromExtension)
+
+                        await webview.postMessage({
+                            type: 'execution_completed',
+                        } as WorkflowFromExtension)
+
+                        return
+                    }
+                    break
+                }
+                case NodeType.LOOP_START: {
+                    const loopState = context.loopStates.get(node.id) || {
+                        currentIteration: 1,
+                        maxIterations: (node as LoopStartNode).data.iterations,
+                        variable: (node as LoopStartNode).data.loopVariable,
+                    }
+                    result = String(loopState.currentIteration + 1)
+
+                    // Only increment for next iteration if not at max
+                    if (loopState.currentIteration < loopState.maxIterations) {
+                        context.loopStates.set(node.id, {
+                            ...loopState,
+                            currentIteration: loopState.currentIteration + 1,
+                        })
+                    }
+                    break
+                }
+                case NodeType.LOOP_END: {
+                    const inputs = combineParentOutputsByConnectionOrder(node.id, context)
+                    result = await executePreviewNode(inputs.join('\n'), node.id, webview, context)
+                    break
+                }
+
+                default:
                     persistentShell.dispose()
-                    const errorMessage = error instanceof Error ? error.message : String(error)
-                    const status = errorMessage.includes('aborted') ? 'interrupted' : 'error'
-
-                    void vscode.window.showErrorMessage(`CLI Node Error: ${errorMessage}`)
-
-                    await webview.postMessage({
-                        type: 'node_execution_status',
-                        data: { nodeId: node.id, status, result: errorMessage },
-                    } as WorkflowFromExtension)
-
-                    await webview.postMessage({
-                        type: 'execution_completed',
-                    } as WorkflowFromExtension)
-                    return
-                }
-                break
+                    throw new Error(`Unknown node type: ${(node as WorkflowNodes).type}`)
             }
-            case NodeType.LLM: {
-                const inputs = combineParentOutputsByConnectionOrder(node.id, context).map(input =>
-                    sanitizeForPrompt(input)
-                )
-                const prompt = node.data.content
-                    ? replaceIndexedInputs(node.data.content, inputs, context)
-                    : ''
-                result = await executeLLMNode(
-                    { ...node, data: { ...node.data, content: prompt } },
-                    chatClient,
-                    abortSignal
-                )
-                break
-            }
-            case NodeType.PREVIEW: {
-                const inputs = combineParentOutputsByConnectionOrder(node.id, context)
-                result = await executePreviewNode(inputs.join('\n'), node.id, webview, context)
-                break
-            }
-
-            case NodeType.INPUT: {
-                const inputs = combineParentOutputsByConnectionOrder(node.id, context)
-                const text = node.data.content
-                    ? replaceIndexedInputs(node.data.content, inputs, context)
-                    : ''
-                result = await executeInputNode(text)
-                break
-            }
-
-            case NodeType.SEARCH_CONTEXT: {
-                const inputs = combineParentOutputsByConnectionOrder(node.id, context)
-                const text = node.data.content
-                    ? replaceIndexedInputs(node.data.content, inputs, context)
-                    : ''
-                result = await executeSearchContextNode(text, contextRetriever)
-                break
-            }
-            case NodeType.CODY_OUTPUT: {
-                try {
-                    const parentEdges = context.edgeIndex.byTarget.get(node.id) || []
-                    const nonSearchContextEdges = parentEdges.filter(edge => {
-                        const sourceNode = context.nodeIndex.get(edge.source)
-                        return sourceNode?.type !== NodeType.SEARCH_CONTEXT
-                    })
-                    const inputs = combineParentOutputsByConnectionOrder(node.id, {
-                        ...context,
-                        edgeIndex: {
-                            ...context.edgeIndex,
-                            byTarget: new Map([[node.id, nonSearchContextEdges]]),
-                        },
-                    })
-
-                    const parentNodesByParentEdges = parentEdges.map(edge =>
-                        context.nodeIndex.get(edge.source)
-                    )
-                    const searchContextNode = parentNodesByParentEdges.find(
-                        node => node?.type === NodeType.SEARCH_CONTEXT
-                    )
-                    const contextItems = context.nodeOutputs.get(searchContextNode?.id || '') as
-                        | string[]
-                        | undefined
-                    result = await executeCodyOutputNode(inputs.join('\n'), contextItems, abortSignal)
-                } catch (error) {
-                    const errorMessage = error instanceof Error ? error.message : String(error)
-                    const status = errorMessage.includes('aborted') ? 'interrupted' : 'error'
-
-                    await webview.postMessage({
-                        type: 'node_execution_status',
-                        data: { nodeId: node.id, status, result: errorMessage },
-                    } as WorkflowFromExtension)
-
-                    await webview.postMessage({
-                        type: 'execution_completed',
-                    } as WorkflowFromExtension)
-
-                    return
-                }
-                break
-            }
-            case NodeType.LOOP_START: {
-                const loopState = context.loopStates.get(node.id) || {
-                    currentIteration: 1,
-                    maxIterations: (node as LoopStartNode).data.iterations,
-                    variable: (node as LoopStartNode).data.loopVariable,
-                }
-                result = String(loopState.currentIteration + 1)
-
-                // Only increment for next iteration if not at max
-                if (loopState.currentIteration < loopState.maxIterations) {
-                    context.loopStates.set(node.id, {
-                        ...loopState,
-                        currentIteration: loopState.currentIteration + 1,
-                    })
-                }
-                break
-            }
-            case NodeType.LOOP_END: {
-                const inputs = combineParentOutputsByConnectionOrder(node.id, context)
-                result = await executePreviewNode(inputs.join('\n'), node.id, webview, context)
-                break
-            }
-
-            default:
+        } catch (error: unknown) {
+            if (abortSignal.aborted) {
                 persistentShell.dispose()
-                throw new Error(`Unknown node type: ${(node as WorkflowNodes).type}`)
+                await webview.postMessage({
+                    type: 'node_execution_status',
+                    data: { nodeId: node.id, status: 'interrupted' },
+                } as WorkflowFromExtension)
+                return
+            }
+            const errorMessage = error instanceof Error ? error.message : String(error)
+            const status = errorMessage.includes('aborted') ? 'interrupted' : 'error'
+            void vscode.window.showErrorMessage(`Node Error: ${errorMessage}`)
+            await webview.postMessage({
+                type: 'node_execution_status',
+                data: { nodeId: node.id, status, result: errorMessage },
+            } as WorkflowFromExtension)
+
+            await webview.postMessage({
+                type: 'execution_completed',
+            } as WorkflowFromExtension)
+            return
         }
 
         context.nodeOutputs.set(node.id, result)
@@ -431,6 +461,7 @@ export async function executeCLINode(
     webview: vscode.Webview,
     approvalHandler: (nodeId: string) => Promise<{ command?: string }>
 ): Promise<string> {
+    abortSignal.throwIfAborted()
     if (!vscode.env.shell || !vscode.workspace.isTrusted) {
         throw new Error('Shell command is not supported in your current workspace.')
     }
@@ -502,6 +533,7 @@ async function executeLLMNode(
     chatClient: ChatClient,
     abortSignal?: AbortSignal
 ): Promise<string> {
+    abortSignal?.throwIfAborted()
     if (!node.data.content) {
         throw new Error(`No prompt specified for LLM node ${node.id} with ${node.data.title}`)
     }
@@ -512,7 +544,7 @@ async function executeLLMNode(
 
     try {
         const preamble = getSimplePreamble(
-            'anthropic::2024-10-22::claude-3-5-sonnet-latest',
+            (node as LLMNode).data.model?.id ?? 'anthropic::2024-10-22::claude-3-5-sonnet-latest',
             1,
             'Default'
         )
@@ -631,7 +663,8 @@ async function executeInputNode(input: string): Promise<string> {
  */
 async function executeSearchContextNode(
     input: string,
-    contextRetriever: Pick<ContextRetriever, 'retrieveContext'>
+    contextRetriever: Pick<ContextRetriever, 'retrieveContext'>,
+    abortSignal: AbortSignal
 ): Promise<string[]> {
     const corpusItems = await firstValueFrom(getCorpusContextItemsForEditorState())
     if (corpusItems === pendingOperation || corpusItems.length === 0) {
@@ -675,6 +708,7 @@ async function executeCodyOutputNode(
     contextItemsAsString: string[] | undefined,
     abortSignal: AbortSignal
 ): Promise<string> {
+    abortSignal.throwIfAborted()
     const stringToContext = contextItemsAsString ? stringToContextItems(contextItemsAsString) : []
 
     return new Promise<string>((resolve, reject) => {

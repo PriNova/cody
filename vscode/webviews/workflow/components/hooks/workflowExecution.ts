@@ -26,7 +26,7 @@ export const useWorkflowExecution = (
     const [abortController, setAbortController] = useState<AbortController | null>(null)
     const [nodeErrors, setNodeErrors] = useState<Map<string, string>>(new Map())
     const [executingNodeId, setExecutingNodeId] = useState<string | null>(null)
-    const [interruptedNodeIds, setInterruptedNodeIds] = useState<Set<string>>(new Set())
+    const [interruptedNodeId, setInterruptedNodeId] = useState<string | null>(null)
     const [nodeResults, setNodeResults] = useState<Map<string, string>>(new Map())
 
     const resetExecutionState = useCallback(() => {
@@ -35,7 +35,7 @@ export const useWorkflowExecution = (
         setIsExecuting(false)
         setNodeErrors(new Map())
         setExecutingNodeId(null)
-        setInterruptedNodeIds(new Set())
+        setInterruptedNodeId(null)
         setAbortController(null)
         setNodeResults(new Map())
     }, [setEdges, setNodes])
@@ -63,6 +63,7 @@ export const useWorkflowExecution = (
         const controller = new AbortController()
         setAbortController(controller)
         setIsExecuting(true)
+        setInterruptedNodeId(null)
 
         vscodeAPI.postMessage({
             type: 'execute_workflow',
@@ -87,7 +88,7 @@ export const useWorkflowExecution = (
         executingNodeId,
         nodeErrors,
         nodeResults,
-        interruptedNodeIds,
+        interruptedNodeId,
         // Actions
         onExecute,
         onAbort,
@@ -95,7 +96,7 @@ export const useWorkflowExecution = (
         // State setters
         setExecutingNodeId,
         setIsExecuting,
-        setInterruptedNodeIds,
+        setInterruptedNodeId,
         setNodeResults,
         setNodeErrors,
     }

@@ -16,6 +16,7 @@ interface RightSidebarProps {
     executingNodeId: string | null
     pendingApprovalNodeId: string | null
     onApprove: (nodeId: string, approved: boolean, modifiedCommand?: string) => void
+    interruptedNodeId: string | null
 }
 
 export const RightSidebar: React.FC<RightSidebarProps> = ({
@@ -24,6 +25,7 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
     executingNodeId,
     pendingApprovalNodeId,
     onApprove,
+    interruptedNodeId,
 }) => {
     const filteredByActiveNodes = useMemo(
         () => sortedNodes.filter(node => node.type !== NodeType.PREVIEW && node.data.active !== false),
@@ -32,7 +34,10 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
 
     const getBorderColorClass = (nodeId: string): string => {
         if (nodeId === executingNodeId) {
-            return 'tw-border-[var(--vscode-charts-yellow)]' // Same color as executing state in Node.tsx
+            return 'tw-border-[var(--vscode-charts-yellow)]'
+        }
+        if (nodeId === interruptedNodeId) {
+            return 'tw-border-[var(--vscode-charts-orange)]'
         }
         return 'tw-border-transparent'
     }

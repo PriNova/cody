@@ -96,6 +96,7 @@ export async function googleChatClient({
 
             const textDecoder = new TextDecoder()
             let responseText = ''
+            let buffer = '' // Move buffer outside the loop
 
             // Handles the response stream to accumulate the full completion text.
             while (true) {
@@ -120,7 +121,6 @@ export async function googleChatClient({
 
                 const decoded = textDecoder.decode(value, { stream: true })
                 // Split the stream into individual messages
-                let buffer = ''
                 const messages = decoded.split(/^data: /).filter(Boolean)
                 for (const message of messages) {
                     // Remove the "data: " prefix from each message

@@ -371,6 +371,7 @@ export function findPostLoopNodes(
     while (postLoopQueue.length > 0) {
         const currentNode = postLoopQueue.pop()!
         const childEdges = edges.filter(e => e.source === currentNode.id)
+        const parentEdges = edges.filter(e => e.target === currentNode.id)
 
         for (const edge of childEdges) {
             const childNode = nodes.find(n => n.id === edge.target)
@@ -384,6 +385,18 @@ export function findPostLoopNodes(
                 postLoopQueue.push(childNode)
             }
         }
+        for (const edge of parentEdges) {
+            const parentNode = nodes.find(n => n.id === edge.source)
+            if (
+                parentNode &&
+                parentNode.type !== NodeType.LOOP_END &&
+                !postLoopNodes.has(parentNode) &&
+                parentNode.type !== NodeType.LOOP_START
+            ) {
+                postLoopNodes.add(parentNode)
+                postLoopQueue.push(parentNode)
+            }
+        }
     }
 
     const postLoopEdges = edges.filter(
@@ -393,74 +406,6 @@ export function findPostLoopNodes(
     )
 
     return tarjanSort([...postLoopNodes], postLoopEdges)
-}
-
-/**
- * Processes the loop iterations for a given loop structure, creating a list of processed nodes that includes the loop start, loop body, and loop end (if present).
- *
- * @param loopStart - The node representing the start of the loop.
- * @param loopEnd - The node representing the end of the loop, or undefined if no loop end is present.
- * @param loopBody - An array of nodes representing the body of the loop.
- * @returns An array of processed nodes, including the loop start, loop body, and loop end (if present).
- */
-export function processLoopIterations(
-    loopStart: WorkflowNodes,
-    loopEnd: WorkflowNodes | undefined,
-    loopBody: WorkflowNodes[]
-): WorkflowNodes[] {
-    const processedNodes: WorkflowNodes[] = []
-    const iterations = (loopStart as LoopStartNode).data.iterations || 1
-
-    for (let i = 0; i < iterations; i++) {
-        processedNodes.push({ ...loopStart })
-        for (const node of loopBody) {
-            processedNodes.push({ ...node })
-        }
-        if (loopEnd) {
-            processedNodes.push({ ...loopEnd })
-        }
-    }
-
-    return processedNodes
-}
-
-/**
- * Processes the loop structure in the given graph, handling the pre-loop nodes, loop nodes, and post-loop nodes.
- *
- * @param nodes - An array of nodes in the graph.
- * @param edges - An array of edges in the graph.
- * @returns An array of processed nodes, including the loop start, loop body, and loop end (if present).
- */
-export function processLoop(nodes: WorkflowNodes[], edges: Edge[]): WorkflowNodes[] {
-    const processedNodes: WorkflowNodes[] = []
-    const loopStartNodes = nodes.filter(n => n.type === NodeType.LOOP_START)
-
-    for (const loopStart of loopStartNodes) {
-        const loopEnd = nodes.find(n => n.type === NodeType.LOOP_END)
-
-        // Process pre-loop nodes
-        const sortedPreLoop = findPreLoopNodes(loopStart, nodes, edges)
-        const preLoopNodeIds = new Set(sortedPreLoop.map(n => n.id))
-        for (const node of sortedPreLoop) {
-            processedNodes.push({ ...node })
-        }
-        // Process loop nodes
-        const sortedLoop = findLoopNodes(loopStart, nodes, edges, preLoopNodeIds)
-
-        // Process iterations
-        const iterationNodes = processLoopIterations(loopStart, loopEnd, sortedLoop)
-        processedNodes.push(...iterationNodes)
-
-        // Process post-loop nodes if loopEnd exists
-        if (loopEnd) {
-            const sortedPostLoop = findPostLoopNodes(loopEnd, nodes, edges)
-            for (const node of sortedPostLoop) {
-                processedNodes.push({ ...node })
-            }
-        }
-    }
-
-    return processedNodes
 }
 
 /**
@@ -728,7 +673,9 @@ export function processLoopWithCycles(
         // Process post-loop nodes after all iterations
         if (postLoopNodes.length > 0) {
             for (const node of postLoopNodes) {
-                processedNodes.push({ ...node })
+                if (!processedNodes.some(processedNode => processedNode.id === node.id)) {
+                    processedNodes.push({ ...node })
+                }
             }
         }
     }
