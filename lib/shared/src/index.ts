@@ -78,6 +78,7 @@ export type {
     ChatMessageSearch,
     ProcessingStep,
 } from './chat/transcript/messages'
+export { ProcessType } from './chat/transcript/messages'
 export {
     CODY_PASSTHROUGH_VSCODE_OPEN_COMMAND_ID,
     webviewOpenURIForContextItem,
@@ -359,9 +360,6 @@ export {
     WEB_PROVIDER_URI,
     GIT_OPENCTX_PROVIDER_URI,
     CODE_SEARCH_PROVIDER_URI,
-    WORKSPACE_REPOSITORY_PROVIDER_URI,
-    WORKSPACE_DIRECTORY_PROVIDER_URI,
-    isRemoteWorkspaceProvider,
 } from './context/openctx/api'
 export * from './context/openctx/context'
 export * from './lexicalEditor/editorState'
@@ -407,5 +405,7 @@ export {
     checkVersion,
 } from './sourcegraph-api/siteVersion'
 export { configOverwrites } from './models/configOverwrites'
-export { isS2 } from './sourcegraph-api/environments'
+export { isS2, isWorkspaceInstance } from './sourcegraph-api/environments'
 export { createGitDiff } from './editor/create-git-diff'
+
+export { serialize, deserialize } from './lexicalEditor/atMentionsSerializer'

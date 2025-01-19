@@ -1,3 +1,4 @@
+import * as sentryCore from '@sentry/core'
 import * as uuid from 'uuid'
 import {
     type MockInstance,
@@ -59,7 +60,7 @@ describe('AutoeditsProvider', () => {
         mockResolvedConfig({
             configuration: {},
             auth: {
-                accessToken: 'sgp_local_f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0',
+                credentials: { token: 'sgp_local_f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0' },
                 serverEndpoint: DOTCOM_URL.toString(),
             },
         })
@@ -135,7 +136,7 @@ describe('AutoeditsProvider', () => {
                 "duration": 0,
                 "prefixChars": 10,
                 "retrieverStats": {},
-                "strategy": "auto-edits",
+                "strategy": "auto-edit",
                 "suffixChars": 0,
                 "totalChars": 10,
               },
@@ -197,7 +198,7 @@ describe('AutoeditsProvider', () => {
                 "duration": 0,
                 "prefixChars": 10,
                 "retrieverStats": {},
-                "strategy": "auto-edits",
+                "strategy": "auto-edit",
                 "suffixChars": 0,
                 "totalChars": 10,
               },
@@ -266,7 +267,7 @@ describe('AutoeditsProvider', () => {
                 "duration": 0,
                 "prefixChars": 10,
                 "retrieverStats": {},
-                "strategy": "auto-edits",
+                "strategy": "auto-edit",
                 "suffixChars": 0,
                 "totalChars": 10,
               },
@@ -307,6 +308,44 @@ describe('AutoeditsProvider', () => {
         expect(suggestedEventPayload.metadata.isRead).toBe(1)
     })
 
+    it('errors are reported via telemetry recorded and Sentry', async () => {
+        const captureExceptionSpy = vi.spyOn(sentryCore, 'captureException')
+        const testError = new Error('test-error')
+
+        const { result } = await autoeditResultFor('const x = █', {
+            prediction: 'const x = 1\n',
+            getModelResponse() {
+                throw testError
+            },
+        })
+
+        expect(result).toBe(null)
+
+        // Error is captured by the telemetry recorded
+        expect(recordSpy).toHaveBeenCalledTimes(1)
+        expect(recordSpy).toHaveBeenNthCalledWith(1, 'cody.autoedit', 'error', expect.any(Object))
+
+        const errorPayload = recordSpy.mock.calls[0].at(2)
+        expect(errorPayload).toMatchInlineSnapshot(`
+          {
+            "metadata": {
+              "count": 1,
+            },
+            "privateMetadata": {
+              "message": "test-error",
+              "traceId": undefined,
+            },
+            "version": 0,
+          }
+        `)
+
+        // Error is captured by the Sentry service
+        expect(captureExceptionSpy).toHaveBeenCalledTimes(1)
+
+        const captureExceptionPayload = captureExceptionSpy.mock.calls[0].at(0)
+        expect(captureExceptionPayload).toEqual(testError)
+    })
+
     it('rejects the current suggestion when the new one is shown', async () => {
         const prediction = 'const x = 1\n'
         const { provider } = await autoeditResultFor('const a = █\n', { prediction })
@@ -338,5 +377,79 @@ describe('AutoeditsProvider', () => {
             ],
           ]
         `)
+    })
+
+    it('do not set the the cody.supersuggest.active context for inline completion items', async () => {
+        const prediction = 'const x = 1\n'
+        await autoeditResultFor('const x = █\n', { prediction })
+        expect(executedCommands).toMatchInlineSnapshot(`
+            []
+        `)
+    })
+
+    it('set the cody.supersuggest.active context for inline decoration items', async () => {
+        const prediction = 'const a = 1\n'
+        await autoeditResultFor('const x = █\n', { prediction })
+        expect(executedCommands).toMatchInlineSnapshot(`
+            [
+              [
+                "setContext",
+                "cody.supersuggest.active",
+                true,
+              ],
+            ]
+        `)
+        await acceptSuggestionCommand()
+
+        // Deactives the context after accepting the suggestion
+        expect(executedCommands.length).toBe(3)
+        expect(executedCommands[1]).toMatchInlineSnapshot(`
+            [
+              "setContext",
+              "cody.supersuggest.active",
+              false,
+            ]
+        `)
+    })
+
+    it('unset the cody.supersuggest.active context for inline decoration rejection', async () => {
+        const prediction = 'const a = 1\n'
+        await autoeditResultFor('const x = █\n', { prediction })
+        expect(executedCommands).toMatchInlineSnapshot(`
+            [
+              [
+                "setContext",
+                "cody.supersuggest.active",
+                true,
+              ],
+            ]
+        `)
+        await rejectSuggestionCommand()
+
+        // Deactives the context after accepting the suggestion
+        expect(executedCommands.length).toBe(3)
+        expect(executedCommands[1]).toMatchInlineSnapshot(`
+            [
+              "setContext",
+              "cody.supersuggest.active",
+              false,
+            ]
+        `)
+    })
+
+    it('do not trigger the editBuilder for inline completion items', async () => {
+        const prediction = 'const x = 1\n'
+        const { editBuilder } = await autoeditResultFor('const x = █\n', { prediction })
+
+        await acceptSuggestionCommand()
+        expect(editBuilder.size).toBe(0)
+    })
+
+    it('trigger the editBuilder for inline decorations items', async () => {
+        const prediction = 'const a = 1\n'
+        const { editBuilder } = await autoeditResultFor('const x = █\n', { prediction })
+
+        await acceptSuggestionCommand()
+        expect(editBuilder.size).toBe(1)
     })
 })

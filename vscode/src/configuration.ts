@@ -52,13 +52,31 @@ export function getConfiguration(
         CodyAutoSuggestionMode.Autocomplete
     )
 
-    // Backward compatibility with the older config for autocomplete. If autocomplete was turned off - override the suggestion mode to "off".
+    // Backward compatibility with the older config for autocomplete.
+    // If autocomplete was turned off - override the suggestion mode to "off".
     // TODO (Hitesh): Remove the manual override once the updated config is communicated after experimental release
+    // https://linear.app/sourcegraph/issue/CODY-4701/clean-up-backwards-compatbility-settings-after-the-release
     if (
         codyAutoSuggestionsMode === CodyAutoSuggestionMode.Autocomplete &&
         vscode.workspace.getConfiguration().get<boolean>('cody.autocomplete.enabled') === false
     ) {
         codyAutoSuggestionsMode = CodyAutoSuggestionMode.Off
+    }
+
+    // Backward compatibility with the older auto-edit config name.
+    // If auto-edit was turned on - override the suggestion mode to "auto-edit".
+    // TODO: clean up after the experimental release
+    // https://linear.app/sourcegraph/issue/CODY-4701/clean-up-backwards-compatbility-settings-after-the-release
+    if (codyAutoSuggestionsMode === 'auto-edits (Experimental)') {
+        codyAutoSuggestionsMode = CodyAutoSuggestionMode.Autoedit
+
+        void vscode.workspace
+            .getConfiguration()
+            .update(
+                CONFIG_KEY.suggestionsMode,
+                CodyAutoSuggestionMode.Autoedit,
+                vscode.ConfigurationTarget.Global
+            )
     }
 
     return {
@@ -112,6 +130,8 @@ export function getConfiguration(
          */
         agenticContextExperimentalOptions: config.get(CONFIG_KEY.agenticContextExperimentalOptions, {}),
 
+        authExternalProviders: config.get(CONFIG_KEY.authExternalProviders, []),
+
         /**
          * Hidden settings for internal use only.
          */
@@ -133,13 +153,13 @@ export function getConfiguration(
         experimentalTracing: getHiddenSetting('experimental.tracing', false),
 
         experimentalSupercompletions: getHiddenSetting('experimental.supercompletions', false),
-        experimentalAutoeditsEnabled: codyAutoSuggestionsMode === CodyAutoSuggestionMode.Autoedits,
-        experimentalAutoeditsConfigOverride: getHiddenSetting(
-            'experimental.autoedits.config.override',
+        experimentalAutoEditEnabled: codyAutoSuggestionsMode === CodyAutoSuggestionMode.Autoedit,
+        experimentalAutoEditConfigOverride: getHiddenSetting(
+            'experimental.autoedit.config.override',
             undefined
         ),
-        experimentalAutoeditsRendererTesting: getHiddenSetting(
-            'experimental.autoedits-renderer-testing',
+        experimentalAutoEditRendererTesting: getHiddenSetting(
+            'experimental.autoedit-renderer-testing',
             false
         ),
         experimentalMinionAnthropicKey: getHiddenSetting('experimental.minion.anthropicKey', undefined),

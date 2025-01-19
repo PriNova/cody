@@ -15,3 +15,22 @@
     color: var(--vscode-button-secondaryForeground);
     border-bottom: 1px solid rgba(0, 0, 0, 0.1);
 }
+
+/* styles.css or global.css */
+
+:global(.react-flow__handle) {
+    width: 10px;  /* Adjust for visual size, increase for a bigger hitbox */
+    height: 10px; /* Adjust for visual size, increase for a bigger hitbox */
+    border-radius: 50%; /* Make it a circle */
+    background-color: var(--vscode-editor-background); /* Match handle color to the node border */
+    border: 2px solid var(--vscode-editor-foreground); /* Add a border for better visibility */
+  }
+  
+  :global(.react-flow__handle-top, .react-flow__handle-bottom) {
+      margin-left: -7px; /* Adjust to center the handle, half the width - default margin*/
+  }
+  
+  :global(.react-flow__handle-right, .react-flow__handle-left) {
+      margin-top: -7px; /* Adjust to center the handle, half the height - default margin */
+  }
+  

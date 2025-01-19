@@ -28,7 +28,6 @@ export class PersistentShell {
     private shell: ChildProcess | null = null
     private stdoutBuffer = ''
     private stderrBuffer = ''
-    //private buffer = ''
 
     constructor() {
         this.init()
@@ -55,13 +54,13 @@ export class PersistentShell {
         this.stdoutBuffer = ''
         this.stderrBuffer = ''
         return new Promise((resolve, reject) => {
+            abortSignal?.throwIfAborted()
             const command = sanitizeCommand(cmd)
             if (!this.shell) {
                 reject(new Error('Shell not initialized'))
                 return
             }
-
-            this.shell.stdin?.write(command + '\n')
+            this.shell.stdin?.write(`${command}` + '\n')
 
             // Use a unique marker to identify the end of command output
             const endMarker = `__END_OF_COMMAND_${Date.now()}__`
@@ -75,18 +74,13 @@ export class PersistentShell {
                 this.init() // Reinitialize the shell
             }, timeout)
 
-            /* setTimeout(() => {
-                if (this.stderrBuffer) {
-                    this.kill()
-                    reject(
-                        `Command failed with exit code ${this.shell?.exitCode || 1}: ${
-                            this.stderrBuffer
-                        }`
-                    )
-                } else {
-                    resolve(this.cleanUp(this.stdoutBuffer))
-                }
-            }, 100) */
+            const abortListener = () => {
+                clearTimeout(timeoutId)
+                this.kill()
+                reject(new Error('Command execution aborted'))
+                abortSignal?.removeEventListener('abort', abortListener)
+            }
+            abortSignal?.addEventListener('abort', abortListener)
 
             const checkBuffer = () => {
                 if (this.stdoutBuffer.includes(endMarker)) {
@@ -107,6 +101,7 @@ export class PersistentShell {
                         })
                         .slice(sliceStart, -1)
                         .join('\n')
+                    abortSignal?.removeEventListener('abort', abortListener)
                     resolve(output)
                 } else {
                     setTimeout(checkBuffer, 100)
@@ -116,24 +111,6 @@ export class PersistentShell {
             checkBuffer()
         })
     }
-
-    /* private cleanUp(output: string): string {
-        const shell = process.platform === 'win32' ? 'cmd.exe' : 'bash'
-        if (shell === 'cmd.exe') {
-            const result = output
-                .trim()
-                .split('\n')
-                .filter(chunk => {
-                    if (chunk.includes('(c) Microsoft Corporation.')) return false
-                    if (chunk.includes('Microsoft Windows')) return false
-                    return true
-                })
-                .slice(1, -1)
-                .join('\n')
-            return result
-        }
-        return output
-    } */
 
     public kill(): void {
         if (this.shell) {
@@ -259,5 +236,5 @@ const BASE_DISALLOWED_COMMANDS = [
 
 function sanitizeCommand(command: string): string {
     // Basic sanitization, should be more comprehensive in production
-    return command.trim().replace(/(&(?!&)|[;`])(?![^"]*"(?:[^"]*"[^"]*")*[^"]*$)/g, '')
+    return command.trim() //.replace(/(?<![&|])([;&|])/g, '')
 }

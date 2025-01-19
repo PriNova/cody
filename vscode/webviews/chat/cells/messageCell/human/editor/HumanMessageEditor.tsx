@@ -97,7 +97,6 @@ export const HumanMessageEditor: FunctionComponent<{
     onChange,
     onSubmit: parentOnSubmit,
     onStop,
-    isFirstInteraction,
     isLastInteraction,
     isEditorInitiallyFocused,
     className,
@@ -494,7 +493,7 @@ export const HumanMessageEditor: FunctionComponent<{
         )
     )
 
-    const currentChatModel = useMemo(() => models[0], [models[0]])
+    const currentChatModel = useMemo(() => (models ? models[0] : undefined), [models, models?.[0]])
 
     const defaultContext = useDefaultContextForChat()
     useEffect(() => {

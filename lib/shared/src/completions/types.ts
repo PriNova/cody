@@ -24,7 +24,7 @@ export interface AutocompleteBaseContextSnippet {
     /**
      * Metadata populated by the context retriever.
      * The metadata can be specific to the context retriever and may not apply to other context retrievers.
-     * The metadata can be used by other components such as `auto-edits` to determine if the snippet is still relevant or logging for offline analysis.
+     * The metadata can be used by other components such as `auto-edit` to determine if the snippet is still relevant or logging for offline analysis.
      */
     metadata?: AutocompleteContextSnippetMetadata
 }
@@ -67,6 +67,17 @@ export interface DocumentContext extends DocumentDependentContext, LinesContext 
      */
     maxPrefixLength: number
     maxSuffixLength: number
+}
+
+export interface CodeToReplaceData {
+    codeToRewrite: string
+    prefixBeforeArea: string
+    suffixAfterArea: string
+    prefixInArea: string
+    suffixInArea: string
+    codeToRewritePrefix: string
+    codeToRewriteSuffix: string
+    range: vscode.Range
 }
 
 export interface GitContext {

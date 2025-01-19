@@ -304,38 +304,56 @@ describe('sanitizeForShell', () => {
     })
 })
 
-vi.mock('vscode', () => ({
-    env: {
-        shell: '/bin/bash',
-    },
-    workspace: {
-        isTrusted: true,
-        getConfiguration: (section: string) => ({
-            get: (key: string) => {
-                if (section === 'cody' && key === 'experimental.localTokenPath') {
-                    return null
-                }
-                return undefined
-            },
-        }),
-    },
-    window: {
-        showErrorMessage: vi.fn(),
-        createOutputChannel: vi.fn().mockReturnValue({
-            appendLine: vi.fn(),
-            dispose: vi.fn(),
-            show: vi.fn(),
-        }),
-    },
-    extensions: {
-        getExtension: vi.fn().mockReturnValue({
-            packageJSON: { version: '1.0.0' },
-        }),
-    },
-    Disposable: class {
-        dispose(): void {}
-    },
-}))
+vi.mock('vscode', () => {
+    class MockEventEmitter<T> {
+        private listeners: ((e: T) => any)[] = []
+        public readonly event: (listener: (e: T) => any) => { dispose: () => void } = (
+            listener: (e: T) => any
+        ) => {
+            this.listeners.push(listener)
+            return {
+                dispose: () => {
+                    this.listeners = this.listeners.filter(l => l !== listener)
+                },
+            }
+        }
+
+        fire(data: T): void {
+            for (const listener of this.listeners) {
+                listener(data)
+            }
+        }
+        dispose(): void {
+            this.listeners = []
+        }
+    }
+    return {
+        env: { shell: '/bin/bash' },
+        workspace: {
+            isTrusted: true,
+            getConfiguration: (section: string) => ({
+                get: (key: string) => {
+                    if (section === 'cody' && key === 'experimental.localTokenPath') {
+                        return null
+                    }
+                    return undefined
+                },
+            }),
+        },
+        window: {
+            showErrorMessage: vi.fn(),
+            createOutputChannel: vi
+                .fn()
+                .mockReturnValue({ appendLine: vi.fn(), dispose: vi.fn(), show: vi.fn() }),
+        },
+        extensions: { getExtension: vi.fn().mockReturnValue({ packageJSON: { version: '1.0.0' } }) },
+        Disposable: class {
+            dispose(): void {}
+        },
+        commands: { registerCommand: vi.fn() },
+        EventEmitter: MockEventEmitter,
+    }
+})
 
 describe('executeCLINode', () => {
     let shell: PersistentShell

@@ -88,9 +88,7 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
                                 onValueChange={value => setOpenItemId(value || '')}
                             >
                                 <AccordionItem value={node.id}>
-                                    <AccordionTrigger>
-                                        {index + 1}. {node.data.title}
-                                    </AccordionTrigger>
+                                    <AccordionTrigger>{node.data.title}</AccordionTrigger>
                                     <AccordionContent>
                                         {nodeResults.has(node.id) && (
                                             <div className="tw-mt-1">

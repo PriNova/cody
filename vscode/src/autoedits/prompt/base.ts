@@ -1,16 +1,20 @@
+import type * as vscode from 'vscode'
+
 import type {
     AutoEditsTokenLimit,
     AutocompleteContextSnippet,
+    CodeToReplaceData,
     PromptString,
 } from '@sourcegraph/cody-shared'
 
 import type { AutoeditsPrompt } from '../adapters/base'
 
 import { SYSTEM_PROMPT } from './constants'
-import { type CurrentFilePromptComponents, getCompletionsPromptWithSystemPrompt } from './prompt-utils'
+import { getCompletionsPromptWithSystemPrompt } from './prompt-utils'
 
-export interface UserPromptArgs
-    extends Pick<CurrentFilePromptComponents, 'areaPrompt' | 'fileWithMarkerPrompt'> {
+export interface UserPromptArgs {
+    document: vscode.TextDocument
+    codeToReplaceData: CodeToReplaceData
     context: AutocompleteContextSnippet[]
     tokenBudget: AutoEditsTokenLimit
 }
@@ -20,7 +24,7 @@ export interface UserPromptForModelArgs extends UserPromptArgs {
 }
 
 /**
- * Class for generating user prompts in auto-edits functionality.
+ * Class for generating user prompts in auto-edit functionality.
  * The major difference between different strategy is the prompt rendering.
  */
 export abstract class AutoeditsUserPromptStrategy {

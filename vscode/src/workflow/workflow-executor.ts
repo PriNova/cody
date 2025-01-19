@@ -22,13 +22,13 @@ import {
     type WorkflowNodes,
 } from '../../webviews/workflow/components/nodes/Nodes'
 import type { WorkflowFromExtension } from '../../webviews/workflow/services/WorkflowProtocol'
-import { StringBuilder } from '../chat/agentic/CodyChatAgent'
 import { ChatController, type ChatSession } from '../chat/chat-view/ChatController'
 import { type ContextRetriever, toStructuredMentions } from '../chat/chat-view/ContextRetriever'
 import { getCorpusContextItemsForEditorState } from '../chat/initialContext'
 import { PersistentShell } from '../commands/context/shell'
 import { executeChat } from '../commands/execute/ask'
 import { processGraphComposition } from './node-sorting'
+import { StringBuilder } from './utils'
 
 interface IndexedEdges {
     bySource: Map<string, Edge[]>
@@ -100,7 +100,7 @@ export async function executeWorkflow(
     for (const node of sortedNodes) {
         if (node.type === NodeType.LOOP_START) {
             context.loopStates.set(node.id, {
-                currentIteration: 0,
+                currentIteration: -1,
                 maxIterations: (node as LoopStartNode).data.iterations,
                 variable: (node as LoopStartNode).data.loopVariable,
             })
@@ -121,11 +121,9 @@ export async function executeWorkflow(
             switch (node.type) {
                 case NodeType.CLI: {
                     try {
-                        const inputs = combineParentOutputsByConnectionOrder(
-                            node.id,
-
-                            context
-                        ).map(output => sanitizeForShell(output))
+                        const inputs = combineParentOutputsByConnectionOrder(node.id, context).map(
+                            output => sanitizeForShell(output)
+                        )
                         const command = (node as CLINode).data.content
                             ? replaceIndexedInputs((node as CLINode).data.content, inputs, context)
                             : ''
@@ -242,12 +240,13 @@ export async function executeWorkflow(
                     break
                 }
                 case NodeType.LOOP_START: {
+                    const inputs = combineParentOutputsByConnectionOrder(node.id, context)
+
                     const loopState = context.loopStates.get(node.id) || {
-                        currentIteration: 1,
+                        currentIteration: -1,
                         maxIterations: (node as LoopStartNode).data.iterations,
                         variable: (node as LoopStartNode).data.loopVariable,
                     }
-                    result = String(loopState.currentIteration + 1)
 
                     // Only increment for next iteration if not at max
                     if (loopState.currentIteration < loopState.maxIterations) {
@@ -256,6 +255,7 @@ export async function executeWorkflow(
                             currentIteration: loopState.currentIteration + 1,
                         })
                     }
+                    result = await executePreviewNode(inputs.join('\n'), node.id, webview, context)
                     break
                 }
                 case NodeType.LOOP_END: {
@@ -340,44 +340,6 @@ export function createEdgeIndex(edges: Edge[]): IndexedEdges {
     }
 
     return { bySource, byTarget, byId }
-}
-
-/**
- * Performs a topological sort on a set of workflow nodes and edges, returning the nodes in the sorted order.
- *
- * @param nodes - An array of workflow nodes.
- * @param edges - An array of edges connecting the workflow nodes.
- * @returns The workflow nodes in topologically sorted order.
- */
-export function topologicalSort(nodes: WorkflowNodes[], edges: Edge[]): WorkflowNodes[] {
-    const edgeIndex = createEdgeIndex(edges)
-    const nodeIndex = new Map(nodes.map(node => [node.id, node]))
-    const inDegree = new Map<string, number>()
-
-    // Initialize inDegree using indexed lookups
-    for (const node of nodes) {
-        inDegree.set(node.id, edgeIndex.byTarget.get(node.id)?.length || 0)
-    }
-
-    const sourceNodes = nodes.filter(node => inDegree.get(node.id) === 0)
-    const queue = sourceNodes.map(node => node.id)
-    const result: string[] = []
-
-    while (queue.length > 0) {
-        const nodeId = queue.shift()!
-        result.push(nodeId)
-
-        const outgoingEdges = edgeIndex.bySource.get(nodeId) || []
-        for (const edge of outgoingEdges) {
-            const targetInDegree = inDegree.get(edge.target)! - 1
-            inDegree.set(edge.target, targetInDegree)
-            if (targetInDegree === 0) {
-                queue.push(edge.target)
-            }
-        }
-    }
-
-    return result.map(id => nodeIndex.get(id)!).filter(Boolean)
 }
 
 /**
@@ -472,13 +434,8 @@ export async function executeCLINode(
 
     const homeDir = os.homedir() || process.env.HOME || process.env.USERPROFILE || ''
 
-    const filteredCommand =
+    let filteredCommand =
         (node as CLINode).data.content?.replaceAll(/(\s~\/)/g, ` ${homeDir}${path.sep}`) || ''
-
-    // Replace double quotes with single quotes, preserving any existing escaped quotes
-    const convertQuotes = filteredCommand.replace(/(?<!\\)"/g, "'")
-
-    let commandToExecute = convertQuotes
 
     if (node.data.needsUserApproval) {
         await webview.postMessage({
@@ -486,23 +443,23 @@ export async function executeCLINode(
             data: {
                 nodeId: node.id,
                 status: 'pending_approval',
-                result: `${commandToExecute}`,
+                result: `${filteredCommand}`,
             },
         } as WorkflowFromExtension)
 
         const approval = await approvalHandler(node.id)
         if (approval.command) {
-            commandToExecute = approval.command
+            filteredCommand = approval.command
         }
     }
 
-    if (commandsNotAllowed.some(cmd => convertQuotes.startsWith(cmd))) {
+    if (commandsNotAllowed.some(cmd => filteredCommand.startsWith(cmd))) {
         void vscode.window.showErrorMessage('Cody cannot execute this command')
         throw new Error('Cody cannot execute this command')
     }
 
     try {
-        const result = await persistentShell.execute(commandToExecute, abortSignal)
+        const result = await persistentShell.execute(filteredCommand, abortSignal)
         return result
     } catch (error: unknown) {
         persistentShell.dispose()
@@ -666,6 +623,7 @@ async function executeSearchContextNode(
     contextRetriever: Pick<ContextRetriever, 'retrieveContext'>,
     abortSignal: AbortSignal
 ): Promise<string[]> {
+    abortSignal.throwIfAborted()
     const corpusItems = await firstValueFrom(getCorpusContextItemsForEditorState())
     if (corpusItems === pendingOperation || corpusItems.length === 0) {
         return ['']
@@ -694,7 +652,7 @@ async function executeSearchContextNode(
 
 // #endregion 4 Search Context Node Execution */
 
-// #region 5 Search Node Execution */
+// #region 5 Cody Output Node Execution */
 /**
  * Executes an output node in the workflow, which involves continuing a chat session and waiting for new messages.
  *
@@ -746,7 +704,7 @@ async function executeCodyOutputNode(
     })
 }
 
-// #endregion 5 Search Node Execution */
+// #endregion 5 Cody Output Node Execution */
 
 /**
  * Converts an array of strings representing context items into an array of `ContextItem` objects.
@@ -780,8 +738,32 @@ function stringToContextItems(input: string[]): ContextItem[] {
  */
 export function sanitizeForShell(input: string): string {
     // Only escape backslashes and ${} template syntax
-    return input.replace(/\\/g, '\\\\').replace(/\${/g, '\\${')
+    return input.replace(/\\/g, '\\\\').replace(/\${/g, '\\${').replace(/"/g, '\\"')
 }
+
+/** 
+return (
+        input
+            .replace(/\\/g, '\\\\') // Escape backslashes
+            .replace(/\${/g, '\\${') // Escape ${
+            .replace(/"/g, '\\"') // Escape double quotes
+            .replace(/`/g, '\\`') // Escape backticks
+            //.replace(/'/g, `'\\''`) // Escape single quotes
+            .replace(/;/g, '\\;') // Escape semicolons
+            .replace(/&/g, '\\&') // Escape ampersands
+            //.replace(/\|/g, '\\|') // Escape pipes
+            .replace(/</g, '\\<') // Escape less than
+            .replace(/>/g, '\\>') // Escape greater than
+            .replace(/\(/g, '\\(') // Escape opening parenthesis
+            .replace(/\)/g, '\\)') // Escape closing parenthesis
+            .replace(/!/g, '\\!') // Escape exclamation mark
+            .replace(/\?/g, '\\?') // Escape question mark
+            
+            //.replace(/\n/g, '\\n') // Escape newline
+ *           .replace(/\t/g, '\\t') // Escape tab
+ *           .replace(/\$/g, '\\$') // Escape literal dollar sign
+    )
+    **/
 
 /**
  * Sanitizes a given input string by escaping ${} template syntax.

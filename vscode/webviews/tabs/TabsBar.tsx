@@ -35,6 +35,8 @@ interface TabsBarProps {
     currentView: View
     setView: (view: View) => void
     endpointHistory: string[]
+    // Whether to show the Sourcegraph Teams upgrade CTA or not.
+    isTeamsUpgradeCtaEnabled?: boolean
 }
 
 type IconComponent = React.ForwardRefExoticComponent<
@@ -158,6 +160,7 @@ export const TabsBar = memo<TabsBarProps>(props => {
                                 endpointHistory={endpointHistory}
                                 allowEndpointChange={allowEndpointChange}
                                 className="!tw-opacity-100 tw-h-full"
+                                isTeamsUpgradeCtaEnabled={props.isTeamsUpgradeCtaEnabled}
                             />
                         )}
                     </div>

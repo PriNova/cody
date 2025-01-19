@@ -1,32 +1,31 @@
 import type { AgentToolboxSettings, WebviewToExtensionAPI } from '@sourcegraph/cody-shared'
-import { FlaskConicalIcon, FlaskConicalOffIcon } from 'lucide-react'
-import { type FC, memo, useCallback, useEffect, useState } from 'react'
+import { debounce } from 'lodash'
+import { BrainIcon } from 'lucide-react'
+import { type FC, memo, useCallback, useState } from 'react'
+import { CODY_DOCS_CAPABILITIES_URL } from '../../../../../../src/chat/protocol'
 import { Badge } from '../../../../../components/shadcn/ui/badge'
 import { Button } from '../../../../../components/shadcn/ui/button'
-import { Command, CommandGroup, CommandList } from '../../../../../components/shadcn/ui/command'
 import { ToolbarPopoverItem } from '../../../../../components/shadcn/ui/toolbar'
 import { useTelemetryRecorder } from '../../../../../utils/telemetry'
 
 interface ToolboxButtonProps {
     api: WebviewToExtensionAPI
     settings: AgentToolboxSettings
+    isFirstMessage: boolean
 }
 
-const ToolboxOptionText = {
-    agentic:
-        'Enhances responses by searching your codebase and using available tools to gather relevant context.',
-    terminal: 'Execute command automatically for context. Enable with caution as mistakes are possible.',
-}
-
-export const ToolboxButton: FC<ToolboxButtonProps> = memo(({ settings, api }) => {
+/**
+ * A button component that provides a UI for managing agent context settings.
+ * Displays a popover with toggles for agentic chat and terminal access.
+ * Includes experimental features with appropriate warnings and documentation links.
+ *
+ * @param settings - The current agent toolbox settings
+ * @param api - API interface for communicating with the extension
+ */
+export const ToolboxButton: FC<ToolboxButtonProps> = memo(({ settings, api, isFirstMessage }) => {
     const telemetryRecorder = useTelemetryRecorder()
 
     const [isLoading, setIsLoading] = useState(false)
-    const [settingsForm, setSettingsForm] = useState<AgentToolboxSettings>(settings)
-
-    useEffect(() => {
-        setSettingsForm(settings)
-    }, [settings])
 
     const onOpenChange = useCallback(
         (open: boolean): void => {
@@ -34,36 +33,33 @@ export const ToolboxButton: FC<ToolboxButtonProps> = memo(({ settings, api }) =>
                 telemetryRecorder.recordEvent('cody.toolboxSettings', 'opened', {
                     billingMetadata: { product: 'cody', category: 'billable' },
                 })
-            } else {
-                // Reset form to original settings when closing
-                setSettingsForm(settings)
             }
         },
-        [telemetryRecorder.recordEvent, settings]
+        [telemetryRecorder.recordEvent]
     )
 
-    const onSubmit = useCallback(
-        (close: () => void) => {
+    const debouncedSubmit = useCallback(
+        debounce((newSettings: AgentToolboxSettings) => {
+            if (isLoading) {
+                return
+            }
             setIsLoading(true)
-
-            if (settings !== settingsForm) {
+            if (settings !== newSettings) {
                 telemetryRecorder.recordEvent('cody.toolboxSettings', 'updated', {
                     billingMetadata: { product: 'cody', category: 'billable' },
                     metadata: {
-                        agent: settingsForm.agent?.name ? 1 : 0,
-                        shell: settingsForm.shell?.enabled ? 1 : 0,
+                        agent: newSettings.agent?.name ? 1 : 0,
+                        shell: newSettings.shell?.enabled ? 1 : 0,
                     },
                 })
             }
-
-            const subscription = api.updateToolboxSettings(settingsForm).subscribe({
+            const subscription = api.updateToolboxSettings(newSettings).subscribe({
                 next: () => {
                     setIsLoading(false)
                     close()
                 },
                 error: error => {
                     console.error('updateToolboxSettings:', error)
-                    setSettingsForm(settings)
                     setIsLoading(false)
                 },
                 complete: () => {
@@ -73,117 +69,139 @@ export const ToolboxButton: FC<ToolboxButtonProps> = memo(({ settings, api }) =>
             return () => {
                 subscription.unsubscribe()
             }
-        },
-        [api.updateToolboxSettings, settingsForm, settings, telemetryRecorder]
+        }, 500), // 500ms delay between calls
+        []
     )
+
+    function onSubmit(newSettings: AgentToolboxSettings): void {
+        setIsLoading(true)
+        debouncedSubmit(newSettings)
+    }
 
     return (
         <div className="tw-flex tw-items-center">
             <ToolbarPopoverItem
                 role="combobox"
-                iconEnd={null}
+                iconEnd="chevron"
                 className="tw-opacity-100"
                 tooltip="Chat Settings"
                 aria-label="Chat Settings"
-                popoverContent={close => (
-                    <Command>
-                        <CommandList>
-                            <header className="tw-flex tw-justify-between tw-px-6 tw-py-3 tw-border-t tw-border-border tw-bg-muted tw-w-full">
-                                <h2 className="tw-text-md tw-font-semibold">Agentic Context</h2>
-                                <Badge variant="secondary">Experimental</Badge>
-                            </header>
-                            <CommandGroup className="tw-p-6">
-                                <div className="tw-container tw-flex tw-gap-2 tw-align-baseline">
-                                    <div className="tw-flex tw-flex-1 tw-flex-col tw-gap-2 tw-w-full">
-                                        <div className="tw-flex tw-flex-1 tw-w-full tw-items-center tw-justify-between">
-                                            <h3 className="tw-text-sm">Agentic Chat</h3>
-                                            <Switch
-                                                checked={!!settingsForm.agent?.name}
-                                                onChange={() =>
-                                                    setSettingsForm({
-                                                        ...settingsForm,
-                                                        agent: {
-                                                            name: settingsForm.agent?.name
-                                                                ? undefined
-                                                                : 'deep-cody', // TODO: update name when finalized.
-                                                        },
-                                                    })
-                                                }
-                                            />
-                                        </div>
-                                        <div className="tw-flex tw-flex-1 tw-w-full tw-items-center tw-justify-between">
-                                            <h3 className="tw-text-sm tw-inline-flex tw-gap-2">
-                                                Terminal Context
-                                                {settingsForm.shell?.error && (
-                                                    <Badge
-                                                        variant="info"
-                                                        className="tw-text-xs"
-                                                        title={settingsForm.shell?.error}
-                                                    >
-                                                        Unavailable
-                                                    </Badge>
-                                                )}
-                                            </h3>
-                                            <Switch
-                                                checked={settingsForm.shell?.enabled}
-                                                disabled={!!settings.shell?.error}
-                                                onChange={() =>
-                                                    setSettingsForm({
-                                                        ...settingsForm,
-                                                        shell: {
-                                                            enabled:
-                                                                !!settingsForm.agent?.name &&
-                                                                !settingsForm.shell?.enabled,
-                                                        },
-                                                    })
-                                                }
-                                            />
-                                        </div>
-                                        <div className="tw-text-xs tw-mb-4 tw-text-muted-foreground">
-                                            {ToolboxOptionText.terminal}
-                                        </div>
+                popoverContent={_close => (
+                    <div id="accordion-collapse" data-accordion="collapse" className="tw-w-full">
+                        <h2 id="accordion-collapse-heading">
+                            <div
+                                className="tw-flex tw-items-center tw-justify-between tw-w-full tw-py-3 tw-px-5 tw-font-medium tw-border tw-border-border tw-rounded-t-md tw-focus:ring-4 tw-focus:ring-gray-200 tw-gap-3 tw-bg-[color-mix(in_lch,currentColor_10%,transparent)]"
+                                title="Agentic Chat Context"
+                            >
+                                <span className="tw-flex tw-gap-2 tw-items-center">
+                                    <span className="tw-font-semibold tw-text-md">Agentic chat</span>
+                                    <Badge variant="secondary" className="tw-text-xs">
+                                        Experimental
+                                    </Badge>
+                                </span>
+                                <Switch
+                                    disabled={isLoading}
+                                    checked={settings.agent?.name !== undefined}
+                                    onChange={() =>
+                                        onSubmit({
+                                            ...settings,
+                                            agent: {
+                                                name: settings.agent?.name ? undefined : 'deep-cody', // TODO: update name when finalized.
+                                            },
+                                        })
+                                    }
+                                />
+                            </div>
+                        </h2>
+                        <div
+                            id="accordion-collapse-body"
+                            className="tw-ml-5 tw-p-5 tw-flex tw-flex-col tw-gap-3 tw-my-2"
+                        >
+                            <div className="tw-text-xs">
+                                <span>
+                                    Agentic chat reflects on your request and uses tools to dynamically
+                                    retrieve relevant context, improving accuracy and response quality.
+                                    <a
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        href={CODY_DOCS_CAPABILITIES_URL.href} // TODO: Replace with CODY_DOCS_AGENTIC_CHAT_URL
+                                    >
+                                        Read the docs
+                                    </a>{' '}
+                                    to learn more.
+                                </span>
+                            </div>
+                            {/* Seperator */}
+                            {settings.agent?.name && !settings.shell?.error && (
+                                <div className="tw-border-b tw-border-border tw-my-2" />
+                            )}
+                            {/* Only shows the Terminal access option if client and instance supports it */}
+                            {settings.agent?.name && !settings.shell?.error && (
+                                <div>
+                                    <div
+                                        className="tw-flex tw-items-center tw-justify-between tw-w-full tw-font-medium tw-gap-3"
+                                        aria-label="terminal"
+                                    >
+                                        <span className="tw-flex tw-gap-2 tw-items-center">
+                                            <span className="tw-font-semibold tw-text-md">
+                                                Terminal access
+                                            </span>
+                                        </span>
+                                        <Switch
+                                            checked={settings.shell?.enabled}
+                                            disabled={isLoading || !!settings.shell?.error}
+                                            onChange={() =>
+                                                onSubmit({
+                                                    ...settings,
+                                                    shell: {
+                                                        enabled:
+                                                            !!settings.agent?.name &&
+                                                            !settings.shell?.enabled,
+                                                    },
+                                                })
+                                            }
+                                        />
+                                    </div>
+                                    <div className="tw-text-xs tw-mt-2">
+                                        Allows agents to execute commands like <code>ls</code>,{' '}
+                                        <code>dir</code>, <code>git</code>, and other commands for
+                                        context. The agent will ask permission each time it would like to
+                                        run a command.
                                     </div>
                                 </div>
-                            </CommandGroup>
-                        </CommandList>
-                        <footer className="tw-flex tw-justify-end tw-px-6 tw-py-2 tw-border-t tw-border-border tw-bg-muted tw-w-full">
-                            <Button onClick={close} variant="secondary" size="xs" disabled={isLoading}>
-                                Cancel
-                            </Button>
-                            <Button
-                                onClick={() => onSubmit(close)}
-                                variant="default"
-                                disabled={isLoading}
-                                size="xs"
-                                className="tw-ml-4"
-                            >
-                                {isLoading ? 'Saving...' : 'Save'}
-                            </Button>
-                        </footer>
-                    </Command>
+                            )}
+                        </div>
+                    </div>
                 )}
                 popoverRootProps={{ onOpenChange }}
                 popoverContentProps={{
-                    className: 'tw-w-[350px] !tw-p-0 tw-mr-2',
+                    className: 'tw-w-[350px] !tw-p-0 tw-mr-4',
                     onCloseAutoFocus: event => {
                         event.preventDefault()
                     },
                 }}
             >
-                <Button variant="ghost" size="none" className="hover:!tw-bg-transparent">
+                <Button
+                    variant="ghost"
+                    size="none"
+                    className={`${
+                        settings.agent?.name ? 'tw-text-foreground' : 'tw-text-muted-foreground'
+                    } hover:!tw-bg-transparent`}
+                >
                     {settings.agent?.name ? (
-                        <FlaskConicalIcon
+                        <BrainIcon
                             size={16}
-                            strokeWidth={1.25}
+                            strokeWidth={2}
                             className="tw-w-8 tw-h-8 tw-text-green-600 tw-drop-shadow-md"
                         />
                     ) : (
-                        <FlaskConicalOffIcon
+                        <BrainIcon
                             size={16}
-                            strokeWidth={1.25}
+                            strokeWidth={2}
                             className="tw-w-8 tw-h-8 tw-text-muted-foreground"
                         />
                     )}
+                    {isFirstMessage && <span className="tw-font-semibold">agentic chat</span>}
                 </Button>
             </ToolbarPopoverItem>
         </div>

@@ -18,6 +18,7 @@ import {
     telemetryRecorder,
     wrapInActiveSpan,
 } from '@sourcegraph/cody-shared'
+import { getContextFromRelativePath } from '../../commands/context/file-path'
 import { forkSignal } from '../../completions/utils'
 import { getCategorizedMentions, isUserAddedItem } from '../../prompt-builder/utils'
 import type { ChatBuilder } from '../chat-view/ChatBuilder'
@@ -64,22 +65,31 @@ export class DeepCodyAgent {
     constructor(
         protected readonly chatBuilder: ChatBuilder,
         protected readonly chatClient: Pick<ChatClient, 'chat'>,
-        statusUpdateCallback: (steps: ProcessingStep[]) => void
+        statusUpdateCallback: (steps: ProcessingStep[]) => void,
+        postRequest: (step: ProcessingStep) => Promise<boolean>
     ) {
         // Initialize tools, handlers and mixins in constructor
         this.tools = CodyToolProvider.getTools()
         this.initializeMultiplexer(this.tools)
         this.buildPrompt(this.tools)
-        this.stepsManager = new ProcessManager(steps => statusUpdateCallback(steps))
+
+        this.stepsManager = new ProcessManager(
+            steps => statusUpdateCallback(steps),
+            step => postRequest(step)
+        )
+
         this.statusCallback = {
-            onStart: () => {
-                this.stepsManager.initializeStep()
+            onUpdate: (id, content) => {
+                this.stepsManager.updateStep(id, content)
             },
-            onStream: (toolName, content) => {
-                this.stepsManager.addStep(toolName, content)
+            onStream: step => {
+                this.stepsManager.addStep(step)
             },
-            onComplete: (toolName, error) => {
-                this.stepsManager.completeStep(toolName, error)
+            onComplete: (id, error) => {
+                this.stepsManager.completeStep(id, error)
+            },
+            onConfirmationNeeded: async (id, step) => {
+                return this.stepsManager.addConfirmationStep(id, step)
             },
         }
     }
@@ -89,8 +99,11 @@ export class DeepCodyAgent {
      */
     protected initializeMultiplexer(tools: CodyTool[]): void {
         for (const tool of tools) {
-            this.multiplexer.sub(tool.config.tags.tag.toString(), {
-                onResponse: async (content: string) => tool.stream(content),
+            const { tags } = tool.config
+            this.multiplexer.sub(tags.tag.toString(), {
+                onResponse: async (content: string) => {
+                    tool.stream(content)
+                },
                 onTurnComplete: async () => {},
             })
         }
@@ -144,7 +157,6 @@ export class DeepCodyAgent {
         maxLoops = 2
     ): Promise<ContextItem[]> {
         span.setAttribute('sampled', true)
-        this.statusCallback?.onStart()
         const startTime = performance.now()
         await this.reviewLoop(requestID, span, chatAbortSignal, maxLoops)
         telemetryRecorder.recordEvent('cody.deep-cody.context', 'reviewed', {
@@ -164,7 +176,6 @@ export class DeepCodyAgent {
                 category: 'billable',
             },
         })
-        this.statusCallback?.onComplete()
         return this.context
     }
 
@@ -177,15 +188,17 @@ export class DeepCodyAgent {
         span.addEvent('reviewLoop')
         for (let i = 0; i < maxLoops && !chatAbortSignal.aborted; i++) {
             this.stats.loop++
+            const step = this.stepsManager.addStep({ title: 'Reflecting' })
             const newContext = await this.review(requestID, span, chatAbortSignal)
+            this.statusCallback.onComplete(step.id)
             if (!newContext.length) break
-
             // Filter and add new context items in one pass
             const validItems = newContext.filter(c => c.title !== 'TOOLCONTEXT')
             this.context.push(...validItems)
             this.stats.context += validItems.length
             if (newContext.every(isUserAddedItem)) break
         }
+        this.statusCallback.onComplete()
     }
 
     /**
@@ -204,16 +217,17 @@ export class DeepCodyAgent {
         chatAbortSignal: AbortSignal
     ): Promise<ContextItem[]> {
         const prompter = this.getPrompter(this.context)
-        const promptData = await prompter.makePrompt(this.chatBuilder, 1, this.promptMixins)
+        const { prompt } = await prompter.makePrompt(this.chatBuilder, 1, this.promptMixins)
         span.addEvent('sendReviewRequest')
         try {
-            const res = await this.processStream(
-                requestID,
-                promptData.prompt,
-                chatAbortSignal,
-                DeepCodyAgent.model
-            )
-            if (!res) return []
+            const res = await this.processStream(requestID, prompt, chatAbortSignal, DeepCodyAgent.model)
+            // If the response is empty or only contains the answer token, it's ready to answer.
+            if (!res || isReadyToAnswer(res)) {
+                return []
+            }
+
+            const step = this.stepsManager.addStep({ title: 'Retrieving context' })
+
             const results = await Promise.all(
                 this.tools.map(async tool => {
                     try {
@@ -233,40 +247,52 @@ export class DeepCodyAgent {
                 })
             )
 
-            const reviewed = []
-
-            // Extract all the strings from between tags.
-            const valid = RawTextProcessor.extract(res, ACTIONS_TAGS.CONTEXT.toString())
-            for (const contextName of valid || []) {
-                const foundValidatedItems = this.context.filter(c => c.uri.path.endsWith(contextName))
-                for (const found of foundValidatedItems) {
-                    reviewed.push({ ...found, source: ContextItemSource.Agentic })
-                }
+            const newContext = results.flat().filter(isDefined)
+            if (newContext.length > 0) {
+                this.stats.context = this.stats.context + newContext.length
+                this.statusCallback.onUpdate(step.id, `fetched ${toPlural(newContext.length, 'item')}`)
             }
 
-            // Replace the current context list with the reviewed context.
-            if (valid.length + reviewed.length > 0) {
-                reviewed.push(...this.context.filter(c => isUserAddedItem(c)))
+            const reviewed = []
+            const currentContext = [
+                ...this.context,
+                ...this.chatBuilder
+                    .getDehydratedMessages()
+                    .flatMap(m => (m.contextFiles ? [...m.contextFiles].reverse() : []))
+                    .filter(isDefined),
+            ]
+            // Extract context items that are enclosed with context tags from the response.
+            // We will validate the context items by checking if the context item is in the current context,
+            // which is a list of context that we have fetched in this round, and the ones from user's current
+            // chat session.
+            const contextNames = RawTextProcessor.extract(res, contextTag)
+            for (const contextName of contextNames) {
+                for (const item of currentContext) {
+                    if (item.uri.path.endsWith(contextName)) {
+                        // Try getting the full content for the requested file.
+                        const file = (await getContextFromRelativePath(contextName)) || item
+                        reviewed.push({ ...file, source: ContextItemSource.Agentic })
+                    }
+                }
+            }
+            // When there are context items matched, we will replace the current context with
+            // the reviewed context list, but first we will make sure all the user added context
+            // items are not removed from the updated context list. We will let the prompt builder
+            // at the final stage to do the unique context check.
+            if (reviewed.length > 0) {
+                this.statusCallback.onStream({
+                    title: 'Optimizing context',
+                    content: `selected ${toPlural(reviewed.length, 'item')}`,
+                })
+                const userAdded = this.context.filter(c => isUserAddedItem(c))
+                reviewed.push(...userAdded)
                 this.context = reviewed
             }
 
-            // If the response is empty or contains the known token, the context is sufficient.
-            if (res?.includes(ACTIONS_TAGS.ANSWER.toString())) {
-                // Process the response without generating any context items.
-                for (const tool of this.tools) {
-                    tool.processResponse?.()
-                }
-                return reviewed
-            }
-
-            const newContextFetched = results.flat().filter(isDefined)
-            this.stats.context = this.stats.context + newContextFetched.length
-            return newContextFetched
+            return newContext
         } catch (error) {
             await this.multiplexer.notifyTurnComplete()
-            logDebug('Deep Cody', `context review failed: ${error}`, {
-                verbose: { prompt: promptData.prompt, error },
-            })
+            logDebug('Deep Cody', `context review failed: ${error}`, { verbose: { prompt, error } })
             return []
         }
     }
@@ -356,3 +382,8 @@ export class RawTextProcessor {
         return PromptString.join(prompts, connector)
     }
 }
+
+const answerTag = ACTIONS_TAGS.ANSWER.toString()
+const contextTag = ACTIONS_TAGS.CONTEXT.toString()
+const isReadyToAnswer = (text: string) => text === `<${answerTag}>`
+const toPlural = (num: number, text: string) => `${num} ${text}${num > 1 ? 's' : ''}`

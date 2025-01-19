@@ -17,8 +17,19 @@ export type TokenSource = 'redirect' | 'paste'
  */
 export interface AuthCredentials {
     serverEndpoint: string
-    accessToken: string | null
-    tokenSource?: TokenSource | undefined
+    credentials: HeaderCredential | TokenCredential | undefined
+    error?: any
+}
+
+export interface HeaderCredential {
+    // We use function instead of property to prevent accidential top level serialization - we never want to store this data
+    getHeaders(): Record<string, string>
+    expiration: number | undefined
+}
+
+export interface TokenCredential {
+    token: string
+    source?: TokenSource
 }
 
 export interface AutoEditsTokenLimit {
@@ -32,13 +43,13 @@ export interface AutoEditsTokenLimit {
 }
 
 /**
- * Configuration for the auto-edits model provider.
- * Used to configure the model provider for auto-edits functionality in the VS Code extension.
+ * Configuration for the auto-edit model provider.
+ * Used to configure the model provider for auto-edit functionality in the VS Code extension.
  */
 export interface AutoEditsModelConfig {
-    /** The provider service to use for auto-edits. Can be 'openai', 'fireworks', 'cody-gateway', or 'sourcegraph' */
+    /** The provider service to use for auto-edit. Can be 'openai', 'fireworks', 'cody-gateway', or 'sourcegraph' */
     provider: 'openai' | 'fireworks' | 'cody-gateway' | 'sourcegraph'
-    /** The specific model identifier to use for auto-edits */
+    /** The specific model identifier to use for auto-edit */
     model: string
     /** The endpoint URL for the provider's API */
     url: string
@@ -69,6 +80,19 @@ export interface AgenticContextConfiguration {
         allow?: string[] | undefined | null
         block?: string[] | undefined | null
     }
+}
+
+export interface ExternalAuthCommand {
+    commandLine: readonly string[]
+    environment?: Record<string, string>
+    shell?: string
+    timeout?: number
+    windowsHide?: boolean
+}
+
+export interface ExternalAuthProvider {
+    endpoint: string
+    executable: ExternalAuthCommand
 }
 
 interface RawClientConfiguration {
@@ -104,9 +128,9 @@ interface RawClientConfiguration {
 
     experimentalTracing: boolean
     experimentalSupercompletions: boolean
-    experimentalAutoeditsRendererTesting: boolean
-    experimentalAutoeditsConfigOverride: AutoEditsModelConfig | undefined
-    experimentalAutoeditsEnabled: boolean
+    experimentalAutoEditRendererTesting: boolean
+    experimentalAutoEditConfigOverride: AutoEditsModelConfig | undefined
+    experimentalAutoEditEnabled: boolean
     experimentalCommitMessage: boolean
     experimentalNoodle: boolean
     experimentalMinionAnthropicKey: string | undefined
@@ -165,6 +189,8 @@ interface RawClientConfiguration {
      */
     overrideServerEndpoint?: string | undefined
     overrideAuthToken?: string | undefined
+
+    authExternalProviders: ExternalAuthProvider[]
     chatTemperature: number
     experimentalChatContextIncludeReadme: boolean
 }
@@ -200,7 +226,7 @@ export enum CodyAutoSuggestionMode {
     /**
      * The suggestion mode where suggestions come from the Cody AI agent chat API.
      */
-    Autoedits = 'auto-edits (Experimental)',
+    Autoedit = 'auto-edit (Experimental)',
     /**
      * Disable Cody suggestions altogether.
      */

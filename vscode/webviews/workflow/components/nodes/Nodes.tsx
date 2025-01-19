@@ -234,8 +234,8 @@ const getBorderColor = (
     if (interrupted) return 'var(--vscode-charts-orange)'
     if (error) return 'var(--vscode-inputValidation-errorBorder)'
     if (executing) return 'var(--vscode-charts-yellow)'
-    if (moving) return 'var(--vscode-focusBorder)'
-    if (selected) return 'var(--vscode-testing-iconPassed)'
+    //if (moving) return 'var(--vscode-focusBorder)'
+    if (selected || moving) return 'var(--vscode-testing-iconPassed)'
     // Node type specific colors
     switch (type) {
         case NodeType.PREVIEW:
@@ -295,9 +295,30 @@ export const PreviewNode: React.FC<BaseNodeProps & { tokenCount?: number }> = ({
         >
             <Handle type="target" position={Position.Top} />
             <div className="tw-flex tw-flex-col tw-gap-2">
-                <div className="tw-flex tw-justify-between tw-items-center">
-                    <span>{data.title}</span>
-                    <span className="tw-text-sm tw-opacity-70">Tokens: {data.tokenCount || 0}</span>
+                <div className="tw-flex tw-flex-col">
+                    <div
+                        className="tw-text-center tw-py-1 tw-mb-2 tw-rounded-t-sm tw-font-bold"
+                        style={{
+                            backgroundColor: getBorderColor(NodeType.PREVIEW, {
+                                error: data.error,
+                                executing: data.executing,
+                                moving: data.moving,
+                                selected,
+                                interrupted: data.interrupted,
+                                active: data.active,
+                            }),
+                            color: 'var(--vscode-dropdown-foreground)',
+                            marginLeft: '-0.5rem',
+                            marginRight: '-0.5rem',
+                            marginTop: '-0.5rem',
+                        }}
+                    >
+                        PREVIEW
+                    </div>
+                    <div className="tw-flex tw-justify-between tw-items-center">
+                        <span>{data.title}</span>
+                        <span className="tw-text-sm tw-opacity-70">Tokens: {data.tokenCount || 0}</span>
+                    </div>
                 </div>
                 <Textarea
                     className="tw-w-full tw-h-24 tw-p-2 tw-rounded nodrag tw-resize tw-border-2 tw-border-solid tw-border-[var(--xy-node-border-default)]"
@@ -330,6 +351,27 @@ export const InputNode: React.FC<BaseNodeProps> = ({ data, selected }) => (
     >
         <Handle type="target" position={Position.Top} />
         <div className="tw-flex tw-flex-col tw-gap-2">
+            <div className="tw-flex tw-flex-col">
+                <div
+                    className="tw-text-center tw-py-1 tw-mb-2 tw-rounded-t-sm tw-font-bold"
+                    style={{
+                        backgroundColor: getBorderColor(NodeType.INPUT, {
+                            error: data.error,
+                            executing: data.executing,
+                            moving: data.moving,
+                            selected,
+                            interrupted: data.interrupted,
+                            active: data.active,
+                        }),
+                        color: 'var(--vscode-dropdown-background)',
+                        marginLeft: '-0.5rem',
+                        marginRight: '-0.5rem',
+                        marginTop: '-0.5rem',
+                    }}
+                >
+                    TEXT
+                </div>
+            </div>
             <span>{data.title}</span>
             <Textarea
                 className="tw-w-full tw-h-24 tw-p-2 tw-rounded nodrag tw-resize tw-border-2 tw-border-solid tw-border-[var(--xy-node-border-default)]"
@@ -360,7 +402,28 @@ export const SearchContextNode: React.FC<BaseNodeProps> = ({ data, selected }) =
     >
         <Handle type="target" position={Position.Top} />
         <div className="tw-flex tw-flex-col tw-gap-2">
-            <span>{data.title}</span>
+            <div className="tw-flex tw-flex-col">
+                <div
+                    className="tw-text-center tw-py-1 tw-mb-2 tw-rounded-t-sm tw-font-bold"
+                    style={{
+                        backgroundColor: getBorderColor(NodeType.INPUT, {
+                            error: data.error,
+                            executing: data.executing,
+                            moving: data.moving,
+                            selected,
+                            interrupted: data.interrupted,
+                            active: data.active,
+                        }),
+                        color: 'var(--vscode-dropdown-background)',
+                        marginLeft: '-0.5rem',
+                        marginRight: '-0.5rem',
+                        marginTop: '-0.5rem',
+                    }}
+                >
+                    SEARCH CONTEXT
+                </div>
+                <span>{data.title}</span>
+            </div>
             <Textarea
                 className="tw-w-full tw-h-24 tw-p-2 tw-rounded nodrag tw-resize tw-border-2 tw-border-solid tw-border-[var(--xy-node-border-default)]"
                 style={{
@@ -390,8 +453,29 @@ export const CLINode: React.FC<BaseNodeProps> = ({ data, selected }) => (
         )}
     >
         <Handle type="target" position={Position.Top} />
-        <div className="tw-flex tw-items-center">
-            <span>{data.title}</span>
+        <div className="tw-flex tw-flex-col">
+            <div
+                className="tw-text-center tw-py-1 tw-mb-2 tw-rounded-t-sm tw-font-bold"
+                style={{
+                    backgroundColor: getBorderColor(NodeType.CLI, {
+                        error: data.error,
+                        executing: data.executing,
+                        moving: data.moving,
+                        selected,
+                        interrupted: data.interrupted,
+                        active: data.active,
+                    }),
+                    color: 'var(--vscode-input-background)',
+                    marginLeft: '-0.5rem',
+                    marginRight: '-0.5rem',
+                    marginTop: '-0.5rem',
+                }}
+            >
+                CLI
+            </div>
+            <div className="tw-flex tw-items-center">
+                <span>{data.title}</span>
+            </div>
         </div>
         <Handle type="source" position={Position.Bottom} />
     </div>
@@ -410,8 +494,29 @@ export const CodyLLMNode: React.FC<BaseNodeProps> = ({ data, selected }) => (
         )}
     >
         <Handle type="target" position={Position.Top} />
-        <div className="tw-flex tw-items-center">
-            <span>{data.title}</span>
+        <div className="tw-flex tw-flex-col">
+            <div
+                className="tw-text-center tw-py-1 tw-mb-2 tw-rounded-t-sm tw-font-bold"
+                style={{
+                    backgroundColor: getBorderColor(NodeType.LLM, {
+                        error: data.error,
+                        executing: data.executing,
+                        moving: data.moving,
+                        selected,
+                        interrupted: data.interrupted,
+                        active: data.active,
+                    }),
+                    color: 'var(--vscode-input-background)',
+                    marginLeft: '-0.5rem',
+                    marginRight: '-0.5rem',
+                    marginTop: '-0.5rem',
+                }}
+            >
+                CODY
+            </div>
+            <div className="tw-flex tw-items-center">
+                <span>{data.title}</span>
+            </div>
         </div>
         <Handle type="source" position={Position.Bottom} />
     </div>
@@ -457,9 +562,30 @@ export const LoopStartNode: React.FC<BaseNodeProps> = ({ data, selected }) => (
         }}
     >
         <Handle type="target" position={Position.Top} />
-        <div className="tw-flex tw-flex-col tw-gap-2">
-            <span>{data.title}</span>
-            <span className="tw-text-sm tw-opacity-70">Iterations: {data.iterations || 1}</span>
+        <div className="tw-flex tw-flex-col">
+            <div
+                className="tw-text-center tw-py-1 tw-mb-2 tw-rounded-t-sm tw-font-bold"
+                style={{
+                    backgroundColor: getBorderColor(NodeType.LOOP_START, {
+                        error: data.error,
+                        executing: data.executing,
+                        moving: data.moving,
+                        selected,
+                        interrupted: data.interrupted,
+                        active: data.active,
+                    }),
+                    color: 'var(--vscode-dropdown-background)',
+                    marginLeft: '-0.5rem',
+                    marginRight: '-0.5rem',
+                    marginTop: '-0.5rem',
+                }}
+            >
+                LOOP START
+            </div>
+            <div className="tw-flex tw-flex-col tw-gap-2">
+                <span>{data.title}</span>
+                <span className="tw-text-sm tw-opacity-70">Iterations: {data.iterations || 1}</span>
+            </div>
         </div>
         <Handle type="source" position={Position.Bottom} />
     </div>
@@ -481,8 +607,29 @@ export const LoopEndNode: React.FC<BaseNodeProps> = ({ data, selected }) => (
         }}
     >
         <Handle type="target" position={Position.Top} />
-        <div className="tw-flex tw-items-center">
-            <span>{data.title}</span>
+        <div className="tw-flex tw-flex-col">
+            <div
+                className="tw-text-center tw-py-1 tw-mb-2 tw-rounded-t-sm tw-font-bold"
+                style={{
+                    backgroundColor: getBorderColor(NodeType.LOOP_END, {
+                        error: data.error,
+                        executing: data.executing,
+                        moving: data.moving,
+                        selected,
+                        interrupted: data.interrupted,
+                        active: data.active,
+                    }),
+                    color: 'var(--vscode-dropdown-background)',
+                    marginLeft: '-0.5rem',
+                    marginRight: '-0.5rem',
+                    marginTop: '-0.5rem',
+                }}
+            >
+                LOOP END
+            </div>
+            <div className="tw-flex tw-items-center">
+                <span>{data.title}</span>
+            </div>
         </div>
         <Handle type="source" position={Position.Bottom} />
     </div>
