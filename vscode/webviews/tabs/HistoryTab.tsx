@@ -173,7 +173,8 @@ export const HistoryTabWithData: React.FC<
                                 onSearch(inputValue)
                             }
                         }}
-                        className="tw-flex-1 tw-text-lg tw-text-muted-foreground [::placeholder:tw-text-sm] [::placeholder:tw-text-muted-foreground] tw-h-10"
+                        className="tw-flex-1 tw-text-sm tw-text-muted-foreground [::placeholder:tw-text-sm] [::placeholder:tw-text-muted-foreground] tw-h-10"
+                        variant="search"
                     />
                     {inputValue && (
                         <Button variant="secondary" onClick={handleReset} title="Clear search">
@@ -189,7 +190,7 @@ export const HistoryTabWithData: React.FC<
     )
 
     return (
-        <div className="tw-flex tw-flex-col tw-gap-10">
+        <div className="tw-flex tw-flex-col tw-gap-6">
             <SearchBar initialValue={debouncedSearchTerm} onSearch={setDebouncedSearchTerm} />
             {chatByPeriod.map(([period, chats]) => (
                 <CollapsiblePanel
@@ -205,15 +206,16 @@ export const HistoryTabWithData: React.FC<
                             : interactions[0]?.humanMessage?.text?.trim()
 
                         return (
-                            <div key={id} className="tw-inline-flex tw-justify-between">
+                            <div key={id} className="tw-inline-flex tw-justify-between tw-mb-2">
                                 {editingId === id ? (
-                                    <div className="tw-flex tw-w-full tw-gap-2">
-                                        <input
+                                    <div className="tw-flex tw-w-full tw-gap-2 tw-items-center">
+                                        <Input
                                             ref={inputRef}
                                             type="text"
                                             value={newTitle}
                                             onChange={e => setNewTitle(e.target.value)}
-                                            className="tw-w-full tw-px-2 tw-py-1 tw-rounded tw-bg-transparent tw-border"
+                                            className="tw-flex-1 tw-rounded tw-border tw-h-10"
+                                            variant="search"
                                             onKeyDown={e => {
                                                 if (e.key === 'Enter') {
                                                     onSaveTitle(id, newTitle)
@@ -224,12 +226,12 @@ export const HistoryTabWithData: React.FC<
                                             }}
                                         />
                                         <Button
-                                            variant="ghost"
+                                            variant="secondary"
                                             onClick={() => onSaveTitle(id, newTitle)}
                                         >
                                             Save
                                         </Button>
-                                        <Button variant="ghost" onClick={() => setEditingId(null)}>
+                                        <Button variant="secondary" onClick={() => setEditingId(null)}>
                                             Cancel
                                         </Button>
                                     </div>
