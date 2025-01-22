@@ -8,6 +8,12 @@ import type { FixupTaskID } from '../../../src/non-stop/FixupTask'
 import { CodyTaskState } from '../../../src/non-stop/state'
 import { type ClientActionListener, useClientActionListener } from '../../client/clientState'
 import { MarkdownFromCody } from '../../components/MarkdownFromCody'
+import {
+    Accordion,
+    AccordionContent,
+    AccordionItem,
+    AccordionTrigger,
+} from '../../components/shadcn/ui/accordion'
 import { getVSCodeAPI } from '../../utils/VSCodeApi'
 import { useConfig } from '../../utils/useConfig'
 import type { PriorHumanMessageInfo } from '../cells/messageCell/assistant/AssistantMessageCell'
@@ -57,6 +63,8 @@ export const ChatMessageContent: React.FunctionComponent<ChatMessageContentProps
 }) => {
     const rootRef = useRef<HTMLDivElement>(null)
     const config = useConfig()
+    const [textContent, setTextContent] = useState<string>(displayMarkdown)
+    const [textareas, setTextareas] = useState<JSX.Element[]>([])
 
     const [smartApplyStates, setSmartApplyStates] = useState<Record<FixupTaskID, CodyTaskState>>({})
     const smartApplyInterceptor = useMemo<CodeBlockActionsProps['smartApply'] | undefined>(() => {
@@ -89,6 +97,47 @@ export const ChatMessageContent: React.FunctionComponent<ChatMessageContentProps
             }
         }, [])
     )
+
+    useEffect(() => {
+        const parts: string[] = []
+        const textareaElements: JSX.Element[] = []
+        let lastIndex = 0
+
+        // Match opening thinking tags immediately
+        const matches = [...displayMarkdown.matchAll(/<thinking>/g)]
+
+        for (const match of matches) {
+            const startIndex = match.index!
+            const endIndex = displayMarkdown.indexOf('</thinking>', startIndex)
+            const thinkingContent =
+                endIndex !== -1
+                    ? displayMarkdown.slice(startIndex + '<thinking>'.length, endIndex)
+                    : displayMarkdown.slice(startIndex + '<thinking>'.length)
+
+            parts.push(displayMarkdown.slice(lastIndex, startIndex))
+            textareaElements.push(
+                <div key={`thinking-${startIndex}`} className={styles.thinkingContainer}>
+                    <Accordion type="single" collapsible defaultValue="thinking">
+                        <AccordionItem value="thinking">
+                            <AccordionTrigger className={styles.thinkingTitle}>
+                                Thinking Process
+                            </AccordionTrigger>
+                            <AccordionContent className="accordion-content">
+                                <MarkdownFromCody className={styles.content}>
+                                    {thinkingContent}
+                                </MarkdownFromCody>
+                            </AccordionContent>
+                        </AccordionItem>
+                    </Accordion>
+                </div>
+            )
+            lastIndex = endIndex !== -1 ? endIndex + '</thinking>'.length : displayMarkdown.length
+        }
+
+        parts.push(displayMarkdown.slice(lastIndex))
+        setTextContent(parts.join(''))
+        setTextareas(textareaElements)
+    }, [displayMarkdown])
 
     // See SRCH-942: this `useEffect` is very large and any update to the
     // dependencies triggers a network request to our guardrails server. Be very
@@ -218,8 +267,9 @@ export const ChatMessageContent: React.FunctionComponent<ChatMessageContentProps
 
     return (
         <div ref={rootRef} data-testid="chat-message-content">
+            {textareas}
             <MarkdownFromCody className={clsx(styles.content, className)}>
-                {displayMarkdown}
+                {textContent}
             </MarkdownFromCody>
         </div>
     )

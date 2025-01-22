@@ -1,16 +1,24 @@
 import type { GeminiChatMessage, GeminiCompletionResponse } from '.'
 import type { ChatNetworkClientParams } from '..'
-import { contextFiltersProvider, getCompletionsModelConfig, logDebug } from '../..'
+import {
+    ModelUsage,
+    contextFiltersProvider,
+    firstValueFrom,
+    getCompletionsModelConfig,
+    logDebug,
+    modelsService,
+} from '../..'
 import { onAbort } from '../../common/abortController'
 import { CompletionStopReason } from '../../inferenceClient/misc'
 import type { CompletionResponse } from '../../sourcegraph-api/completions/types'
-import { constructGeminiChatMessages } from './utils'
+import { constructGeminiChatMessages, isGeminiThinkingModel } from './utils'
 
 /**
  * The URL for the Gemini API, which is used to interact with the Generative Language API provided by Google.
  * The `{model}` placeholder should be replaced with the specific model being used.
  */
-const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/{model}'
+const GEMINI_ALPHA_API_URL = 'https://generativelanguage.googleapis.com/v1alpha/models/{model}'
+const GEMINI_BETA_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/{model}'
 
 /**
  * NOTE: Behind `chat.dev.models` configuration flag for internal dev testing purpose only!
@@ -36,9 +44,13 @@ export async function googleChatClient({
     }
 
     const log = logger?.startCompletion(params, completionsEndpoint)
+    const model = await firstValueFrom(modelsService.getDefaultModel(ModelUsage.Chat))
+    const isGeminiThinkModel = isGeminiThinkingModel(model)
 
     // Add the stream endpoint to the URL
-    const apiEndpoint = new URL(GEMINI_API_URL.replace('{model}', config.model))
+    const apiEndpoint = isGeminiThinkModel
+        ? new URL(GEMINI_ALPHA_API_URL.replace('{model}', config.model))
+        : new URL(GEMINI_BETA_API_URL.replace('{model}', config.model))
     apiEndpoint.pathname += ':streamGenerateContent'
     apiEndpoint.searchParams.append('alt', 'sse')
     apiEndpoint.searchParams.append('key', config.key)
@@ -70,11 +82,13 @@ export async function googleChatClient({
     }
 
     const tools = params.googleSearch ? [{ google_search: {} }] : []
+    const configs = isGeminiThinkModel ? { thinkingConfig: { includeThoughts: true } } : {}
 
     const body = {
         contents: messages,
         ...(system_instruction ? { system_instruction } : {}),
         tools,
+        generationConfig: configs,
     }
 
     // Sends the completion parameters and callbacks to the API.
@@ -130,10 +144,35 @@ export async function googleChatClient({
                     buffer += jsonString
                     try {
                         const parsed = JSON.parse(buffer) as GeminiCompletionResponse
-                        const streamText = parsed.candidates?.[0]?.content?.parts[0]?.text
+                        const streamText = parsed.candidates?.[0]?.content?.parts
                         if (streamText) {
-                            responseText += streamText
-                            cb.onChange(responseText)
+                            if (isGeminiThinkModel) {
+                                const prefixes = ['<thinking>', '</thinking>\n\n']
+                                for (const part of parsed.candidates[0].content.parts) {
+                                    if (part) {
+                                        let prefix = ''
+                                        if (part.thought && !responseText.includes(prefixes[0])) {
+                                            prefix = prefixes[0]
+                                        } else if (
+                                            !part.thought &&
+                                            !responseText.includes(prefixes[1])
+                                        ) {
+                                            prefix = prefixes[1]
+                                        }
+
+                                        const text = part.text
+                                        const formattedText = prefix ? `${prefix}${text}` : text
+                                        responseText += formattedText
+                                        cb.onChange(responseText)
+                                    }
+                                }
+                            } else {
+                                const streamText = parsed.candidates?.[0]?.content?.parts[0]?.text
+                                if (streamText) {
+                                    responseText += streamText
+                                    cb.onChange(responseText)
+                                }
+                            }
                         }
                         // Reset buffer after successful parse
                         buffer = ''

@@ -221,3 +221,22 @@ body[data-vscode-theme-kind='vscode-light'] .content pre > code {
         text-decoration: underline;
     }
 }
+
+.thinking-container {
+    border-style: solid;
+    border-width: 3px;
+    border-color: var(--vscode-sideBarSectionHeader-border);
+    border-radius: 2px;
+    margin: 1rem 0;
+    padding: 0.5rem;
+}
+
+.thinking-title {
+    font-weight: 600;
+    font-size: 1.1em;
+    color: var(--vscode-foreground);
+}
+
+.thinking-container :global(.accordion-content) {
+    overflow: hidden;
+}

@@ -17,12 +17,9 @@
  * We identify Loop graphs, pre-Loop graphs and post-Loop graphs as distinct "Graph DNA"
  */
 
+import type { LoopStartNode } from '@/workflow/components/nodes/LoopStart_Node'
 import type { Edge } from '../../webviews/workflow/components/CustomOrderedEdge'
-import {
-    type LoopStartNode,
-    NodeType,
-    type WorkflowNodes,
-} from '../../webviews/workflow/components/nodes/Nodes'
+import { NodeType, type WorkflowNodes } from '../../webviews/workflow/components/nodes/Nodes'
 
 /**
  * Retrieves an array of root nodes from the given array of nodes and edges.

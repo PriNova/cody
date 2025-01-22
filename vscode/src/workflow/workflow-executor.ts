@@ -1,5 +1,9 @@
 import * as os from 'node:os'
 import * as path from 'node:path'
+import type { CLINode } from '@/workflow/components/nodes/CLI_Node'
+import type { LLMNode } from '@/workflow/components/nodes/LLM_Node'
+import type { LoopStartNode } from '@/workflow/components/nodes/LoopStart_Node'
+import type { SearchContextNode } from '@/workflow/components/nodes/SearchContext_Node'
 import {
     type ChatClient,
     type ContextItem,
@@ -14,13 +18,7 @@ import {
 import * as vscode from 'vscode'
 import type { Edge } from '../../webviews/workflow/components/CustomOrderedEdge'
 import { getInactiveNodes } from '../../webviews/workflow/components/hooks/nodeStateTransforming'
-import {
-    type CLINode,
-    type LLMNode,
-    type LoopStartNode,
-    NodeType,
-    type WorkflowNodes,
-} from '../../webviews/workflow/components/nodes/Nodes'
+import { NodeType, type WorkflowNodes } from '../../webviews/workflow/components/nodes/Nodes'
 import type { WorkflowFromExtension } from '../../webviews/workflow/services/WorkflowProtocol'
 import { ChatController, type ChatSession } from '../chat/chat-view/ChatController'
 import { type ContextRetriever, toStructuredMentions } from '../chat/chat-view/ContextRetriever'
@@ -190,7 +188,13 @@ export async function executeWorkflow(
                     const text = node.data.content
                         ? replaceIndexedInputs(node.data.content, inputs, context)
                         : ''
-                    result = await executeSearchContextNode(text, contextRetriever, abortSignal)
+                    const allowRemoteContext = (node as SearchContextNode).data.local_remote
+                    result = await executeSearchContextNode(
+                        text,
+                        contextRetriever,
+                        abortSignal,
+                        allowRemoteContext
+                    )
                     break
                 }
                 case NodeType.CODY_OUTPUT: {
@@ -496,7 +500,7 @@ async function executeLLMNode(
     }
 
     const timeout = new Promise<never>((_, reject) => {
-        setTimeout(() => reject(new Error('LLM request timed out')), 30000)
+        setTimeout(() => reject(new Error('LLM request timed out')), 60000)
     })
 
     try {
@@ -621,10 +625,11 @@ async function executeInputNode(input: string): Promise<string> {
 async function executeSearchContextNode(
     input: string,
     contextRetriever: Pick<ContextRetriever, 'retrieveContext'>,
-    abortSignal: AbortSignal
+    abortSignal: AbortSignal,
+    allowRemoteContext: boolean
 ): Promise<string[]> {
     abortSignal.throwIfAborted()
-    const corpusItems = await firstValueFrom(getCorpusContextItemsForEditorState())
+    const corpusItems = await firstValueFrom(getCorpusContextItemsForEditorState(allowRemoteContext))
     if (corpusItems === pendingOperation || corpusItems.length === 0) {
         return ['']
     }
@@ -634,10 +639,10 @@ async function executeSearchContextNode(
     }
     const span = tracer.startSpan('chat.submit')
     const context = await contextRetriever.retrieveContext(
-        toStructuredMentions([repo]),
+        toStructuredMentions(corpusItems),
         PromptString.unsafe_fromLLMResponse(input),
         span,
-        undefined,
+        abortSignal,
         false
     )
     span.end()
@@ -645,7 +650,6 @@ async function executeSearchContextNode(
         // Format each context item as path + newline + content
         return `${item.uri.path}\n${item.content || ''}`
     })
-    //.join('\n\n') // Join multiple items with double newlines
 
     return result
 }

@@ -71,8 +71,8 @@ export async function handleWorkflowLoad(): Promise<any> {
             return data
         } catch (error) {
             void vscode.window.showErrorMessage(`Failed to load workflow: ${error}`)
-            return null
+            return []
         }
     }
-    return null
+    return []
 }

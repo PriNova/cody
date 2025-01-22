@@ -1,9 +1,13 @@
-import type { Model } from '@sourcegraph/cody-shared'
-import { Handle, Position } from '@xyflow/react'
-import type React from 'react'
 import { v4 as uuidv4 } from 'uuid'
-import { Textarea } from '../../../components/shadcn/ui/textarea'
 import type { Edge } from '../CustomOrderedEdge'
+import { CLINode } from './CLI_Node'
+import { CodyOutputNode } from './CodyOutput_Node'
+import { LLMNode } from './LLM_Node'
+import { LoopEndNode } from './LoopEnd_Node'
+import { LoopStartNode } from './LoopStart_Node'
+import { PreviewNode } from './Preview_Node'
+import { SearchContextNode } from './SearchContext_Node'
+import { TextNode } from './Text_Node'
 
 // Core type definitions
 export enum NodeType {
@@ -18,7 +22,7 @@ export enum NodeType {
 }
 
 // Shared node props interface
-interface BaseNodeProps {
+export interface BaseNodeProps {
     data: {
         title: string
         moving?: boolean
@@ -34,7 +38,7 @@ interface BaseNodeProps {
     selected?: boolean
 }
 
-type BaseNodeData = {
+export type BaseNodeData = {
     title: string
     input?: string
     output?: string
@@ -42,9 +46,10 @@ type BaseNodeData = {
     active: boolean
     needsUserApproval?: boolean
     tokenCount?: number
+    local_remote?: boolean
 }
 
-type WorkflowNode = {
+export type WorkflowNode = {
     id: string
     type: NodeType
     data: BaseNodeData
@@ -54,59 +59,12 @@ type WorkflowNode = {
     }
 }
 
-export type CLINode = Omit<WorkflowNode, 'data'> & {
-    type: NodeType.CLI
-    data: BaseNodeData
-}
-
-export type LLMNode = Omit<WorkflowNode, 'data'> & {
-    type: NodeType.LLM
-    data: BaseNodeData & {
-        temperature: number
-        maxTokens?: number
-        model?: Model
-    }
-}
-
-export type PreviewNode = Omit<WorkflowNode, 'data'> & {
-    type: NodeType.PREVIEW
-    data: BaseNodeData
-}
-
-export type InputNode = Omit<WorkflowNode, 'data'> & {
-    type: NodeType.INPUT
-    data: BaseNodeData
-}
-
-export type SearchContextNode = Omit<WorkflowNode, 'data'> & {
-    type: NodeType.SEARCH_CONTEXT
-    data: BaseNodeData
-}
-
-export type CodyOutputNode = Omit<WorkflowNode, 'data'> & {
-    type: NodeType.CODY_OUTPUT
-    data: BaseNodeData
-}
-
-export type LoopStartNode = Omit<WorkflowNode, 'data'> & {
-    type: NodeType.LOOP_START
-    data: BaseNodeData & {
-        iterations: number
-        loopVariable: string
-    }
-}
-
-export type LoopEndNode = Omit<WorkflowNode, 'data'> & {
-    type: NodeType.LOOP_END
-    data: BaseNodeData
-}
-
 export type WorkflowNodes =
     | WorkflowNode
     | CLINode
     | LLMNode
     | PreviewNode
-    | InputNode
+    | TextNode
     | SearchContextNode
     | CodyOutputNode
     | LoopStartNode
@@ -147,8 +105,16 @@ export const createNode = (node: Omit<WorkflowNodes, 'id'>): WorkflowNodes => {
             return {
                 ...node,
                 id,
-            } as InputNode
-
+            } as TextNode
+        case NodeType.SEARCH_CONTEXT:
+            return {
+                ...node,
+                id,
+                data: {
+                    ...node.data,
+                    local_remote: false,
+                },
+            } as SearchContextNode
         default:
             return {
                 ...node,
@@ -210,7 +176,8 @@ export const defaultWorkflow = (() => {
         edges: [createEdge(nodes[0], nodes[1]), createEdge(nodes[1], nodes[2])],
     }
 })()
-const getBorderColor = (
+
+export const getBorderColor = (
     type: NodeType,
     {
         error,
@@ -234,7 +201,6 @@ const getBorderColor = (
     if (interrupted) return 'var(--vscode-charts-orange)'
     if (error) return 'var(--vscode-inputValidation-errorBorder)'
     if (executing) return 'var(--vscode-charts-yellow)'
-    //if (moving) return 'var(--vscode-focusBorder)'
     if (selected || moving) return 'var(--vscode-testing-iconPassed)'
     // Node type specific colors
     switch (type) {
@@ -261,7 +227,7 @@ const getBorderColor = (
  * @param error - Whether the node is in an error state.
  * @returns A style object for the node.
  */
-const getNodeStyle = (
+export const getNodeStyle = (
     type: NodeType,
     moving?: boolean,
     selected?: boolean,
@@ -280,366 +246,11 @@ const getNodeStyle = (
     opacity: !active ? '0.4' : '1',
 })
 
-export const PreviewNode: React.FC<BaseNodeProps & { tokenCount?: number }> = ({ data, selected }) => {
-    return (
-        <div
-            style={getNodeStyle(
-                NodeType.PREVIEW,
-                data.moving,
-                selected,
-                data.executing,
-                data.error,
-                data.active,
-                data.interrupted
-            )}
-        >
-            <Handle type="target" position={Position.Top} />
-            <div className="tw-flex tw-flex-col tw-gap-2">
-                <div className="tw-flex tw-flex-col">
-                    <div
-                        className="tw-text-center tw-py-1 tw-mb-2 tw-rounded-t-sm tw-font-bold"
-                        style={{
-                            backgroundColor: getBorderColor(NodeType.PREVIEW, {
-                                error: data.error,
-                                executing: data.executing,
-                                moving: data.moving,
-                                selected,
-                                interrupted: data.interrupted,
-                                active: data.active,
-                            }),
-                            color: 'var(--vscode-dropdown-foreground)',
-                            marginLeft: '-0.5rem',
-                            marginRight: '-0.5rem',
-                            marginTop: '-0.5rem',
-                        }}
-                    >
-                        PREVIEW
-                    </div>
-                    <div className="tw-flex tw-justify-between tw-items-center">
-                        <span>{data.title}</span>
-                        <span className="tw-text-sm tw-opacity-70">Tokens: {data.tokenCount || 0}</span>
-                    </div>
-                </div>
-                <Textarea
-                    className="tw-w-full tw-h-24 tw-p-2 tw-rounded nodrag tw-resize tw-border-2 tw-border-solid tw-border-[var(--xy-node-border-default)]"
-                    style={{
-                        color: 'var(--vscode-editor-foreground)',
-                        backgroundColor: 'var(--vscode-input-background)',
-                        outline: 'none',
-                    }}
-                    value={data.content || ''}
-                    readOnly
-                    placeholder="Preview content will appear here..."
-                />
-            </div>
-            <Handle type="source" position={Position.Bottom} />
-        </div>
-    )
-}
-
-export const InputNode: React.FC<BaseNodeProps> = ({ data, selected }) => (
-    <div
-        style={getNodeStyle(
-            NodeType.INPUT,
-            data.moving,
-            selected,
-            data.executing,
-            data.error,
-            data.active,
-            data.interrupted
-        )}
-    >
-        <Handle type="target" position={Position.Top} />
-        <div className="tw-flex tw-flex-col tw-gap-2">
-            <div className="tw-flex tw-flex-col">
-                <div
-                    className="tw-text-center tw-py-1 tw-mb-2 tw-rounded-t-sm tw-font-bold"
-                    style={{
-                        backgroundColor: getBorderColor(NodeType.INPUT, {
-                            error: data.error,
-                            executing: data.executing,
-                            moving: data.moving,
-                            selected,
-                            interrupted: data.interrupted,
-                            active: data.active,
-                        }),
-                        color: 'var(--vscode-dropdown-background)',
-                        marginLeft: '-0.5rem',
-                        marginRight: '-0.5rem',
-                        marginTop: '-0.5rem',
-                    }}
-                >
-                    TEXT
-                </div>
-            </div>
-            <span>{data.title}</span>
-            <Textarea
-                className="tw-w-full tw-h-24 tw-p-2 tw-rounded nodrag tw-resize tw-border-2 tw-border-solid tw-border-[var(--xy-node-border-default)]"
-                style={{
-                    color: 'var(--vscode-editor-foreground)',
-                    backgroundColor: 'var(--vscode-input-background)',
-                    outline: 'none',
-                }}
-                value={data.content || ''}
-                placeholder="Enter your input text here..."
-            />
-        </div>
-        <Handle type="source" position={Position.Bottom} />
-    </div>
-)
-
-export const SearchContextNode: React.FC<BaseNodeProps> = ({ data, selected }) => (
-    <div
-        style={getNodeStyle(
-            NodeType.INPUT,
-            data.moving,
-            selected,
-            data.executing,
-            data.error,
-            data.active,
-            data.interrupted
-        )}
-    >
-        <Handle type="target" position={Position.Top} />
-        <div className="tw-flex tw-flex-col tw-gap-2">
-            <div className="tw-flex tw-flex-col">
-                <div
-                    className="tw-text-center tw-py-1 tw-mb-2 tw-rounded-t-sm tw-font-bold"
-                    style={{
-                        backgroundColor: getBorderColor(NodeType.INPUT, {
-                            error: data.error,
-                            executing: data.executing,
-                            moving: data.moving,
-                            selected,
-                            interrupted: data.interrupted,
-                            active: data.active,
-                        }),
-                        color: 'var(--vscode-dropdown-background)',
-                        marginLeft: '-0.5rem',
-                        marginRight: '-0.5rem',
-                        marginTop: '-0.5rem',
-                    }}
-                >
-                    SEARCH CONTEXT
-                </div>
-                <span>{data.title}</span>
-            </div>
-            <Textarea
-                className="tw-w-full tw-h-24 tw-p-2 tw-rounded nodrag tw-resize tw-border-2 tw-border-solid tw-border-[var(--xy-node-border-default)]"
-                style={{
-                    color: 'var(--vscode-editor-foreground)',
-                    backgroundColor: 'var(--vscode-input-background)',
-                    outline: 'none',
-                }}
-                value={data.content || ''}
-                placeholder="Enter your input text here..."
-            />
-        </div>
-        <Handle type="source" position={Position.Bottom} />
-    </div>
-)
-
-// Node Components with shared base props
-export const CLINode: React.FC<BaseNodeProps> = ({ data, selected }) => (
-    <div
-        style={getNodeStyle(
-            NodeType.CLI,
-            data.moving,
-            selected,
-            data.executing,
-            data.error,
-            data.active,
-            data.interrupted
-        )}
-    >
-        <Handle type="target" position={Position.Top} />
-        <div className="tw-flex tw-flex-col">
-            <div
-                className="tw-text-center tw-py-1 tw-mb-2 tw-rounded-t-sm tw-font-bold"
-                style={{
-                    backgroundColor: getBorderColor(NodeType.CLI, {
-                        error: data.error,
-                        executing: data.executing,
-                        moving: data.moving,
-                        selected,
-                        interrupted: data.interrupted,
-                        active: data.active,
-                    }),
-                    color: 'var(--vscode-input-background)',
-                    marginLeft: '-0.5rem',
-                    marginRight: '-0.5rem',
-                    marginTop: '-0.5rem',
-                }}
-            >
-                CLI
-            </div>
-            <div className="tw-flex tw-items-center">
-                <span>{data.title}</span>
-            </div>
-        </div>
-        <Handle type="source" position={Position.Bottom} />
-    </div>
-)
-
-export const CodyLLMNode: React.FC<BaseNodeProps> = ({ data, selected }) => (
-    <div
-        style={getNodeStyle(
-            NodeType.LLM,
-            data.moving,
-            selected,
-            data.executing,
-            data.error,
-            data.active,
-            data.interrupted
-        )}
-    >
-        <Handle type="target" position={Position.Top} />
-        <div className="tw-flex tw-flex-col">
-            <div
-                className="tw-text-center tw-py-1 tw-mb-2 tw-rounded-t-sm tw-font-bold"
-                style={{
-                    backgroundColor: getBorderColor(NodeType.LLM, {
-                        error: data.error,
-                        executing: data.executing,
-                        moving: data.moving,
-                        selected,
-                        interrupted: data.interrupted,
-                        active: data.active,
-                    }),
-                    color: 'var(--vscode-input-background)',
-                    marginLeft: '-0.5rem',
-                    marginRight: '-0.5rem',
-                    marginTop: '-0.5rem',
-                }}
-            >
-                CODY
-            </div>
-            <div className="tw-flex tw-items-center">
-                <span>{data.title}</span>
-            </div>
-        </div>
-        <Handle type="source" position={Position.Bottom} />
-    </div>
-)
-
-export const CodyOutputNode: React.FC<BaseNodeProps> = ({ data, selected }) => (
-    <div
-        style={{
-            ...getNodeStyle(
-                NodeType.CODY_OUTPUT,
-                data.moving,
-                selected,
-                data.executing,
-                data.error,
-                data.active,
-                data.interrupted
-            ),
-            borderRadius: '5rem',
-            backgroundColor: 'var(--vscode-focusBorder)',
-        }}
-    >
-        <Handle type="target" position={Position.Top} />
-        <div className="tw-flex tw-items-center">
-            <span>{data.title}</span>
-        </div>
-        <Handle type="source" position={Position.Bottom} />
-    </div>
-)
-
-export const LoopStartNode: React.FC<BaseNodeProps> = ({ data, selected }) => (
-    <div
-        style={{
-            ...getNodeStyle(
-                NodeType.LOOP_START,
-                data.moving,
-                selected,
-                data.executing,
-                data.error,
-                data.active,
-                data.interrupted
-            ),
-            borderStyle: 'double',
-        }}
-    >
-        <Handle type="target" position={Position.Top} />
-        <div className="tw-flex tw-flex-col">
-            <div
-                className="tw-text-center tw-py-1 tw-mb-2 tw-rounded-t-sm tw-font-bold"
-                style={{
-                    backgroundColor: getBorderColor(NodeType.LOOP_START, {
-                        error: data.error,
-                        executing: data.executing,
-                        moving: data.moving,
-                        selected,
-                        interrupted: data.interrupted,
-                        active: data.active,
-                    }),
-                    color: 'var(--vscode-dropdown-background)',
-                    marginLeft: '-0.5rem',
-                    marginRight: '-0.5rem',
-                    marginTop: '-0.5rem',
-                }}
-            >
-                LOOP START
-            </div>
-            <div className="tw-flex tw-flex-col tw-gap-2">
-                <span>{data.title}</span>
-                <span className="tw-text-sm tw-opacity-70">Iterations: {data.iterations || 1}</span>
-            </div>
-        </div>
-        <Handle type="source" position={Position.Bottom} />
-    </div>
-)
-
-export const LoopEndNode: React.FC<BaseNodeProps> = ({ data, selected }) => (
-    <div
-        style={{
-            ...getNodeStyle(
-                NodeType.LOOP_END,
-                data.moving,
-                selected,
-                data.executing,
-                data.error,
-                data.active,
-                data.interrupted
-            ),
-            borderStyle: 'double',
-        }}
-    >
-        <Handle type="target" position={Position.Top} />
-        <div className="tw-flex tw-flex-col">
-            <div
-                className="tw-text-center tw-py-1 tw-mb-2 tw-rounded-t-sm tw-font-bold"
-                style={{
-                    backgroundColor: getBorderColor(NodeType.LOOP_END, {
-                        error: data.error,
-                        executing: data.executing,
-                        moving: data.moving,
-                        selected,
-                        interrupted: data.interrupted,
-                        active: data.active,
-                    }),
-                    color: 'var(--vscode-dropdown-background)',
-                    marginLeft: '-0.5rem',
-                    marginRight: '-0.5rem',
-                    marginTop: '-0.5rem',
-                }}
-            >
-                LOOP END
-            </div>
-            <div className="tw-flex tw-items-center">
-                <span>{data.title}</span>
-            </div>
-        </div>
-        <Handle type="source" position={Position.Bottom} />
-    </div>
-)
-
 export const nodeTypes = {
     [NodeType.CLI]: CLINode,
-    [NodeType.LLM]: CodyLLMNode,
+    [NodeType.LLM]: LLMNode,
     [NodeType.PREVIEW]: PreviewNode,
-    [NodeType.INPUT]: InputNode,
+    [NodeType.INPUT]: TextNode,
     [NodeType.SEARCH_CONTEXT]: SearchContextNode,
     [NodeType.CODY_OUTPUT]: CodyOutputNode,
     [NodeType.LOOP_START]: LoopStartNode,

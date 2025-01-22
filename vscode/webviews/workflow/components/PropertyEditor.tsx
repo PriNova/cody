@@ -16,7 +16,10 @@ import { Label } from '../../components/shadcn/ui/label'
 import { Popover, PopoverContent, PopoverTrigger } from '../../components/shadcn/ui/popover'
 import { Slider } from '../../components/shadcn/ui/slider'
 import { Textarea } from '../../components/shadcn/ui/textarea'
-import { type LLMNode, type LoopStartNode, NodeType, type WorkflowNodes } from './nodes/Nodes'
+import type { LLMNode } from './nodes/LLM_Node'
+import type { LoopStartNode } from './nodes/LoopStart_Node'
+import { NodeType, type WorkflowNodes } from './nodes/Nodes'
+import type { SearchContextNode } from './nodes/SearchContext_Node'
 
 interface PropertyEditorProps {
     node: WorkflowNodes
@@ -250,7 +253,7 @@ export const PropertyEditor: React.FC<PropertyEditorProps> = ({ node, onUpdate, 
                 </div>
             )}
             {node.type === NodeType.SEARCH_CONTEXT && (
-                <div>
+                <div className="tw-flex tw-flex-col tw-gap-2">
                     <Label htmlFor="node-input">Context</Label>
                     <Textarea
                         id="node-input"
@@ -260,6 +263,16 @@ export const PropertyEditor: React.FC<PropertyEditorProps> = ({ node, onUpdate, 
                         }
                         placeholder="Enter input text... (use ${1}, ${2} and so on for positional inputs)"
                     />
+                    <div className="tw-flex tw-items-center tw-space-x-2">
+                        <Checkbox
+                            id="context-scope"
+                            checked={(node as SearchContextNode).data.local_remote || false}
+                            onCheckedChange={checked =>
+                                onUpdate(node.id, { local_remote: checked === true })
+                            }
+                        />
+                        <Label htmlFor="context-scope">Use Remote Context</Label>
+                    </div>
                 </div>
             )}
             {node.type === NodeType.PREVIEW && (

@@ -1,7 +1,7 @@
 export interface GeminiCompletionResponse {
     candidates: {
         content: {
-            parts: { text: string }[]
+            parts: { text: string; thought?: boolean }[]
             role: string
         }
         finishReason: string

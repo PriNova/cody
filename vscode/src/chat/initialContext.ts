@@ -172,9 +172,9 @@ function getCurrentFileOrSelection({
     )
 }
 
-export function getCorpusContextItemsForEditorState(): Observable<
-    ContextItem[] | typeof pendingOperation
-> {
+export function getCorpusContextItemsForEditorState(
+    allowServerSideContext = false
+): Observable<ContextItem[] | typeof pendingOperation> {
     const relevantAuthStatus = authStatus.pipe(
         map(
             authStatus =>
@@ -196,7 +196,7 @@ export function getCorpusContextItemsForEditorState(): Observable<
             // TODO(sqs): Make this consistent between self-serve (no remote search) and enterprise (has
             // remote search). There should be a single internal thing in Cody that lets you monitor the
             // user's current codebase.
-            if (authStatus.allowRemoteContext) {
+            if (authStatus.allowRemoteContext && allowServerSideContext) {
                 if (remoteReposForAllWorkspaceFolders === pendingOperation) {
                     return pendingOperation
                 }
