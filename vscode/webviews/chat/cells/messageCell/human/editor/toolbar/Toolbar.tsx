@@ -37,7 +37,6 @@ export const Toolbar: FunctionComponent<{
     hidden?: boolean
     className?: string
     intent?: ChatMessage['intent']
-    onSelectIntent?: (intent: ChatMessage['intent']) => void
     tokenCount?: number
     contextWindow?: number
     transcriptTokens?: number
@@ -58,7 +57,6 @@ export const Toolbar: FunctionComponent<{
     className,
     models,
     intent,
-    onSelectIntent,
     tokenCount,
     contextWindow,
     transcriptTokens,
@@ -158,8 +156,7 @@ export const Toolbar: FunctionComponent<{
                         onClick={onSubmitClick}
                         isEditorFocused={isEditorFocused}
                         state={submitState}
-                        intent={intent}
-                        onSelectIntent={onSelectIntent}
+                        detectedIntent={intent}
                     />
                 </div>
             </div>

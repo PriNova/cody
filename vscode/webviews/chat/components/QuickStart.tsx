@@ -166,7 +166,7 @@ export function QuickStart() {
                     <div className="tw-m-4">
                         <button
                             type="button"
-                            className="tw-rounded-md tw-border tw-border-muted tw-px-4 tw-py-2 tw-text-md hover:tw-bg-muted"
+                            className="tw-rounded-md tw-border tw-px-4 tw-py-2 tw-text-md tw-border-border hover:tw-bg-muted"
                             onClick={e => {
                                 e.stopPropagation()
                                 setShowTipsOverlay(true)
@@ -182,7 +182,7 @@ export function QuickStart() {
             {/* Overlay */}
             {showTipsOverlay && (
                 <div
-                    className="tw-fixed tw-inset-0 tw-flex tw-items-center tw-justify-center tw-bg-black/50 tw-p-4 tw-animate-[fadeIn_0.2s_ease-in-out]"
+                    className="tw-fixed tw-inset-0 tw-flex tw-items-center tw-justify-center tw-bg-black/50 tw-p-4 tw-animate-[fadeIn_0.2s_ease-in-out] tw-z-50"
                     onClick={handleOverlayClick}
                     onKeyDown={handleOverlayKeyDown}
                     role="presentation"
@@ -264,7 +264,7 @@ export function QuickStart() {
                                     </div>
                                 ))}
                             </div>
-                            <div className="tw-mt-8 tw-border-t tw-border-muted tw-pt-12">
+                            <div className="tw-mt-8 tw-border-t tw-border-border tw-pt-12">
                                 <div className="tw-grid tw-gap-4">
                                     {chatTips.map(tip => (
                                         <div

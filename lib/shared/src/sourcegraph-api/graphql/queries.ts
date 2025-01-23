@@ -623,6 +623,25 @@ query ViewerSettings {
   }
 }
 `
+export const CODE_SEARCH_ENABLED_QUERY = `
+query CodeSearchEnabled {
+    codeSearchEnabled: enterpriseLicenseHasFeature(feature:"code-search")
+}
+`
+export const TEMPORARY_SETTINGS_QUERY = `
+query TemporarySettings {
+  temporarySettings {
+    contents
+  }
+}
+`
+export const EDIT_TEMPORARY_SETTINGS_QUERY = `
+mutation EditTemporarySettings($settingsToEdit: String!) {
+  editTemporarySettings(settingsToEdit: $settingsToEdit) {
+    alwaysNil
+  }
+}
+`
 
 export const HIGHLIGHTED_FILE_QUERY = `
    query HighlightedFile(

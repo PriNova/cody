@@ -5,6 +5,7 @@ import {
     type Model,
     type NLSSearchDynamicFilter,
     REMOTE_FILE_PROVIDER_URI,
+    type SerializedPromptEditorState,
     type SerializedPromptEditorValue,
     deserializeContextItem,
     getTokenCounterUtils,
@@ -22,7 +23,6 @@ import { isEqual } from 'lodash'
 import debounce from 'lodash/debounce'
 import {
     type FC,
-    type MutableRefObject,
     memo,
     useCallback,
     useContext,
@@ -38,7 +38,7 @@ import type { ApiPostMessage } from '../Chat'
 import { getVSCodeAPI } from '../utils/VSCodeApi'
 import { SpanManager } from '../utils/spanManager'
 import { getTraceparentFromSpanContext, useTelemetryRecorder } from '../utils/telemetry'
-import { useExperimentalOneBox } from '../utils/useExperimentalOneBox'
+import { useOmniBox } from '../utils/useOmniBox'
 import type { CodeBlockActionsProps } from './ChatMessageContent/ChatMessageContent'
 import {
     ContextCell,
@@ -54,6 +54,7 @@ import { HumanMessageCell } from './cells/messageCell/human/HumanMessageCell'
 import { type Context, type Span, context, trace } from '@opentelemetry/api'
 import { isCodeSearchContextItem } from '../../src/context/openctx/codeSearch'
 import { TELEMETRY_INTENT } from '../../src/telemetry/onebox'
+import { useIntentDetectionConfig } from '../components/omnibox/intentDetection'
 import { AgenticContextCell } from './cells/agenticCell/AgenticContextCell'
 import ApprovalCell from './cells/agenticCell/ApprovalCell'
 import { DidYouMeanNotice } from './cells/messageCell/assistant/DidYouMean'
@@ -178,7 +179,7 @@ export const Transcript: FC<TranscriptProps> = props => {
 
     return (
         <div
-            className={clsx('tw-px-8 tw-pt-8 tw-pb-6 tw-flex tw-flex-col tw-gap-8', {
+            className={clsx(' tw-px-8 tw-pb-6 tw-pt-2 tw-flex tw-flex-col', {
                 'tw-flex-grow': transcript.length > 0,
             })}
         >
@@ -326,84 +327,121 @@ const TranscriptInteraction: FC<TranscriptInteractionProps> = memo(props => {
         isGoogleSearchEnabled,
         setIsGoogleSearchEnabled,
     } = props
-    const [intentResults, setIntentResults] = useMutatedValue<IntentResults | undefined | null>()
+    const [intentResults, setIntentResults] = useState<IntentResults | undefined | null>()
+    const [manuallySelectedIntent, setManuallySelectedIntent] = useState<{
+        intent: ChatMessage['intent']
+        query: string
+        resetOnEditorStateClearOnly?: boolean
+    }>({
+        intent: humanMessage.manuallySelectedIntent,
+        query: humanMessage.editorState
+            ? inputTextWithMappedContextChipsFromPromptEditorState(
+                  humanMessage.editorState as SerializedPromptEditorState
+              )
+            : '',
+    })
+
+    useEffect(() => {
+        setManuallySelectedIntent({
+            intent: humanMessage.manuallySelectedIntent,
+            query: humanMessage.editorState
+                ? inputTextWithMappedContextChipsFromPromptEditorState(
+                      humanMessage.editorState as SerializedPromptEditorState
+                  )
+                : '',
+        })
+    }, [humanMessage])
 
     const { activeChatContext, setActiveChatContext } = props
     const humanEditorRef = useRef<PromptEditorRefAPI | null>(null)
     const lastEditorRef = useContext(LastEditorContext)
     useImperativeHandle(parentEditorRef, () => humanEditorRef.current)
 
-    const onUserAction = (action: 'edit' | 'submit', intentFromSubmit?: ChatMessage['intent']) => {
-        // Start the span as soon as the user initiates the action
-        const startMark = performance.mark('startSubmit')
-        const spanManager = new SpanManager('cody-webview')
-        const span = spanManager.startSpan('chat-interaction', {
-            attributes: {
-                sampled: true,
-                'render.state': 'started',
-                'startSubmit.mark': startMark.startTime,
-            },
-        })
+    const { doIntentDetection } = useIntentDetectionConfig()
+    const onUserAction = useCallback(
+        (action: 'edit' | 'submit', intentFromSubmit?: ChatMessage['intent']) => {
+            // Start the span as soon as the user initiates the action
+            const startMark = performance.mark('startSubmit')
+            const spanManager = new SpanManager('cody-webview')
+            const span = spanManager.startSpan('chat-interaction', {
+                attributes: {
+                    sampled: true,
+                    'render.state': 'started',
+                    'startSubmit.mark': startMark.startTime,
+                },
+            })
 
-        if (!span) {
-            throw new Error('Failed to start span for chat interaction')
-        }
-
-        const spanContext = trace.setSpan(context.active(), span)
-        setActiveChatContext(spanContext)
-        const currentSpanContext = span.spanContext()
-
-        const traceparent = getTraceparentFromSpanContext(currentSpanContext)
-
-        // Serialize the editor value after starting the span
-        const editorValue = humanEditorRef.current?.getSerializedValue()
-        if (!editorValue) {
-            console.error('Failed to serialize editor value')
-            return
-        }
-
-        const { intent, intentScores } = getIntentProps(editorValue, intentResults.current)
-
-        const commonProps = {
-            editorValue,
-            intent,
-            intentScores,
-            manuallySelectedIntent: intentFromSubmit,
-            traceparent,
-        }
-
-        if (action === 'edit') {
-            // Remove search context chips from the next input so that the user cannot
-            // reference search results that don't exist anymore.
-            // This is a no-op if the input does not contain any search context chips.
-            // NOTE: Doing this for the penultimate input only seems to suffice because
-            // editing a message earlier in the transcript will clear the conversation
-            // and reset the last input anyway.
-            if (isLastSentInteraction) {
-                lastEditorRef.current?.filterMentions(item => !isCodeSearchContextItem(item))
+            if (!span) {
+                throw new Error('Failed to start span for chat interaction')
             }
 
-            // Remove search context chips from the next input so that the user cannot
-            // reference search results that don't exist anymore.
-            // This is a no-op if the input does not contain any search context chips.
-            // NOTE: Doing this for the penultimate input only seems to suffice because
-            // editing a message earlier in the transcript will clear the converstation
-            // and reset the last input anyway.
-            if (isLastSentInteraction) {
-                lastEditorRef.current?.filterMentions(item => !isCodeSearchContextItem(item))
+            const spanContext = trace.setSpan(context.active(), span)
+            setActiveChatContext(spanContext)
+            const currentSpanContext = span.spanContext()
+
+            const traceparent = getTraceparentFromSpanContext(currentSpanContext)
+
+            // Serialize the editor value after starting the span
+            const editorValue = humanEditorRef.current?.getSerializedValue()
+            if (!editorValue) {
+                console.error('Failed to serialize editor value')
+                return
             }
 
-            editHumanMessage({
-                messageIndexInTranscript: humanMessage.index,
-                ...commonProps,
-            })
-        } else {
-            submitHumanMessage({
-                ...commonProps,
-                isGoogleSearchEnabled: isGoogleSearchEnabled,
-            })
-        }
-    }
+            const query = inputTextWithMappedContextChipsFromPromptEditorState(editorValue.editorState)
+
+            const {
+                intent,
+                intentScores,
+            }: { intent: ChatMessage['intent']; intentScores: IntentResults['allScores'] } =
+                query === intentResults?.query
+                    ? { intent: intentResults.intent, intentScores: intentResults.allScores }
+                    : { intent: undefined, intentScores: [] }
+
+            const commonProps = {
+                editorValue,
+                intent,
+                intentScores,
+                manuallySelectedIntent:
+                    intentFromSubmit ||
+                    manuallySelectedIntent.intent ||
+                    (doIntentDetection ? undefined : 'chat'),
+                traceparent,
+            }
+
+            if (action === 'edit') {
+                // Remove search context chips from the next input so that the user cannot
+                // reference search results that don't exist anymore.
+                // This is a no-op if the input does not contain any search context chips.
+                // NOTE: Doing this for the penultimate input only seems to suffice because
+                // editing a message earlier in the transcript will clear the conversation
+                // and reset the last input anyway.
+                if (isLastSentInteraction) {
+                    lastEditorRef.current?.filterMentions(item => !isCodeSearchContextItem(item))
+                }
+
+                editHumanMessage({
+                    messageIndexInTranscript: humanMessage.index,
+                    ...commonProps,
+                })
+            } else {
+                submitHumanMessage({
+                    ...commonProps,
+                    isGoogleSearchEnabled: isGoogleSearchEnabled,
+                })
+            }
+        },
+        [
+            humanMessage,
+            setActiveChatContext,
+            isLastSentInteraction,
+            lastEditorRef,
+            intentResults,
+            manuallySelectedIntent,
+            doIntentDetection,
+            isGoogleSearchEnabled,
+        ]
+    )
     const onEditSubmit = useCallback(
         (intentFromSubmit?: ChatMessage['intent']): void => {
             onUserAction('edit', intentFromSubmit)
@@ -419,10 +457,11 @@ const TranscriptInteraction: FC<TranscriptInteractionProps> = memo(props => {
     )
 
     const extensionAPI = useExtensionAPI()
-    const experimentalOneBoxEnabled = useExperimentalOneBox()
-    const onChange = useMemo(() => {
-        return debounce(async (editorValue: SerializedPromptEditorValue) => {
-            if (!experimentalOneBoxEnabled) {
+    const experimentalOneBoxEnabled = useOmniBox()
+
+    const prefetchIntent = useMemo(() => {
+        const handler = async (editorValue: SerializedPromptEditorValue) => {
+            if (!experimentalOneBoxEnabled || !doIntentDetection) {
                 return
             }
 
@@ -430,13 +469,30 @@ const TranscriptInteraction: FC<TranscriptInteractionProps> = memo(props => {
                 editorValue.editorState
             ).trim()
 
+            if (query.length < 2) {
+                setIntentResults(null)
+                return
+            }
+
             // The editor value change can get changed due to multiple reasons but if the query hasn't changed, skip re-computing the intent
-            if (query === intentResults.current?.query) {
+            if (query === intentResults?.query) {
                 return
             }
 
             const subscription = extensionAPI.detectIntent(query).subscribe({
                 next: value => {
+                    const currentEditorValue = humanEditorRef.current?.getSerializedValue()
+                    if (currentEditorValue) {
+                        const currentQuery = inputTextWithMappedContextChipsFromPromptEditorState(
+                            currentEditorValue?.editorState
+                        ).trim()
+
+                        // make sure the query hasn't changed since the prefetch started
+                        if (query !== currentQuery) {
+                            return
+                        }
+                    }
+
                     setIntentResults(value && { ...value, query })
                 },
                 error: error => {
@@ -446,8 +502,48 @@ const TranscriptInteraction: FC<TranscriptInteractionProps> = memo(props => {
 
             // Clean up subscription if component unmounts
             return () => subscription.unsubscribe()
-        }, 300)
-    }, [experimentalOneBoxEnabled, extensionAPI, setIntentResults, intentResults.current?.query])
+        }
+
+        return debounce(handler, 300)
+    }, [experimentalOneBoxEnabled, extensionAPI, intentResults?.query, doIntentDetection])
+
+    useEffect(() => {
+        if (!intentResults?.intent) {
+            return
+        }
+
+        if (!doIntentDetection) {
+            setIntentResults({ intent: undefined, query: '' })
+        }
+    }, [doIntentDetection, intentResults?.intent])
+
+    useEffect(() => {
+        if (doIntentDetection) {
+            if (humanEditorRef.current) {
+                prefetchIntent(humanEditorRef.current.getSerializedValue())
+            }
+        }
+    }, [doIntentDetection, prefetchIntent])
+
+    const onChange = useMemo(() => {
+        return async (editorValue: SerializedPromptEditorValue) => {
+            const currentQuery = inputTextWithMappedContextChipsFromPromptEditorState(
+                editorValue.editorState
+            )
+
+            // Reset manually selected intent if the editor text is changed.
+            // If the intent is set for a prompts, only reset the intent if the editor text is emptied.
+            if (
+                manuallySelectedIntent.intent &&
+                currentQuery !== manuallySelectedIntent.query &&
+                (!manuallySelectedIntent.resetOnEditorStateClearOnly || !editorValue.text.trim())
+            ) {
+                setManuallySelectedIntent({ intent: undefined, query: '' })
+            }
+
+            prefetchIntent(editorValue)
+        }
+    }, [manuallySelectedIntent, prefetchIntent])
 
     const vscodeAPI = getVSCodeAPI()
     const onStop = useCallback(() => {
@@ -669,10 +765,33 @@ const TranscriptInteraction: FC<TranscriptInteractionProps> = memo(props => {
                     contextItems: [],
                     editorState: serializedPromptEditorStateFromText(text),
                 },
-                intent: 'search',
+                preDetectedIntent: 'search',
                 manuallySelectedIntent: 'search',
             }),
         [humanMessage]
+    )
+    const handleManualIntentSelection = useCallback(
+        (intent: ChatMessage['intent'], editorStateFromProps?: SerializedPromptEditorState) => {
+            // When the user manually selects an intent from the SubmitButton dropdown, the query is empty.
+            // When the user selects a prompt the query is passed as an argument based on thr prompt text.
+            // This is because on prompt selection the editor state is updated async.
+
+            const editorState =
+                editorStateFromProps || humanEditorRef.current?.getSerializedValue()?.editorState
+
+            const currentQuery = editorState
+                ? inputTextWithMappedContextChipsFromPromptEditorState(editorState)
+                : ''
+
+            return setManuallySelectedIntent({
+                intent,
+                query: currentQuery,
+                // We set the `resetOnEditorStateClearOnly` flag to true to differentiate between prompt selection and manual intent selection.
+                // This is used to reset the intent only when the editor text is emptied and not on input change.
+                resetOnEditorStateClearOnly: !!editorStateFromProps,
+            })
+        },
+        []
     )
 
     return (
@@ -694,6 +813,8 @@ const TranscriptInteraction: FC<TranscriptInteractionProps> = memo(props => {
                 isEditorInitiallyFocused={isLastInteraction}
                 editorRef={humanEditorRef}
                 className={!isFirstInteraction && isLastInteraction ? 'tw-mt-auto' : ''}
+                intent={manuallySelectedIntent?.intent || intentResults?.intent}
+                manuallySelectIntent={handleManualIntentSelection}
                 transcriptTokens={transcriptTokens}
                 isGoogleSearchEnabled={isGoogleSearchEnabled}
                 setIsGoogleSearchEnabled={setIsGoogleSearchEnabled}
@@ -701,7 +822,6 @@ const TranscriptInteraction: FC<TranscriptInteractionProps> = memo(props => {
             {experimentalOneBoxEnabled && (
                 <SwitchIntent
                     intent={humanMessage.intent}
-                    disabled={!!assistantMessage?.isLoading}
                     manuallySelected={!!humanMessage.manuallySelectedIntent}
                     onSwitch={
                         humanMessage.intent === 'search'
@@ -717,16 +837,18 @@ const TranscriptInteraction: FC<TranscriptInteractionProps> = memo(props => {
                     switchToSearch={() => editAndSubmitSearch(assistantMessage?.didYouMeanQuery ?? '')}
                 />
             )}
-            {humanMessage.agent && (
+            {!isSearchIntent && humanMessage.agent && (
                 <AgenticContextCell
                     key={`${humanMessage.index}-${humanMessage.intent}-process`}
                     isContextLoading={isContextLoading}
                     processes={humanMessage?.processes ?? undefined}
                 />
             )}
-            {humanMessage.agent && isContextLoading && assistantMessage?.isLoading && (
-                <ApprovalCell vscodeAPI={vscodeAPI} />
-            )}
+            {!isSearchIntent &&
+                humanMessage.agent &&
+                isContextLoading &&
+                assistantMessage?.isLoading && <ApprovalCell vscodeAPI={vscodeAPI} />}
+
             {!(humanMessage.agent && isContextLoading) &&
                 (humanMessage.contextFiles || assistantMessage || isContextLoading) &&
                 !isSearchIntent && (
@@ -788,17 +910,6 @@ const TranscriptInteraction: FC<TranscriptInteractionProps> = memo(props => {
     )
 }, isEqual)
 
-function useMutatedValue<T>(value?: T): [MutableRefObject<T | undefined>, setValue: (value: T) => void] {
-    const valueRef = useRef<T | undefined>(value)
-
-    return [
-        valueRef,
-        useCallback(value => {
-            valueRef.current = value
-        }, []),
-    ]
-}
-
 // TODO(sqs): Do this the React-y way.
 export function focusLastHumanMessageEditor(): void {
     const elements = document.querySelectorAll<HTMLElement>('[data-lexical-editor]')
@@ -810,14 +921,14 @@ export function focusLastHumanMessageEditor(): void {
 export function editHumanMessage({
     messageIndexInTranscript,
     editorValue,
-    intent,
-    intentScores,
+    preDetectedIntent,
+    preDetectedIntentScores,
     manuallySelectedIntent,
 }: {
     messageIndexInTranscript: number
     editorValue: SerializedPromptEditorValue
-    intent?: ChatMessage['intent']
-    intentScores?: { intent: string; score: number }[]
+    preDetectedIntent?: ChatMessage['intent']
+    preDetectedIntentScores?: { intent: string; score: number }[]
     manuallySelectedIntent?: ChatMessage['intent']
 }): void {
     getVSCodeAPI().postMessage({
@@ -826,8 +937,8 @@ export function editHumanMessage({
         text: editorValue.text,
         editorState: editorValue.editorState,
         contextItems: editorValue.contextItems.map(deserializeContextItem),
-        intent,
-        intentScores,
+        preDetectedIntent,
+        preDetectedIntentScores,
         manuallySelectedIntent,
     })
     focusLastHumanMessageEditor()
@@ -835,15 +946,15 @@ export function editHumanMessage({
 
 function submitHumanMessage({
     editorValue,
-    intent,
-    intentScores,
+    preDetectedIntent,
+    preDetectedIntentScores,
     manuallySelectedIntent,
     traceparent,
     isGoogleSearchEnabled,
 }: {
     editorValue: SerializedPromptEditorValue
-    intent?: ChatMessage['intent']
-    intentScores?: { intent: string; score: number }[]
+    preDetectedIntent?: ChatMessage['intent']
+    preDetectedIntentScores?: { intent: string; score: number }[]
     manuallySelectedIntent?: ChatMessage['intent']
     traceparent: string
     isGoogleSearchEnabled: boolean
@@ -853,8 +964,8 @@ function submitHumanMessage({
         text: editorValue.text,
         editorState: editorValue.editorState,
         contextItems: editorValue.contextItems.map(deserializeContextItem),
-        intent,
-        intentScores,
+        preDetectedIntent,
+        preDetectedIntentScores,
         manuallySelectedIntent,
         traceparent,
         isGoogleSearchEnabled,
@@ -874,14 +985,4 @@ function reevaluateSearchWithSelectedFilters({
         index: messageIndexInTranscript,
         selectedFilters,
     })
-}
-
-const getIntentProps = (editorValue: SerializedPromptEditorValue, results?: IntentResults | null) => {
-    const query = inputTextWithMappedContextChipsFromPromptEditorState(editorValue.editorState)
-
-    if (query === results?.query) {
-        return { intent: results.intent, intentScores: results.allScores }
-    }
-
-    return {}
 }

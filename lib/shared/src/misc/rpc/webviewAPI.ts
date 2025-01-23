@@ -1,11 +1,5 @@
 import { Observable } from 'observable-fns'
-import type {
-    AgentToolboxSettings,
-    AuthStatus,
-    ModelsData,
-    ResolvedConfiguration,
-    UserProductSubscription,
-} from '../..'
+import type { AuthStatus, ModelsData, ResolvedConfiguration, UserProductSubscription } from '../..'
 import type { SerializedPromptEditorState } from '../..'
 import type { ChatMessage, UserLocalHistory } from '../../chat/transcript/messages'
 import type { ContextItem, DefaultContext } from '../../codebase-context/messages'
@@ -18,6 +12,7 @@ import type {
     FetchHighlightFileParameters,
     Prompt,
     PromptTag,
+    TemporarySettings,
 } from '../../sourcegraph-api/graphql/client'
 import { type createMessageAPIForWebview, proxyExtensionAPI } from './rpc'
 
@@ -117,13 +112,9 @@ export interface WebviewToExtensionAPI {
     userProductSubscription(): Observable<UserProductSubscription | null>
 
     /**
-     * The current user's toolbox settings.
+     * Edit the current user's temporary settings.
      */
-    toolboxSettings(): Observable<AgentToolboxSettings | null>
-    /**
-     *  Update the current user's toolbox settings.
-     */
-    updateToolboxSettings(settings: AgentToolboxSettings): Observable<void>
+    editTemporarySettings(settingsToEdit: Partial<TemporarySettings>): Observable<boolean>
 }
 
 export function createExtensionAPI(
@@ -158,9 +149,8 @@ export function createExtensionAPI(
         transcript: proxyExtensionAPI(messageAPI, 'transcript'),
         userHistory: proxyExtensionAPI(messageAPI, 'userHistory'),
         userProductSubscription: proxyExtensionAPI(messageAPI, 'userProductSubscription'),
-        toolboxSettings: proxyExtensionAPI(messageAPI, 'toolboxSettings'),
-        updateToolboxSettings: proxyExtensionAPI(messageAPI, 'updateToolboxSettings'),
         repos: proxyExtensionAPI(messageAPI, 'repos'),
+        editTemporarySettings: proxyExtensionAPI(messageAPI, 'editTemporarySettings'),
     }
 }
 
