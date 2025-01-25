@@ -400,8 +400,8 @@ const TranscriptInteraction: FC<TranscriptInteractionProps> = memo(props => {
 
             const commonProps = {
                 editorValue,
-                intent,
-                intentScores,
+                preDetectedIntent: intent,
+                preDetectedIntentScores: intentScores,
                 manuallySelectedIntent:
                     intentFromSubmit ||
                     manuallySelectedIntent.intent ||
