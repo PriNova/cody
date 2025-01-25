@@ -1,25 +1,60 @@
-/**
- * STRICT REQUIREMENTS:
- *
- * The node graph is part of a graph processing algorithm that uses a list of unsorted nodes
- * and a list of unsorted edges. The algorithm sorts the nodes based solely on the edges.
- * The sorted nodes are then returned.
- *
- * If a child node has many parents, those parents needs to be processed before the child node,
- * because the child node needs all output from the parents before it can be processed.
- *
- * If there is a loop in the graph marked with a LoopStart and LoopEnd node type, then the loop needs to be processed first.
- * If the loop start has one or many parents, then the parents needs to be processed before the loop start,
- * if the loop end has one or many children, then the loop end needs to be processed before the children.
- *
- * The algorithm uses a Tarjan's algorithm.
- *
- * We identify Loop graphs, pre-Loop graphs and post-Loop graphs as distinct "Graph DNA"
- */
-
 import type { LoopStartNode } from '@/workflow/components/nodes/LoopStart_Node'
 import type { Edge } from '../../webviews/workflow/components/CustomOrderedEdge'
 import { NodeType, type WorkflowNodes } from '../../webviews/workflow/components/nodes/Nodes'
+
+/**
+ * Helper function to get nodes connected by edges based on the specified direction.
+ *
+ * @param nodeId - The ID of the node.
+ * @param nodes - An array of all nodes.
+ * @param edges - An array of all edges.
+ * @param direction - 'source' to get nodes connected by edges originating from nodeId, or 'target' for edges pointing to nodeId.
+ * @returns An array of nodes connected by edges in the specified direction.
+ */
+function getNodesConnectedByDirection(
+    nodeId: string,
+    nodes: WorkflowNodes[],
+    edges: Edge[],
+    direction: 'source' | 'target'
+): WorkflowNodes[] {
+    const isSourceDirection = direction === 'source'
+    return edges
+        .filter(edge => (isSourceDirection ? edge.source === nodeId : edge.target === nodeId))
+        .map(edge => nodes.find(node => node.id === (isSourceDirection ? edge.target : edge.source))!)
+        .filter(Boolean) as WorkflowNodes[] // Ensure no undefined values and cast
+}
+
+/**
+ * Helper function to get nodes connected by edges originating from a source node ID.
+ *
+ * @param sourceNodeId - The ID of the source node.
+ * @param nodes - An array of all nodes.
+ * @param edges - An array of all edges.
+ * @returns An array of nodes connected by edges from the source node.
+ */
+function getNodesConnectedBySource(
+    sourceNodeId: string,
+    nodes: WorkflowNodes[],
+    edges: Edge[]
+): WorkflowNodes[] {
+    return getNodesConnectedByDirection(sourceNodeId, nodes, edges, 'source') // Refactored to use getNodesConnectedByDirection
+}
+
+/**
+ * Helper function to get nodes connected by edges pointing to a target node ID.
+ *
+ * @param targetNodeId - The ID of the target node.
+ * @param nodes - An array of all nodes.
+ * @param edges - An array of all edges.
+ * @returns An array of nodes connected by edges to the target node.
+ */
+function getNodesConnectedByTarget(
+    targetNodeId: string,
+    nodes: WorkflowNodes[],
+    edges: Edge[]
+): WorkflowNodes[] {
+    return getNodesConnectedByDirection(targetNodeId, nodes, edges, 'target') // Refactored to use getNodesConnectedByDirection
+}
 
 /**
  * Retrieves an array of root nodes from the given array of nodes and edges.
@@ -48,18 +83,6 @@ export function findRootNode(nodes: WorkflowNodes[], edges: Edge[]): WorkflowNod
         throw new Error('There should be exactly one root node.')
     }
     return rootNodes[0]
-}
-
-/**
- * Retrieves the child nodes of a given node in a graph.
- *
- * @param nodeId - The ID of the node for which to retrieve the child nodes.
- * @param nodes - An array of all the nodes in the graph.
- * @param edges - An array of all the edges in the graph.
- * @returns An array of child nodes, sorted by their target ID in ascending order and then reversed.
- */
-export function getChildNodes(nodeId: string, nodes: WorkflowNodes[], edges: Edge[]): WorkflowNodes[] {
-    return edges.filter(e => e.source === nodeId).map(e => nodes.find(n => n.id === e.target)!)
 }
 
 /**
@@ -97,7 +120,7 @@ function addChildrenToStack(
     nodes: WorkflowNodes[],
     edges: Edge[]
 ): { node: WorkflowNodes; state: 'visiting' | 'visited' }[] {
-    const children = getChildNodes(node.id, nodes, edges)
+    const children = getNodesConnectedBySource(node.id, nodes, edges)
     for (const child of children) {
         if (!temp.has(child.id) && !stack.some(item => item.node.id === child.id)) {
             stack.push({ node: child, state: 'visiting' })
@@ -214,6 +237,17 @@ export function visitNode(
 }
 
 /**
+ * Filters edges to only include those where both source and target nodes are in the provided node IDs set.
+ *
+ * @param edges - An array of edges to filter.
+ * @param nodeIds - A set of node IDs to filter edges by.
+ * @returns An array of edges that are connected to nodes within the nodeIds set.
+ */
+function filterEdgesForNodeSet(edges: Edge[], nodeIds: Set<string>): Edge[] {
+    return edges.filter(e => nodeIds.has(e.source) && nodeIds.has(e.target))
+}
+
+/**
  * Performs a Tarjan sort on the provided nodes and edges, returning the sorted list of nodes.
  *
  * @param nodes - An array of all the nodes in the graph.
@@ -261,33 +295,43 @@ export function findPreLoopNodes(
     edges: Edge[]
 ): WorkflowNodes[] {
     const preLoopNodes = new Set<WorkflowNodes>()
-    const preLoopQueue = [loopStart]
 
-    while (preLoopQueue.length > 0) {
-        const currentNode = preLoopQueue.pop()!
-        const parentEdges = edges.filter(e => e.target === currentNode.id)
+    // Recursive helper function to explore pre-loop nodes
+    function explorePreLoopNodes(node: WorkflowNodes): void {
+        if (
+            node.type === NodeType.LOOP_START ||
+            node.type === NodeType.LOOP_END ||
+            preLoopNodes.has(node)
+        ) {
+            return // Base cases: stop recursion
+        }
+        preLoopNodes.add(node)
 
-        for (const edge of parentEdges) {
-            const parentNode = nodes.find(n => n.id === edge.source)
-            if (
-                parentNode &&
-                parentNode.type !== NodeType.LOOP_START &&
-                !preLoopNodes.has(parentNode) &&
-                parentNode.type !== NodeType.LOOP_END
-            ) {
-                preLoopNodes.add(parentNode)
-                preLoopQueue.push(parentNode)
-            }
+        // Explore parent nodes
+        const parentNodes = getNodesConnectedByTarget(node.id, nodes, edges) // Refactored to use helper function
+        for (const parentNode of parentNodes) {
+            explorePreLoopNodes(parentNode)
+        }
+
+        // Explore child nodes (siblings and their descendants)
+        const childNodes = getNodesConnectedBySource(node.id, nodes, edges)
+        for (const childNode of childNodes) {
+            explorePreLoopNodes(childNode)
         }
     }
 
-    const preLoopEdges = edges.filter(
-        e =>
-            [...preLoopNodes].some(n => n.id === e.source) &&
-            [...preLoopNodes].some(n => n.id === e.target)
-    )
+    // Get direct parent nodes of loopStart and start traversal from them
+    const directParentsOfLoopStart = getNodesConnectedByTarget(loopStart.id, nodes, edges) // Refactored to use helper function
+    for (const parentNode of directParentsOfLoopStart) {
+        explorePreLoopNodes(parentNode)
+    }
 
-    return tarjanSort([...preLoopNodes], preLoopEdges)
+    const preLoopNodeArray = [...preLoopNodes]
+
+    // Filter edges to only include pre-loop nodes
+    const preLoopEdges = filterEdgesForNodeSet(edges, new Set(preLoopNodeArray.map(n => n.id))) // Refactored to use filterEdgesForNodeSet
+
+    return tarjanSort(preLoopNodeArray, preLoopEdges)
 }
 
 /**
@@ -312,9 +356,8 @@ export function findLoopNodes(
         const currentNode = loopQueue.pop()!
 
         // Check child relationships
-        const childEdges = edges.filter(e => e.source === currentNode.id)
-        for (const edge of childEdges) {
-            const childNode = nodes.find(n => n.id === edge.target)
+        const childNodes = getNodesConnectedBySource(currentNode.id, nodes, edges) // Refactored to use helper function
+        for (const childNode of childNodes) {
             if (
                 childNode &&
                 childNode.type !== NodeType.LOOP_END &&
@@ -327,9 +370,8 @@ export function findLoopNodes(
         }
 
         // Check parent relationships within the loop structure
-        const parentEdges = edges.filter(e => e.target === currentNode.id)
-        for (const edge of parentEdges) {
-            const parentNode = nodes.find(n => n.id === edge.source)
+        const parentNodes = getNodesConnectedByTarget(currentNode.id, nodes, edges) // Refactored to use helper function
+        for (const parentNode of parentNodes) {
             if (
                 parentNode &&
                 parentNode.type !== NodeType.LOOP_START &&
@@ -342,9 +384,8 @@ export function findLoopNodes(
         }
     }
 
-    const loopEdges = edges.filter(
-        e => [...loopNodes].some(n => n.id === e.source) && [...loopNodes].some(n => n.id === e.target)
-    )
+    const loopNodeIds = new Set([...loopNodes].map(n => n.id))
+    const loopEdges = filterEdgesForNodeSet(edges, loopNodeIds) // Refactored to use filterEdgesForNodeSet
 
     return tarjanSort([...loopNodes], loopEdges)
 }
@@ -367,11 +408,10 @@ export function findPostLoopNodes(
 
     while (postLoopQueue.length > 0) {
         const currentNode = postLoopQueue.pop()!
-        const childEdges = edges.filter(e => e.source === currentNode.id)
-        const parentEdges = edges.filter(e => e.target === currentNode.id)
+        const childNodes = getNodesConnectedBySource(currentNode.id, nodes, edges) // Refactored to use helper function
+        const parentNodes = getNodesConnectedByTarget(currentNode.id, nodes, edges) // Refactored to use helper function
 
-        for (const edge of childEdges) {
-            const childNode = nodes.find(n => n.id === edge.target)
+        for (const childNode of childNodes) {
             if (
                 childNode &&
                 childNode.type !== NodeType.LOOP_END &&
@@ -382,8 +422,7 @@ export function findPostLoopNodes(
                 postLoopQueue.push(childNode)
             }
         }
-        for (const edge of parentEdges) {
-            const parentNode = nodes.find(n => n.id === edge.source)
+        for (const parentNode of parentNodes) {
             if (
                 parentNode &&
                 parentNode.type !== NodeType.LOOP_END &&
@@ -396,11 +435,8 @@ export function findPostLoopNodes(
         }
     }
 
-    const postLoopEdges = edges.filter(
-        e =>
-            [...postLoopNodes].some(n => n.id === e.source) &&
-            [...postLoopNodes].some(n => n.id === e.target)
-    )
+    const postLoopNodeIds = new Set([...postLoopNodes].map(n => n.id))
+    const postLoopEdges = filterEdgesForNodeSet(edges, postLoopNodeIds) // Refactored to use filterEdgesForNodeSet
 
     return tarjanSort([...postLoopNodes], postLoopEdges)
 }
@@ -498,7 +534,7 @@ export function findStronglyConnectedComponents(
         nodeStates.set(node.id, state)
 
         // Get only Simple type nodes as children for cycle detection
-        const children = getChildNodes(node.id, nodes, edges).filter(
+        const children = getNodesConnectedBySource(node.id, nodes, edges).filter(
             node => !CONTROL_FLOW_NODES.has(node.type)
         )
         for (const child of children) {
@@ -547,13 +583,18 @@ export function findStronglyConnectedComponents(
  * @param edges - The array of edges between the workflow nodes.
  * @returns The loop start node if found, otherwise `undefined`.
  */
-export function findLoopStartForLoopEnd(
-    loopEnd: WorkflowNodes,
+export function findRelatedNodeOfType(
+    startNode: WorkflowNodes,
     nodes: WorkflowNodes[],
-    edges: Edge[]
+    edges: Edge[],
+    targetNodeType: NodeType,
+    traversalDirection: 'source' | 'target',
+    avoidNodeType?: NodeType
 ): WorkflowNodes | undefined {
     const visited = new Set<string>()
-    const stack: WorkflowNodes[] = [loopEnd]
+    const stack: WorkflowNodes[] = [startNode]
+    const getConnectionNodes =
+        traversalDirection === 'source' ? getNodesConnectedBySource : getNodesConnectedByTarget // Dynamically select direction
 
     while (stack.length > 0) {
         const currentNode = stack.pop()!
@@ -563,21 +604,19 @@ export function findLoopStartForLoopEnd(
         }
         visited.add(currentNode.id)
 
-        if (currentNode.type === NodeType.LOOP_START) {
+        if (currentNode.type === targetNodeType) {
             return currentNode
         }
 
-        if (currentNode.type === NodeType.LOOP_END && currentNode.id !== loopEnd.id) {
+        if (avoidNodeType && currentNode.type === avoidNodeType && currentNode.id !== startNode.id) {
             continue
         }
 
         // Get parent nodes instead of child nodes
-        const parentEdges = edges.filter(e => e.target === currentNode.id)
-        const parentNodes = parentEdges.map(e => nodes.find(n => n.id === e.source)!)
-
-        for (const parentNode of parentNodes) {
-            if (!visited.has(parentNode.id)) {
-                stack.push(parentNode)
+        const relatedNodes = getConnectionNodes(currentNode.id, nodes, edges)
+        for (const relatedNode of relatedNodes) {
+            if (!visited.has(relatedNode.id)) {
+                stack.push(relatedNode)
             }
         }
     }
@@ -585,39 +624,43 @@ export function findLoopStartForLoopEnd(
     return undefined
 }
 
+/**
+ * Finds the loop start node for the given loop end node in the workflow graph.
+ *
+ * @param loopEnd - The loop end node to find the corresponding loop start for.
+ * @param nodes - The array of workflow nodes.
+ * @param edges - The array of edges between the workflow nodes.
+ * @returns The loop start node if found, otherwise `undefined`.
+ */
+export function findLoopStartForLoopEnd(
+    loopEnd: WorkflowNodes,
+    nodes: WorkflowNodes[],
+    edges: Edge[]
+): WorkflowNodes | undefined {
+    return findRelatedNodeOfType(loopEnd, nodes, edges, NodeType.LOOP_START, 'target', NodeType.LOOP_END) // Refactored to use findRelatedNodeOfType
+}
+
+/**
+ * Finds the loop end node for the given loop start node in the workflow graph.
+ *
+ * @param loopStart - The loop start node to find the corresponding loop end for.
+ * @param nodes - The array of workflow nodes.
+ * @param edges - The array of edges between the workflow nodes.
+ * @returns The loop end node if found, otherwise `undefined`.
+ */
 export function findLoopEndForLoopStart(
     loopStart: WorkflowNodes,
     nodes: WorkflowNodes[],
     edges: Edge[]
 ): WorkflowNodes | undefined {
-    const visited = new Set<string>()
-    const stack: WorkflowNodes[] = [loopStart]
-
-    while (stack.length > 0) {
-        const currentNode = stack.pop()!
-
-        if (visited.has(currentNode.id)) {
-            continue // Skip if already visited
-        }
-        visited.add(currentNode.id)
-
-        if (currentNode.type === NodeType.LOOP_END) {
-            return currentNode // Found the LoopEnd
-        }
-
-        if (currentNode.type === NodeType.LOOP_START && currentNode.id !== loopStart.id) {
-            continue //Skip if we find another loop start node.
-        }
-
-        const childNodes = getChildNodes(currentNode.id, nodes, edges)
-        for (const childNode of childNodes) {
-            if (!visited.has(childNode.id)) {
-                stack.push(childNode) // Explore children
-            }
-        }
-    }
-
-    return undefined // No LoopEnd found for this LoopStart
+    return findRelatedNodeOfType(
+        loopStart,
+        nodes,
+        edges,
+        NodeType.LOOP_END,
+        'source',
+        NodeType.LOOP_START
+    ) // Refactored to use findRelatedNodeOfType
 }
 
 const CONTROL_FLOW_NODES = new Set([NodeType.LOOP_START, NodeType.LOOP_END])

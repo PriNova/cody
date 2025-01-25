@@ -8,9 +8,12 @@ import {
 } from '../../components/shadcn/ui/accordion'
 import { Button } from '../../components/shadcn/ui/button'
 import { Textarea } from '../../components/shadcn/ui/textarea'
+import type { WorkflowToExtension } from '../services/WorkflowProtocol'
+import { SimpleMarkdown } from './SimpleMarkdown'
 import { NodeType, type WorkflowNodes } from './nodes/Nodes'
 
 interface RightSidebarProps {
+    handlePostMessage: (message: WorkflowToExtension) => void
     sortedNodes: WorkflowNodes[]
     nodeResults: Map<string, string>
     executingNodeId: string | null
@@ -20,6 +23,7 @@ interface RightSidebarProps {
 }
 
 export const RightSidebar: React.FC<RightSidebarProps> = ({
+    handlePostMessage,
     sortedNodes,
     nodeResults,
     executingNodeId,
@@ -66,7 +70,12 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
     }, [pendingApprovalNodeId])
 
     return (
-        <div className="tw-w-full tw-border-r tw-border-border tw-h-full tw-bg-sidebar-background tw-p-4">
+        <div
+            className="tw-w-full tw-border-r tw-border-border tw-h-full tw-bg-sidebar-background tw-p-4"
+            style={{ paddingBottom: '20px' }}
+        >
+            {' '}
+            {/* Add paddingBottom here */}
             <div className="tw-flex tw-flex-col tw-gap-2 tw-mb-4">
                 <h3 className="tw-text-[var(--vscode-sideBarTitle-foreground)] tw-font-medium tw-mb-4">
                     Workflow Execution Order & Results
@@ -92,17 +101,35 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
                                     <AccordionContent>
                                         {nodeResults.has(node.id) && (
                                             <div className="tw-mt-1">
-                                                <Textarea
-                                                    value={
-                                                        modifiedCommands.get(node.id) ||
-                                                        nodeResults.get(node.id) ||
-                                                        ''
-                                                    }
-                                                    readOnly={node.id !== pendingApprovalNodeId}
-                                                    onChange={e =>
-                                                        handleCommandChange(node.id, e.target.value)
-                                                    }
-                                                />
+                                                {node.id === pendingApprovalNodeId ? ( // Conditionally render Textarea or MarkdownFromCody
+                                                    <Textarea
+                                                        value={
+                                                            modifiedCommands.get(node.id) ||
+                                                            nodeResults.get(node.id) ||
+                                                            ''
+                                                        }
+                                                        readOnly={node.id !== pendingApprovalNodeId}
+                                                        onChange={e =>
+                                                            handleCommandChange(node.id, e.target.value)
+                                                        }
+                                                    />
+                                                ) : (
+                                                    <SimpleMarkdown
+                                                        handlePostMessage={handlePostMessage}
+                                                        style={{
+                                                            // Inline styles should now be valid
+                                                            backgroundColor:
+                                                                'var(--vscode-sideBar-background)',
+                                                            border: '1px solid var(--vscode-panel-border)',
+                                                            borderRadius:
+                                                                'var(--vscode-widgets-borderWidth)',
+                                                            padding: '10px',
+                                                            marginBottom: '10px',
+                                                        }}
+                                                    >
+                                                        {nodeResults.get(node.id) || ''}
+                                                    </SimpleMarkdown>
+                                                )}
                                                 {node.type === NodeType.CLI &&
                                                     node.id === pendingApprovalNodeId && (
                                                         <div className="tw-flex tw-w-full tw-gap-2 tw-mt-2 tw-justify-center">

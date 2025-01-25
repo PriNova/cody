@@ -31,7 +31,7 @@ export const useNodeStateTransformation = (
     nodeErrors: Map<string, string>,
     nodeResults: Map<string, string>,
     interruptedNodeId: string | null,
-    edges: Edge[] // Add edges parameter
+    edges: Edge[]
 ) => {
     return useMemo(() => {
         // Calculate all inactive nodes first
@@ -45,23 +45,25 @@ export const useNodeStateTransformation = (
             }
         }
 
-        return nodes.map(node => ({
-            ...node,
-            selected: node.id === selectedNode?.id,
-            data: {
-                ...node.data,
-                moving: node.id === movingNodeId,
-                executing: node.id === executingNodeId,
-                interrupted: node.id === interruptedNodeId,
-                error: nodeErrors.has(node.id),
-                result: nodeResults.get(node.id),
-                active: !allInactiveNodes.has(node.id) && node.data.active !== false,
-                tokenCount:
-                    node.type === NodeType.PREVIEW
-                        ? Number.parseInt(nodeResults.get(`${node.id}_tokens`) || '0', 10)
-                        : undefined,
-            },
-        }))
+        return nodes.map(node => {
+            return {
+                ...node,
+                selected: node.id === selectedNode?.id,
+                data: {
+                    ...node.data,
+                    moving: node.id === movingNodeId,
+                    executing: node.id === executingNodeId,
+                    interrupted: node.id === interruptedNodeId,
+                    error: nodeErrors.has(node.id),
+                    result: nodeResults.get(node.id),
+                    active: !allInactiveNodes.has(node.id) && node.data.active !== false,
+                    tokenCount:
+                        node.type === NodeType.PREVIEW
+                            ? Number.parseInt(nodeResults.get(`${node.id}_tokens`) || '0', 10)
+                            : undefined,
+                },
+            }
+        })
     }, [
         nodes,
         selectedNode,

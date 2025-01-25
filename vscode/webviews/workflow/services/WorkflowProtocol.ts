@@ -33,6 +33,11 @@ interface NodeExecutionPayload {
 }
 
 // Messages TO Extension (Commands)
+interface OpenExternalLink extends BaseWorkflowMessage {
+    type: 'open_external_link'
+    url: string
+}
+
 interface SaveWorkflowCommand extends BaseWorkflowMessage {
     type: 'save_workflow'
     data: WorkflowPayload
@@ -104,6 +109,7 @@ interface ModelsLoadedEvent extends BaseWorkflowMessage {
 
 // Export discriminated unions
 export type WorkflowToExtension =
+    | OpenExternalLink
     | GetModelsCommand
     | SaveWorkflowCommand
     | LoadWorkflowCommand
@@ -112,7 +118,7 @@ export type WorkflowToExtension =
     | CalculateTokensCommand
     | NodeApprovalCommand
 
-export type WorkflowFromExtension =
+export type ExtensionToWorkflow =
     | ModelsLoadedEvent
     | WorkflowLoadedEvent
     | ExecutionStartedEvent

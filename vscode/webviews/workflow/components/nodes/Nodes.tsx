@@ -1,4 +1,5 @@
 import { v4 as uuidv4 } from 'uuid'
+import type { WorkflowToExtension } from '../../services/WorkflowProtocol'
 import type { Edge } from '../CustomOrderedEdge'
 import { CLINode } from './CLI_Node'
 import { CodyOutputNode } from './CodyOutput_Node'
@@ -34,6 +35,7 @@ export interface BaseNodeProps {
         tokenCount?: number
         iterations?: number
         interrupted?: boolean
+        handlePostMessage: (message: WorkflowToExtension) => void
     }
     selected?: boolean
 }

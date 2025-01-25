@@ -1,6 +1,7 @@
 import { Handle, Position } from '@xyflow/react'
 import type React from 'react'
-import { Textarea } from '../../../components/shadcn/ui/textarea'
+import type { WorkflowToExtension } from '../../services/WorkflowProtocol'
+import { SimpleMarkdown } from '../SimpleMarkdown'
 import {
     type BaseNodeData,
     type BaseNodeProps,
@@ -12,7 +13,10 @@ import {
 
 export type PreviewNode = Omit<WorkflowNode, 'data'> & {
     type: NodeType.PREVIEW
-    data: BaseNodeData
+    data: BaseNodeData & {
+        handlePostMessage: (message: WorkflowToExtension) => void
+        tokenCount?: number
+    }
 }
 
 export const PreviewNode: React.FC<BaseNodeProps & { tokenCount?: number }> = ({ data, selected }) => {
@@ -55,17 +59,24 @@ export const PreviewNode: React.FC<BaseNodeProps & { tokenCount?: number }> = ({
                         <span className="tw-text-sm tw-opacity-70">Tokens: {data.tokenCount || 0}</span>
                     </div>
                 </div>
-                <Textarea
-                    className="tw-w-full tw-h-24 tw-p-2 tw-rounded nodrag tw-resize tw-border-2 tw-border-solid tw-border-[var(--xy-node-border-default)]"
+                <SimpleMarkdown
+                    handlePostMessage={data.handlePostMessage}
+                    className="tw-w-60 tw-h-24 tw-p-2 tw-rounded nodrag tw-resize tw-border-2 tw-border-solid tw-border-[var(--xy-node-border-default)]"
                     style={{
-                        color: 'var(--vscode-editor-foreground)',
-                        backgroundColor: 'var(--vscode-input-background)',
-                        outline: 'none',
+                        ...{
+                            color: 'var(--vscode-editor-foreground)',
+                            backgroundColor: 'var(--vscode-input-background)', // Keep the input background for contrast or replace
+                            outline: 'none',
+                            overflowY: 'auto',
+                            resize: 'both',
+                            overflowX: 'hidden',
+                            wordBreak: 'break-word',
+                        },
+                        backgroundColor: 'var(--vscode-sideBar-background)', // Add sidebar background color here
                     }}
-                    value={data.content || ''}
-                    readOnly
-                    placeholder="Preview content will appear here..."
-                />
+                >
+                    {data.content || ''}
+                </SimpleMarkdown>
             </div>
             <Handle type="source" position={Position.Bottom} />
         </div>

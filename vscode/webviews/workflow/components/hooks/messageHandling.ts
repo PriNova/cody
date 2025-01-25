@@ -1,6 +1,6 @@
 import type { GenericVSCodeWrapper, Model } from '@sourcegraph/cody-shared'
 import { useCallback, useEffect } from 'react'
-import type { WorkflowFromExtension, WorkflowToExtension } from '../../services/WorkflowProtocol'
+import type { ExtensionToWorkflow, WorkflowToExtension } from '../../services/WorkflowProtocol'
 import type { Edge } from '../CustomOrderedEdge'
 import { NodeType, type WorkflowNodes } from '../nodes/Nodes'
 
@@ -36,7 +36,7 @@ export const useMessageHandler = (
     calculatePreviewNodeTokens: (nodes: WorkflowNodes[]) => void,
     setPendingApprovalNodeId: React.Dispatch<React.SetStateAction<string | null>>,
     setModels: React.Dispatch<React.SetStateAction<Model[]>>,
-    vscodeAPI: GenericVSCodeWrapper<WorkflowToExtension, WorkflowFromExtension>
+    vscodeAPI: GenericVSCodeWrapper<WorkflowToExtension, ExtensionToWorkflow>
 ) => {
     const batchUpdateNodeResults = useCallback(
         (updates: Map<string, string>, node?: WorkflowNodes) => {
@@ -53,7 +53,7 @@ export const useMessageHandler = (
     }, [vscodeAPI])
 
     useEffect(() => {
-        const messageHandler = (event: MessageEvent<WorkflowFromExtension>) => {
+        const messageHandler = (event: MessageEvent<ExtensionToWorkflow>) => {
             switch (event.data.type) {
                 case 'workflow_loaded': {
                     const { nodes, edges } = event.data.data

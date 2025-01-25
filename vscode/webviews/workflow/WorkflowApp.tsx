@@ -3,10 +3,10 @@ import type React from 'react'
 import '../index.css'
 import type { GenericVSCodeWrapper } from '@sourcegraph/cody-shared'
 import { Flow } from './components/Flow'
-import type { WorkflowFromExtension, WorkflowToExtension } from './services/WorkflowProtocol'
+import type { ExtensionToWorkflow, WorkflowToExtension } from './services/WorkflowProtocol'
 
 export const WorkflowApp: React.FC<{
-    vscodeAPI: GenericVSCodeWrapper<WorkflowToExtension, WorkflowFromExtension>
+    vscodeAPI: GenericVSCodeWrapper<WorkflowToExtension, ExtensionToWorkflow>
 }> = vscodeAPI => {
     return (
         <ReactFlowProvider>

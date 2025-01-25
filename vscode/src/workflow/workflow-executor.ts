@@ -19,7 +19,7 @@ import * as vscode from 'vscode'
 import type { Edge } from '../../webviews/workflow/components/CustomOrderedEdge'
 import { getInactiveNodes } from '../../webviews/workflow/components/hooks/nodeStateTransforming'
 import { NodeType, type WorkflowNodes } from '../../webviews/workflow/components/nodes/Nodes'
-import type { WorkflowFromExtension } from '../../webviews/workflow/services/WorkflowProtocol'
+import type { ExtensionToWorkflow } from '../../webviews/workflow/services/WorkflowProtocol'
 import { ChatController, type ChatSession } from '../chat/chat-view/ChatController'
 import { type ContextRetriever, toStructuredMentions } from '../chat/chat-view/ContextRetriever'
 import { getCorpusContextItemsForEditorState } from '../chat/initialContext'
@@ -93,7 +93,7 @@ export async function executeWorkflow(
 
     await webview.postMessage({
         type: 'execution_started',
-    } as WorkflowFromExtension)
+    } as ExtensionToWorkflow)
 
     for (const node of sortedNodes) {
         if (node.type === NodeType.LOOP_START) {
@@ -112,7 +112,7 @@ export async function executeWorkflow(
         await webview.postMessage({
             type: 'node_execution_status',
             data: { nodeId: node.id, status: 'running' },
-        } as WorkflowFromExtension)
+        } as ExtensionToWorkflow)
 
         let result: string | string[]
         try {
@@ -145,11 +145,11 @@ export async function executeWorkflow(
                         await webview.postMessage({
                             type: 'node_execution_status',
                             data: { nodeId: node.id, status, result: errorMessage },
-                        } as WorkflowFromExtension)
+                        } as ExtensionToWorkflow)
 
                         await webview.postMessage({
                             type: 'execution_completed',
-                        } as WorkflowFromExtension)
+                        } as ExtensionToWorkflow)
                         return
                     }
                     break
@@ -233,11 +233,11 @@ export async function executeWorkflow(
                         await webview.postMessage({
                             type: 'node_execution_status',
                             data: { nodeId: node.id, status, result: errorMessage },
-                        } as WorkflowFromExtension)
+                        } as ExtensionToWorkflow)
 
                         await webview.postMessage({
                             type: 'execution_completed',
-                        } as WorkflowFromExtension)
+                        } as ExtensionToWorkflow)
 
                         return
                     }
@@ -278,7 +278,7 @@ export async function executeWorkflow(
                 await webview.postMessage({
                     type: 'node_execution_status',
                     data: { nodeId: node.id, status: 'interrupted' },
-                } as WorkflowFromExtension)
+                } as ExtensionToWorkflow)
                 return
             }
             const errorMessage = error instanceof Error ? error.message : String(error)
@@ -287,11 +287,11 @@ export async function executeWorkflow(
             await webview.postMessage({
                 type: 'node_execution_status',
                 data: { nodeId: node.id, status, result: errorMessage },
-            } as WorkflowFromExtension)
+            } as ExtensionToWorkflow)
 
             await webview.postMessage({
                 type: 'execution_completed',
-            } as WorkflowFromExtension)
+            } as ExtensionToWorkflow)
             return
         }
 
@@ -299,13 +299,13 @@ export async function executeWorkflow(
         await webview.postMessage({
             type: 'node_execution_status',
             data: { nodeId: node.id, status: 'completed', result },
-        } as WorkflowFromExtension)
+        } as ExtensionToWorkflow)
     }
 
     persistentShell.dispose()
     webview.postMessage({
         type: 'execution_completed',
-    } as WorkflowFromExtension)
+    } as ExtensionToWorkflow)
 
     context.loopStates.clear()
 }
@@ -449,7 +449,7 @@ export async function executeCLINode(
                 status: 'pending_approval',
                 result: `${filteredCommand}`,
             },
-        } as WorkflowFromExtension)
+        } as ExtensionToWorkflow)
 
         const approval = await approvalHandler(node.id)
         if (approval.command) {
@@ -596,7 +596,7 @@ async function executePreviewNode(
             nodeId,
             count: tokenCount.length,
         },
-    } as WorkflowFromExtension)
+    } as ExtensionToWorkflow)
 
     return trimmedInput
 }
@@ -661,17 +661,19 @@ async function executeSearchContextNode(
  * Executes an output node in the workflow, which involves continuing a chat session and waiting for new messages.
  *
  * @param input - The input string to be used for the chat.
- * @param contextItemsAsString - An optional array of strings representing the context items to be used for the chat.
+ * @param contextItemsAsStringArray - An optional array of strings representing the context items to be used for the chat.
  * @param abortSignal - An AbortSignal that can be used to cancel the workflow execution.
  * @returns A Promise that resolves with the session ID of the completed chat session.
  */
 async function executeCodyOutputNode(
     input: string,
-    contextItemsAsString: string[] | undefined,
+    contextItemsAsStringArray: string[] | undefined,
     abortSignal: AbortSignal
 ): Promise<string> {
     abortSignal.throwIfAborted()
-    const stringToContext = contextItemsAsString ? stringToContextItems(contextItemsAsString) : []
+    const stringToContext = contextItemsAsStringArray
+        ? stringToContextItems(contextItemsAsStringArray)
+        : []
 
     return new Promise<string>((resolve, reject) => {
         // Handle workflow abortion

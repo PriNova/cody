@@ -1,6 +1,6 @@
 import * as vscode from 'vscode'
 import type {
-    WorkflowFromExtension,
+    ExtensionToWorkflow,
     WorkflowToExtension,
 } from '../../webviews/workflow/services/WorkflowProtocol'
 
@@ -63,7 +63,7 @@ export function registerWorkflowCommands(
                                         panel.webview.postMessage({
                                             type: 'models_loaded',
                                             data: models,
-                                        } as WorkflowFromExtension)
+                                        } as ExtensionToWorkflow)
                                         chatModelsSubscription.unsubscribe()
                                     }
                                 })
@@ -78,7 +78,7 @@ export function registerWorkflowCommands(
                                 panel.webview.postMessage({
                                     type: 'workflow_loaded',
                                     data: loadedData,
-                                } as WorkflowFromExtension)
+                                } as ExtensionToWorkflow)
                             }
                             break
                         }
@@ -115,7 +115,7 @@ export function registerWorkflowCommands(
                                     nodeId: message.data.nodeId,
                                     count: count.length,
                                 },
-                            } as WorkflowFromExtension)
+                            } as ExtensionToWorkflow)
                             break
                         }
                         case 'node_approved': {
@@ -125,6 +125,11 @@ export function registerWorkflowCommands(
                                 })
                                 pendingApprovalResolve = null
                             }
+                            break
+                        }
+                        case 'open_external_link': {
+                            const url = vscode.Uri.parse(message.url)
+                            vscode.env.openExternal(url)
                             break
                         }
                     }

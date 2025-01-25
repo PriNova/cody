@@ -2,8 +2,8 @@ import { Background, Controls, ReactFlow } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import type { GenericVSCodeWrapper, Model } from '@sourcegraph/cody-shared'
 import type React from 'react'
-import { useMemo, useState } from 'react'
-import type { WorkflowFromExtension, WorkflowToExtension } from '../services/WorkflowProtocol'
+import { useCallback, useMemo, useState } from 'react'
+import type { ExtensionToWorkflow, WorkflowToExtension } from '../services/WorkflowProtocol'
 import { CustomOrderedEdge } from './CustomOrderedEdge'
 import styles from './Flow.module.css'
 import { HelpModal } from './HelpModal'
@@ -25,11 +25,11 @@ import { type WorkflowNodes, defaultWorkflow, nodeTypes } from './nodes/Nodes'
  *
  * @component
  * @param {Object} props - Component properties
- * @param {GenericVSCodeWrapper<WorkflowToExtension, WorkflowFromExtension>} props.vscodeAPI - VSCode API wrapper for communication between webview and extension
+ * @param {GenericVSCodeWrapper<WorkflowToExtension, ExtensionToWorkflow>} props.vscodeAPI - VSCode API wrapper for communication between webview and extension
  * @returns {React.ReactElement} Rendered workflow interface with ReactFlow, sidebars, and controls
  */
 export const Flow: React.FC<{
-    vscodeAPI: GenericVSCodeWrapper<WorkflowToExtension, WorkflowFromExtension>
+    vscodeAPI: GenericVSCodeWrapper<WorkflowToExtension, ExtensionToWorkflow>
 }> = ({ vscodeAPI }) => {
     // Node-related state
     const [nodes, setNodes] = useState<WorkflowNodes[]>(defaultWorkflow.nodes)
@@ -100,6 +100,13 @@ export const Flow: React.FC<{
     const { onNodeClick, handleBackgroundClick, handleBackgroundKeyDown } =
         useInteractionHandling(setSelectedNode)
 
+    const handlePostMessage = useCallback(
+        (message: WorkflowToExtension) => {
+            vscodeAPI.postMessage(message)
+        },
+        [vscodeAPI]
+    )
+
     const nodesWithState = useNodeStateTransformation(
         nodes,
         selectedNode,
@@ -109,12 +116,16 @@ export const Flow: React.FC<{
         nodeResults,
         interruptedNodeId,
         edges
-    ).map(node => ({
-        ...node,
-        data: {
-            ...node.data,
-        },
-    }))
+    ).map(node => {
+        const finalNode = {
+            ...node,
+            data: {
+                ...node.data,
+                handlePostMessage: handlePostMessage,
+            },
+        }
+        return finalNode
+    })
 
     // Recalculate sortedNodes on each render
     const sortedNodes = useMemo(() => {
@@ -125,7 +136,6 @@ export const Flow: React.FC<{
             data: { ...node.data }, // Ensure data object is properly cloned
         }))
     }, [nodesWithState, edges])
-
     return (
         <div className="tw-flex tw-h-screen tw-w-full tw-border-2 tw-border-solid tw-border-[var(--vscode-panel-border)] tw-text-[14px] tw-overflow-hidden">
             <div
@@ -197,6 +207,7 @@ export const Flow: React.FC<{
                         className="tw-flex-shrink-0 tw-border-r tw-border-solid tw-border-[var(--vscode-panel-border)] tw-bg-[var(--vscode-sideBar-background)] tw-h-full tw-overflow-y-auto"
                     >
                         <RightSidebar
+                            handlePostMessage={handlePostMessage}
                             sortedNodes={sortedNodes}
                             nodeResults={nodeResults}
                             executingNodeId={executingNodeId}

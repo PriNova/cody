@@ -1,7 +1,7 @@
 import type { GenericVSCodeWrapper } from '@sourcegraph/cody-shared'
 import { type NodeChange, applyNodeChanges, useReactFlow } from '@xyflow/react'
 import { useCallback, useMemo, useState } from 'react'
-import type { WorkflowFromExtension, WorkflowToExtension } from '../../services/WorkflowProtocol'
+import type { ExtensionToWorkflow, WorkflowToExtension } from '../../services/WorkflowProtocol'
 import type { LLMNode } from '../nodes/LLM_Node'
 import type { LoopStartNode } from '../nodes/LoopStart_Node'
 import { NodeType, type WorkflowNodes, createNode } from '../nodes/Nodes'
@@ -25,7 +25,7 @@ interface IndexedNodes {
  * @returns An object containing various functions and state related to node operations.
  */
 export const useNodeOperations = (
-    vscodeAPI: GenericVSCodeWrapper<WorkflowToExtension, WorkflowFromExtension>,
+    vscodeAPI: GenericVSCodeWrapper<WorkflowToExtension, ExtensionToWorkflow>,
     nodes: WorkflowNodes[],
     setNodes: React.Dispatch<React.SetStateAction<WorkflowNodes[]>>,
     selectedNode: WorkflowNodes | null,

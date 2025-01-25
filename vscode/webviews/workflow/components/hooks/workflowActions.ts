@@ -1,12 +1,12 @@
 import type { GenericVSCodeWrapper } from '@sourcegraph/cody-shared'
 import { useCallback } from 'react'
-import type { WorkflowFromExtension, WorkflowToExtension } from '../../services/WorkflowProtocol'
+import type { ExtensionToWorkflow, WorkflowToExtension } from '../../services/WorkflowProtocol'
 import type { Edge } from '../CustomOrderedEdge'
 import { NodeType, type WorkflowNodes } from '../nodes/Nodes'
 
 /**
  * Hook for managing workflow actions and interactions with VSCode extension.
- * @param {GenericVSCodeWrapper<WorkflowToExtension, WorkflowFromExtension>} vscodeAPI - VSCode API wrapper for communication
+ * @param {GenericVSCodeWrapper<WorkflowToExtension, ExtensionToWorkflow>} vscodeAPI - VSCode API wrapper for communication
  * @param {WorkflowNodes[]} nodes - Array of workflow nodes
  * @param {Edge[]} edges - Array of edges connecting workflow nodes
  * @param {React.Dispatch<React.SetStateAction<string | null>>} setPendingApprovalNodeId - State setter for pending approval node ID
@@ -15,7 +15,7 @@ import { NodeType, type WorkflowNodes } from '../nodes/Nodes'
  * @returns {{ onSave: () => void, onLoad: () => void, calculatePreviewNodeTokens: (nodes: WorkflowNodes[]) => void, handleNodeApproval: (nodeId: string, approved: boolean, modifiedCommand?: string) => void }}
  */
 export const useWorkflowActions = (
-    vscodeAPI: GenericVSCodeWrapper<WorkflowToExtension, WorkflowFromExtension>,
+    vscodeAPI: GenericVSCodeWrapper<WorkflowToExtension, ExtensionToWorkflow>,
     nodes: WorkflowNodes[],
     edges: Edge[],
     setPendingApprovalNodeId: React.Dispatch<React.SetStateAction<string | null>>,

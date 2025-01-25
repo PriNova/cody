@@ -1,6 +1,6 @@
 import type { GenericVSCodeWrapper } from '@sourcegraph/cody-shared'
 import { useCallback, useState } from 'react'
-import type { WorkflowFromExtension, WorkflowToExtension } from '../../services/WorkflowProtocol'
+import type { ExtensionToWorkflow, WorkflowToExtension } from '../../services/WorkflowProtocol'
 import type { Edge } from '../CustomOrderedEdge'
 import { NodeType, type WorkflowNodes } from '../nodes/Nodes'
 
@@ -15,7 +15,7 @@ import { NodeType, type WorkflowNodes } from '../nodes/Nodes'
  * @returns An object containing the execution state and actions to control the workflow execution.
  */
 export const useWorkflowExecution = (
-    vscodeAPI: GenericVSCodeWrapper<WorkflowToExtension, WorkflowFromExtension>,
+    vscodeAPI: GenericVSCodeWrapper<WorkflowToExtension, ExtensionToWorkflow>,
     nodes: WorkflowNodes[],
     edges: Edge[],
     setNodes: (nodes: WorkflowNodes[]) => void,
