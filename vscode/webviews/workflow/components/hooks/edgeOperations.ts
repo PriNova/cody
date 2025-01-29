@@ -69,7 +69,19 @@ export const useEdgeOperations = (
         [setEdges]
     )
 
-    const onConnect = useCallback((params: any) => setEdges(eds => addEdge(params, eds)), [setEdges])
+    const onConnect = useCallback(
+        (params: any) =>
+            setEdges(eds =>
+                addEdge(
+                    {
+                        ...params,
+                        type: 'smoothstep',
+                    },
+                    eds
+                )
+            ),
+        [setEdges]
+    )
 
     return {
         onEdgesChange,

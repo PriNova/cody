@@ -59,14 +59,14 @@ export const WorkflowSidebar: React.FC<WorkflowSidebarProps> = ({
     return (
         <div className="tw-w-full tw-border-r tw-border-border tw-h-full tw-bg-sidebar-background tw-p-4">
             <div className="tw-flex tw-flex-col tw-gap-2 tw-mb-4">
-                <Button variant="secondary" className="tw-w-full" onClick={onLoad}>
+                <Button variant="outline" className="tw-w-full" onClick={onLoad}>
                     Open Workflow
                 </Button>
-                <Button variant="secondary" className="tw-w-full" onClick={handleSave}>
+                <Button variant="outline" className="tw-w-full" onClick={handleSave}>
                     Save Workflow
                 </Button>
                 <Button
-                    variant="secondary"
+                    variant="outline"
                     className="tw-w-full"
                     onClick={() => {
                         if (isExecuting && onAbort) {
@@ -79,11 +79,11 @@ export const WorkflowSidebar: React.FC<WorkflowSidebarProps> = ({
                 >
                     {isExecuting ? 'Stop Execution' : 'Execute'}
                 </Button>
-                <Button variant="secondary" className="tw-w-full" onClick={onClear}>
+                <Button variant="outline" className="tw-w-full" onClick={onClear}>
                     Clear Workflow
                 </Button>
 
-                <Button variant="secondary" className="tw-w-full" onClick={() => setIsHelpOpen(true)}>
+                <Button variant="outline" className="tw-w-full" onClick={() => setIsHelpOpen(true)}>
                     Show Help
                 </Button>
             </div>
@@ -91,41 +91,41 @@ export const WorkflowSidebar: React.FC<WorkflowSidebarProps> = ({
             <div className="tw-my-4 tw-border-t tw-border-border" />
             <Accordion type="single" collapsible>
                 <AccordionItem value="cli">
-                    <AccordionTrigger>CLI Actions</AccordionTrigger>
+                    <AccordionTrigger>Shell Nodes</AccordionTrigger>
                     <AccordionContent>
                         <div className="tw-flex tw-flex-col tw-gap-2">
                             <Button
-                                onClick={() => onNodeAdd('CLI Command', NodeType.CLI)}
+                                onClick={() => onNodeAdd('Shell Command', NodeType.CLI)}
                                 className="tw-w-full"
-                                variant="secondary"
+                                variant="outline"
                             >
-                                CLI command
+                                Shell
                             </Button>
                         </div>
                     </AccordionContent>
                 </AccordionItem>
                 <AccordionItem value="llm">
-                    <AccordionTrigger>Cody AI Actions</AccordionTrigger>
+                    <AccordionTrigger>Cody AI Nodes</AccordionTrigger>
                     <AccordionContent>
                         <div className="tw-flex tw-flex-col tw-gap-2">
                             <Button
-                                onClick={() => onNodeAdd('Cody', NodeType.LLM)}
+                                onClick={() => onNodeAdd('Cody AI', NodeType.LLM)}
                                 className="tw-w-full"
-                                variant="secondary"
+                                variant="outline"
                             >
-                                Cody
+                                Cody AI
                             </Button>
                         </div>
                     </AccordionContent>
                 </AccordionItem>
                 <AccordionItem value="preview">
-                    <AccordionTrigger>Preview</AccordionTrigger>
+                    <AccordionTrigger>Preview Nodes</AccordionTrigger>
                     <AccordionContent>
                         <div className="tw-flex tw-flex-col tw-gap-2">
                             <Button
                                 onClick={() => onNodeAdd('Preview', NodeType.PREVIEW)}
                                 className="tw-w-full"
-                                variant="secondary"
+                                variant="outline"
                             >
                                 Preview
                             </Button>
@@ -133,62 +133,64 @@ export const WorkflowSidebar: React.FC<WorkflowSidebarProps> = ({
                     </AccordionContent>
                 </AccordionItem>
                 <AccordionItem value="input">
-                    <AccordionTrigger>Input Text</AccordionTrigger>
+                    <AccordionTrigger>Text Nodes</AccordionTrigger>
                     <AccordionContent>
                         <div className="tw-flex tw-flex-col tw-gap-2">
                             <Button
                                 onClick={() => onNodeAdd('Text', NodeType.INPUT)}
                                 className="tw-w-full"
-                                variant="secondary"
+                                variant="outline"
                             >
-                                Input Text
+                                Text
                             </Button>
                         </div>
                     </AccordionContent>
                 </AccordionItem>
                 <AccordionItem value="context">
-                    <AccordionTrigger>Context Items</AccordionTrigger>
+                    <AccordionTrigger>Context Nodes</AccordionTrigger>
                     <AccordionContent>
                         <div className="tw-flex tw-flex-col tw-gap-2">
                             <Button
-                                onClick={() => onNodeAdd('SearchContext', NodeType.SEARCH_CONTEXT)}
+                                onClick={() => onNodeAdd('Search Context', NodeType.SEARCH_CONTEXT)}
                                 className="tw-w-full"
-                                variant="secondary"
+                                variant="outline"
                             >
-                                Fetch Context
+                                Search Context
                             </Button>
                         </div>
                     </AccordionContent>
                 </AccordionItem>
-                <AccordionItem value="outputs">
-                    <AccordionTrigger>Outputs</AccordionTrigger>
-                    <AccordionContent>
-                        <div className="tw-flex tw-flex-col tw-gap-2">
-                            <Button
-                                onClick={() => onNodeAdd('CodyOutput', NodeType.CODY_OUTPUT)}
-                                className="tw-w-full"
-                                variant="secondary"
-                            >
-                                Cody Output
-                            </Button>
-                        </div>
-                    </AccordionContent>
-                </AccordionItem>
+                {false && (
+                    <AccordionItem value="outputs">
+                        <AccordionTrigger>Outputs</AccordionTrigger>
+                        <AccordionContent>
+                            <div className="tw-flex tw-flex-col tw-gap-2">
+                                <Button
+                                    onClick={() => onNodeAdd('CodyOutput', NodeType.CODY_OUTPUT)}
+                                    className="tw-w-full"
+                                    variant="outline"
+                                >
+                                    Cody Output
+                                </Button>
+                            </div>
+                        </AccordionContent>
+                    </AccordionItem>
+                )}
                 <AccordionItem value="loop">
-                    <AccordionTrigger>Loop Control</AccordionTrigger>
+                    <AccordionTrigger>Loop Nodes</AccordionTrigger>
                     <AccordionContent>
                         <div className="tw-flex tw-flex-col tw-gap-2">
                             <Button
                                 onClick={() => onNodeAdd('Loop Start', NodeType.LOOP_START)}
                                 className="tw-w-full"
-                                variant="secondary"
+                                variant="outline"
                             >
                                 Loop Start
                             </Button>
                             <Button
                                 onClick={() => onNodeAdd('Loop End', NodeType.LOOP_END)}
                                 className="tw-w-full"
-                                variant="secondary"
+                                variant="outline"
                             >
                                 Loop End
                             </Button>

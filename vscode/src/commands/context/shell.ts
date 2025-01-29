@@ -76,7 +76,7 @@ export class PersistentShell {
 
             const abortListener = () => {
                 clearTimeout(timeoutId)
-                this.kill()
+                this.dispose()
                 reject(new Error('Command execution aborted'))
                 abortSignal?.removeEventListener('abort', abortListener)
             }

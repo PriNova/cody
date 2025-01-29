@@ -1,7 +1,6 @@
 import { Handle, Position } from '@xyflow/react'
 import type React from 'react'
-import type { WorkflowToExtension } from '../../services/WorkflowProtocol'
-import { SimpleMarkdown } from '../SimpleMarkdown'
+import { Textarea } from '../../../components/shadcn/ui/textarea'
 import {
     type BaseNodeData,
     type BaseNodeProps,
@@ -13,10 +12,7 @@ import {
 
 export type PreviewNode = Omit<WorkflowNode, 'data'> & {
     type: NodeType.PREVIEW
-    data: BaseNodeData & {
-        handlePostMessage: (message: WorkflowToExtension) => void
-        tokenCount?: number
-    }
+    data: BaseNodeData
 }
 
 export const PreviewNode: React.FC<BaseNodeProps & { tokenCount?: number }> = ({ data, selected }) => {
@@ -38,14 +34,17 @@ export const PreviewNode: React.FC<BaseNodeProps & { tokenCount?: number }> = ({
                     <div
                         className="tw-text-center tw-py-1 tw-mb-2 tw-rounded-t-sm tw-font-bold"
                         style={{
-                            backgroundColor: getBorderColor(NodeType.PREVIEW, {
-                                error: data.error,
-                                executing: data.executing,
-                                moving: data.moving,
-                                selected,
-                                interrupted: data.interrupted,
-                                active: data.active,
-                            }),
+                            background: `linear-gradient(to top, #1e1e1e, ${getBorderColor(
+                                NodeType.PREVIEW,
+                                {
+                                    error: data.error,
+                                    executing: data.executing,
+                                    moving: data.moving,
+                                    selected,
+                                    interrupted: data.interrupted,
+                                    active: data.active,
+                                }
+                            )})`,
                             color: 'var(--vscode-dropdown-foreground)',
                             marginLeft: '-0.5rem',
                             marginRight: '-0.5rem',
@@ -59,24 +58,17 @@ export const PreviewNode: React.FC<BaseNodeProps & { tokenCount?: number }> = ({
                         <span className="tw-text-sm tw-opacity-70">Tokens: {data.tokenCount || 0}</span>
                     </div>
                 </div>
-                <SimpleMarkdown
-                    handlePostMessage={data.handlePostMessage}
-                    className="tw-w-60 tw-h-24 tw-p-2 tw-rounded nodrag tw-resize tw-border-2 tw-border-solid tw-border-[var(--xy-node-border-default)]"
+                <Textarea
+                    className="tw-w-full tw-h-24 tw-p-2 tw-rounded nodrag tw-resize tw-border-2 tw-border-solid tw-border-[var(--xy-node-border-default)]"
                     style={{
-                        ...{
-                            color: 'var(--vscode-editor-foreground)',
-                            backgroundColor: 'var(--vscode-input-background)', // Keep the input background for contrast or replace
-                            outline: 'none',
-                            overflowY: 'auto',
-                            resize: 'both',
-                            overflowX: 'hidden',
-                            wordBreak: 'break-word',
-                        },
-                        backgroundColor: 'var(--vscode-sideBar-background)', // Add sidebar background color here
+                        color: 'var(--vscode-editor-foreground)',
+                        backgroundColor: 'var(--vscode-input-background)',
+                        outline: 'none',
                     }}
-                >
-                    {data.content || ''}
-                </SimpleMarkdown>
+                    value={data.content || ''}
+                    readOnly
+                    placeholder="Preview content will appear here..."
+                />
             </div>
             <Handle type="source" position={Position.Bottom} />
         </div>

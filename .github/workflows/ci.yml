@@ -4,8 +4,8 @@ on:
   push:
     branches:
       - dev
-  pull_request:
-    types: [opened, reopened, synchronize, ready_for_review]
+  # pull_request:
+  #  types: [opened, reopened, synchronize, ready_for_review]
   workflow_dispatch:
 
 jobs:
@@ -157,15 +157,15 @@ jobs:
         with:
           node-version-file: .tool-versions
       - uses: pnpm/action-setup@fe02b34f77f8bc703788d5817da081398fad5dd2 # SECURITY: pin third-party action hashes
-      - run: echo "STORE_PATH=$(pnpm store path)" >> $GITHUB_OUTPUT
-        shell: bash
-        id: pnpm-cache
-      - name: Cache pnpm store
-        uses: actions/cache@v4
-        with:
-          path: ${{ steps.pnpm-cache.outputs.STORE_PATH }}
-          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
-          restore-keys: ${{ runner.os }}-pnpm-store-
+      #- run: echo "STORE_PATH=$(pnpm store path)" >> $GITHUB_OUTPUT
+      #  shell: bash
+      #  id: pnpm-cache
+      #- name: Cache pnpm store
+      #  uses: actions/cache@v4
+      #  with:
+      #    path: ${{ steps.pnpm-cache.outputs.STORE_PATH }}
+      #    key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+      #    restore-keys: ${{ runner.os }}-pnpm-store-
       - run: pnpm install
       # Run Biome and capture the output. If biome crashes, it still reports a
       # successful CI run (exit code 0) but that will ripple down to errors in

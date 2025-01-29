@@ -161,5 +161,4 @@ export function registerWorkflowCommands(
                 .replaceAll('{cspSource}', panel.webview.cspSource)
         })
     )
-    return { waitForApproval }
 }

@@ -1,3 +1,4 @@
+import type { Node as ReactFlowNode } from '@xyflow/react'
 import { v4 as uuidv4 } from 'uuid'
 import type { WorkflowToExtension } from '../../services/WorkflowProtocol'
 import type { Edge } from '../CustomOrderedEdge'
@@ -49,9 +50,14 @@ export type BaseNodeData = {
     needsUserApproval?: boolean
     tokenCount?: number
     local_remote?: boolean
+    moving?: boolean // Add optional moving property
+    executing?: boolean // Add optional executing property
+    error?: boolean // Add optional error property
+    interrupted?: boolean // Add optional interrupted property
+    result?: string
 }
 
-export type WorkflowNode = {
+export type WorkflowNode = Omit<ReactFlowNode, 'data' | 'position' | 'type' | 'id' | 'selected'> & {
     id: string
     type: NodeType
     data: BaseNodeData
@@ -59,6 +65,7 @@ export type WorkflowNode = {
         x: number
         y: number
     }
+    selected?: boolean
 }
 
 export type WorkflowNodes =
@@ -135,6 +142,9 @@ export const createEdge = (sourceNode: WorkflowNode, targetNode: WorkflowNode): 
     id: `${sourceNode}-${targetNode.id}`,
     source: sourceNode.id,
     target: targetNode.id,
+    style: {
+        strokeWidth: 1,
+    },
 })
 
 /**
@@ -246,6 +256,8 @@ export const getNodeStyle = (
     color: 'var(--vscode-dropdown-foreground)',
     border: `2px solid ${getBorderColor(type, { error, executing, moving, interrupted, selected })}`,
     opacity: !active ? '0.4' : '1',
+    minWidth: '5rem',
+    boxShadow: '6px 6px 8px rgba(0, 0, 0, 0.6)',
 })
 
 export const nodeTypes = {

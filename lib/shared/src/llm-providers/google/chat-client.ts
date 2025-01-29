@@ -44,7 +44,9 @@ export async function googleChatClient({
     }
 
     const log = logger?.startCompletion(params, completionsEndpoint)
-    const model = await firstValueFrom(modelsService.getDefaultModel(ModelUsage.Chat))
+    const model =
+        modelsService.getModelByID(params.model) ??
+        (await firstValueFrom(modelsService.getDefaultModel(ModelUsage.Chat)))
     const isGeminiThinkModel = isGeminiThinkingModel(model)
 
     // Add the stream endpoint to the URL
@@ -147,7 +149,7 @@ export async function googleChatClient({
                         const streamText = parsed.candidates?.[0]?.content?.parts
                         if (streamText) {
                             if (isGeminiThinkModel) {
-                                const prefixes = ['<thinking>', '</thinking>\n\n']
+                                const prefixes = ['<think7345>', '</think7345>\n\n']
                                 for (const part of parsed.candidates[0].content.parts) {
                                     if (part) {
                                         let prefix = ''

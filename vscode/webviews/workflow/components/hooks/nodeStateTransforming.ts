@@ -32,47 +32,52 @@ export const useNodeStateTransformation = (
     nodeResults: Map<string, string>,
     interruptedNodeId: string | null,
     edges: Edge[]
-) => {
-    return useMemo(() => {
-        // Calculate all inactive nodes first
-        const allInactiveNodes = new Set<string>()
+): WorkflowNodes[] => {
+    // Memoize inactive nodes calculation
+    const allInactiveNodes = useMemo(() => {
+        const inactiveSet = new Set<string>()
         for (const node of nodes) {
             if (node.data.active === false) {
                 const dependentInactiveNodes = getInactiveNodes(edges, node.id)
                 for (const id of dependentInactiveNodes) {
-                    allInactiveNodes.add(id)
+                    inactiveSet.add(id)
                 }
             }
         }
+        return inactiveSet
+    }, [nodes, edges])
 
+    // Memoize node state updates
+    return useMemo(() => {
         return nodes.map(node => {
+            const nodeId = node.id
             return {
                 ...node,
-                selected: node.id === selectedNode?.id,
+                selected: nodeId === selectedNode?.id,
                 data: {
                     ...node.data,
-                    moving: node.id === movingNodeId,
-                    executing: node.id === executingNodeId,
-                    interrupted: node.id === interruptedNodeId,
-                    error: nodeErrors.has(node.id),
-                    result: nodeResults.get(node.id),
-                    active: !allInactiveNodes.has(node.id) && node.data.active !== false,
+                    moving: nodeId === movingNodeId,
+                    executing: nodeId === executingNodeId,
+                    interrupted: nodeId === interruptedNodeId,
+                    error: nodeErrors.has(nodeId),
+                    result: nodeResults.get(nodeId),
+                    active: !allInactiveNodes.has(nodeId) && node.data.active !== false,
                     tokenCount:
                         node.type === NodeType.PREVIEW
-                            ? Number.parseInt(nodeResults.get(`${node.id}_tokens`) || '0', 10)
+                            ? Number.parseInt(nodeResults.get(`${nodeId}_tokens`) || '0', 10)
                             : undefined,
                 },
             }
         })
     }, [
         nodes,
-        selectedNode,
+        selectedNode?.id,
         movingNodeId,
         executingNodeId,
         nodeErrors,
         nodeResults,
         interruptedNodeId,
-        edges,
+        allInactiveNodes,
     ])
 }
 

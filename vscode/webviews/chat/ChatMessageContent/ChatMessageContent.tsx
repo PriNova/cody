@@ -104,15 +104,15 @@ export const ChatMessageContent: React.FunctionComponent<ChatMessageContentProps
         let lastIndex = 0
 
         // Match opening thinking tags immediately
-        const matches = [...displayMarkdown.matchAll(/<thinking>/g)]
+        const matches = [...displayMarkdown.matchAll(/<think7345>/g)]
 
         for (const match of matches) {
             const startIndex = match.index!
-            const endIndex = displayMarkdown.indexOf('</thinking>', startIndex)
+            const endIndex = displayMarkdown.indexOf('</think7345>', startIndex)
             const thinkingContent =
                 endIndex !== -1
-                    ? displayMarkdown.slice(startIndex + '<thinking>'.length, endIndex)
-                    : displayMarkdown.slice(startIndex + '<thinking>'.length)
+                    ? displayMarkdown.slice(startIndex + '<think7345>'.length, endIndex)
+                    : displayMarkdown.slice(startIndex + '<think7345>'.length)
 
             parts.push(displayMarkdown.slice(lastIndex, startIndex))
             textareaElements.push(
@@ -131,7 +131,7 @@ export const ChatMessageContent: React.FunctionComponent<ChatMessageContentProps
                     </Accordion>
                 </div>
             )
-            lastIndex = endIndex !== -1 ? endIndex + '</thinking>'.length : displayMarkdown.length
+            lastIndex = endIndex !== -1 ? endIndex + '</think7345>'.length : displayMarkdown.length
         }
 
         parts.push(displayMarkdown.slice(lastIndex))

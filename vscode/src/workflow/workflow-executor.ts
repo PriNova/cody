@@ -161,11 +161,15 @@ export async function executeWorkflow(
                     const prompt = node.data.content
                         ? replaceIndexedInputs(node.data.content, inputs, context)
                         : ''
+
+                    const oldTemperature = await chatClient.getTemperature()
+                    await chatClient.setTemperature((node as LLMNode).data.temperature)
                     result = await executeLLMNode(
                         { ...node, data: { ...node.data, content: prompt } },
                         chatClient,
                         abortSignal
                     )
+                    await chatClient.setTemperature(oldTemperature)
                     break
                 }
                 case NodeType.PREVIEW: {
@@ -218,9 +222,12 @@ export async function executeWorkflow(
                         const searchContextNode = parentNodesByParentEdges.find(
                             node => node?.type === NodeType.SEARCH_CONTEXT
                         )
-                        const contextItems = context.nodeOutputs.get(searchContextNode?.id || '') as
-                            | string[]
-                            | undefined
+                        // context.nodeOutputs.get(searchContextNode?.id || '') is string[] | undefined
+                        let contextItems = context.nodeOutputs.get(searchContextNode?.id || '') // removed cast here
+                        if (typeof contextItems === 'string') {
+                            // check if contextItems is a string
+                            contextItems = contextItems.split('\n----\n') // split string to string array
+                        }
                         result = await executeCodyOutputNode(
                             inputs.join('\n'),
                             contextItems,
@@ -528,15 +535,16 @@ async function executeLLMNode(
                         model:
                             (node as LLMNode).data.model?.id ??
                             'anthropic::2024-10-22::claude-3-5-sonnet-latest',
-                        temperature: (node as LLMNode).data.temperature ?? 0,
                     },
                     abortSignal
                 )
                 .then(async stream => {
                     const accumulated = new StringBuilder()
+                    //let chunksProcessed = 0
                     try {
                         for await (const msg of stream) {
-                            if (abortSignal?.aborted) reject
+                            //console.log('Chunks Processed: ', ++chunksProcessed)
+                            if (abortSignal?.aborted) reject('LLM Node Aborted')
                             if (msg.type === 'change') {
                                 const newText = msg.text.slice(accumulated.length)
                                 accumulated.append(newText)
@@ -627,15 +635,15 @@ async function executeSearchContextNode(
     contextRetriever: Pick<ContextRetriever, 'retrieveContext'>,
     abortSignal: AbortSignal,
     allowRemoteContext: boolean
-): Promise<string[]> {
+): Promise<string> {
     abortSignal.throwIfAborted()
     const corpusItems = await firstValueFrom(getCorpusContextItemsForEditorState(allowRemoteContext))
     if (corpusItems === pendingOperation || corpusItems.length === 0) {
-        return ['']
+        return ''
     }
     const repo = corpusItems.find(i => i.type === 'tree' || i.type === 'repository')
     if (!repo) {
-        return ['']
+        return ''
     }
     const span = tracer.startSpan('chat.submit')
     const context = await contextRetriever.retrieveContext(
@@ -651,7 +659,7 @@ async function executeSearchContextNode(
         return `${item.uri.path}\n${item.content || ''}`
     })
 
-    return result
+    return result.join('\n----\n')
 }
 
 // #endregion 4 Search Context Node Execution */
@@ -680,33 +688,34 @@ async function executeCodyOutputNode(
         abortSignal.addEventListener('abort', () => {
             reject(new Error('Workflow execution aborted'))
         })
-
-        executeChat({
-            text: PromptString.unsafe_fromLLMResponse(input),
-            contextItems: stringToContext,
-            submitType: 'continue-chat',
-        }).then((value: ChatSession | ChatController | undefined) => {
-            if (value instanceof ChatController) {
-                const messages = value.getViewTranscript()
-                const initialMessageCount = messages.length
-                // Check for new messages periodically
-                const interval = setInterval(() => {
-                    if (abortSignal.aborted) {
-                        clearInterval(interval)
-                        value.startNewSubmitOrEditOperation() // This aborts any ongoing chat
-                        reject(new Error('Workflow execution aborted'))
-                        return
-                    }
-                    const currentMessages = value.getViewTranscript()
-                    if (currentMessages.length > initialMessageCount) {
-                        clearInterval(interval)
-                        resolve(value.sessionID)
-                    }
-                }, 100)
-            } else {
-                resolve('')
-            }
-        })
+        vscode.commands.executeCommand('cody.chat.focus').then(() =>
+            executeChat({
+                text: PromptString.unsafe_fromLLMResponse(input),
+                contextItems: stringToContext,
+                submitType: 'continue-chat',
+            }).then((value: ChatSession | ChatController | undefined) => {
+                if (value instanceof ChatController) {
+                    const messages = value.getViewTranscript()
+                    const initialMessageCount = messages.length
+                    // Check for new messages periodically
+                    const interval = setInterval(() => {
+                        if (abortSignal.aborted) {
+                            clearInterval(interval)
+                            value.startNewSubmitOrEditOperation() // This aborts any ongoing chat
+                            reject(new Error('Workflow execution aborted'))
+                            return
+                        }
+                        const currentMessages = value.getViewTranscript()
+                        if (currentMessages.length > initialMessageCount) {
+                            clearInterval(interval)
+                            resolve(value.sessionID)
+                        }
+                    }, 100)
+                } else {
+                    resolve('')
+                }
+            })
+        )
     })
 }
 
@@ -720,9 +729,20 @@ async function executeCodyOutputNode(
  * @param input - An array of strings representing context items.
  * @returns An array of `ContextItem` objects.
  */
-function stringToContextItems(input: string[]): ContextItem[] {
-    //const lines = input.split('\n')
-    const contextItems: ContextItem[] = input.map(line => {
+function stringToContextItems(input: string[] | string | undefined): ContextItem[] {
+    // Modified to accept string or string[]
+    if (!input) {
+        return []
+    }
+
+    let inputArray: string[] = []
+    if (typeof input === 'string') {
+        inputArray = input.split('\n----\n') // Split by the special delimiter
+    } else {
+        inputArray = input // Use input directly if it's already a string array
+    }
+
+    const contextItems: ContextItem[] = inputArray.map(line => {
         const [firstLine, ...rest] = line.split('\n')
         return {
             type: 'file',

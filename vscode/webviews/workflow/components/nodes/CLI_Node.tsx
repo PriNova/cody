@@ -27,19 +27,19 @@ export const CLINode: React.FC<BaseNodeProps> = ({ data, selected }) => (
         )}
     >
         <Handle type="target" position={Position.Top} />
-        <div className="tw-flex tw-flex-col">
+        <div className="tw-flex tw-flex-col tw-gap-2">
             <div
                 className="tw-text-center tw-py-1 tw-mb-2 tw-rounded-t-sm tw-font-bold"
                 style={{
-                    backgroundColor: getBorderColor(NodeType.CLI, {
+                    background: `linear-gradient(to top, #1e1e1e, ${getBorderColor(NodeType.CLI, {
                         error: data.error,
                         executing: data.executing,
                         moving: data.moving,
                         selected,
                         interrupted: data.interrupted,
                         active: data.active,
-                    }),
-                    color: 'var(--vscode-input-background)',
+                    })}`,
+                    color: 'var(--vscode-dropdown-foreground)',
                     marginLeft: '-0.5rem',
                     marginRight: '-0.5rem',
                     marginTop: '-0.5rem',
@@ -47,7 +47,7 @@ export const CLINode: React.FC<BaseNodeProps> = ({ data, selected }) => (
             >
                 CLI
             </div>
-            <div className="tw-flex tw-items-center">
+            <div className="tw-flex tw-items-center tw-justify-center">
                 <span>{data.title}</span>
             </div>
         </div>

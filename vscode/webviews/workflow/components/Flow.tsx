@@ -4,7 +4,7 @@ import type { GenericVSCodeWrapper, Model } from '@sourcegraph/cody-shared'
 import type React from 'react'
 import { useCallback, useMemo, useState } from 'react'
 import type { ExtensionToWorkflow, WorkflowToExtension } from '../services/WorkflowProtocol'
-import { CustomOrderedEdge } from './CustomOrderedEdge'
+import { CustomOrderedEdgeComponent } from './CustomOrderedEdge'
 import styles from './Flow.module.css'
 import { HelpModal } from './HelpModal'
 import { RightSidebar } from './RightSidebar'
@@ -116,16 +116,17 @@ export const Flow: React.FC<{
         nodeResults,
         interruptedNodeId,
         edges
-    ).map(node => {
-        const finalNode = {
+    )
+
+    const nodesWithHandlers = useMemo(() => {
+        return nodesWithState.map(node => ({
             ...node,
             data: {
                 ...node.data,
-                handlePostMessage: handlePostMessage,
+                handlePostMessage,
             },
-        }
-        return finalNode
-    })
+        }))
+    }, [nodesWithState, handlePostMessage])
 
     // Recalculate sortedNodes on each render
     const sortedNodes = useMemo(() => {
@@ -169,7 +170,7 @@ export const Flow: React.FC<{
                 <div className="tw-flex tw-flex-1 tw-h-full">
                     <div className="tw-flex-1 tw-bg-[var(--vscode-editor-background)] tw-h-full">
                         <ReactFlow
-                            nodes={nodesWithState}
+                            nodes={nodesWithHandlers}
                             edges={getEdgesWithOrder}
                             onNodesChange={onNodesChange}
                             onEdgesChange={onEdgesChange}
@@ -179,7 +180,9 @@ export const Flow: React.FC<{
                             deleteKeyCode={['Backspace', 'Delete']}
                             nodeTypes={nodeTypes}
                             edgeTypes={{
-                                'ordered-edge': props => <CustomOrderedEdge {...props} edges={edges} />,
+                                'ordered-edge': props => (
+                                    <CustomOrderedEdgeComponent {...props} edges={edges} />
+                                ),
                             }}
                             fitView
                         >

@@ -37,11 +37,11 @@ export class ChatClient {
         }
     }
 
-    public getTemperature(): number {
+    public async getTemperature(): Promise<number> {
         return this.temperature
     }
 
-    public setTemperature(value: number): void {
+    public async setTemperature(value: number): Promise<void> {
         this.validateTemperature(value)
         this.temperature = value
     }

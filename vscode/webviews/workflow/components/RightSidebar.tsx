@@ -1,4 +1,5 @@
 import clsx from 'clsx'
+import { Loader2Icon } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import {
     Accordion,
@@ -97,7 +98,20 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
                                 onValueChange={value => setOpenItemId(value || '')}
                             >
                                 <AccordionItem value={node.id}>
-                                    <AccordionTrigger>{node.data.title}</AccordionTrigger>
+                                    <AccordionTrigger>
+                                        <div className="tw-flex tw-items-center">
+                                            <div className="tw-w-4 tw-mr-2">
+                                                {node.id === executingNodeId && (
+                                                    <Loader2Icon
+                                                        strokeWidth={1.5}
+                                                        size={16}
+                                                        className="tw-h-4 tw-w-4 tw-animate-spin"
+                                                    />
+                                                )}
+                                            </div>
+                                            {node.data.title}
+                                        </div>
+                                    </AccordionTrigger>
                                     <AccordionContent>
                                         {nodeResults.has(node.id) && (
                                             <div className="tw-mt-1">

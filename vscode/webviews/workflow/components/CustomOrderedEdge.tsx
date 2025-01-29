@@ -1,7 +1,7 @@
-import { BaseEdge, EdgeLabelRenderer, getBezierPath } from '@xyflow/react'
+import { BaseEdge, getSmoothStepPath } from '@xyflow/react'
 import type { EdgeProps } from '@xyflow/react'
 import type React from 'react'
-import { useMemo } from 'react'
+import { memo, useMemo } from 'react'
 
 interface IndexedOrder {
     bySourceTarget: Map<string, number>
@@ -12,6 +12,9 @@ export interface Edge {
     id: string
     source: string
     target: string
+    style?: {
+        strokeWidth: 1
+    }
 }
 
 export type OrderedEdgeProps = EdgeProps & {
@@ -21,7 +24,7 @@ export type OrderedEdgeProps = EdgeProps & {
     edges: Edge[] // Added edges prop
 }
 
-export const CustomOrderedEdge: React.FC<OrderedEdgeProps> = ({
+export const CustomOrderedEdgeComponent: React.FC<OrderedEdgeProps> = ({
     sourceX,
     sourceY,
     targetX,
@@ -58,13 +61,13 @@ export const CustomOrderedEdge: React.FC<OrderedEdgeProps> = ({
         return { bySourceTarget, byTarget }
     }, [edges])
 
-    const [edgePath, labelX, labelY] = getBezierPath({
+    const [edgePath] = getSmoothStepPath({
         sourceX,
         sourceY,
-        sourcePosition,
+        // sourcePosition,
         targetX,
         targetY,
-        targetPosition,
+        // targetPosition,
     })
 
     const orderNumber = useMemo(
@@ -75,29 +78,33 @@ export const CustomOrderedEdge: React.FC<OrderedEdgeProps> = ({
     return (
         <>
             <BaseEdge path={edgePath} markerEnd={markerEnd} style={style} />
+            <circle r="7" fill="rgb(255, 136, 0)">
+                <animateMotion dur="3s" repeatCount="indefinite" path={edgePath} calcMode="linear" />
+            </circle>
+
             {typeof orderNumber === 'number' && (
-                <EdgeLabelRenderer>
-                    <div
-                        style={{
-                            position: 'absolute',
-                            transform: `translate(-50%, -50%) translate(${labelX}px,${labelY}px)`,
-                            padding: '4px 8px',
-                            borderRadius: '50%',
-                            backgroundColor: 'var(--vscode-badge-background)',
-                            color: 'var(--vscode-badge-foreground)',
-                            fontSize: 12,
-                            fontWeight: 'bold',
-                            pointerEvents: 'all',
-                        }}
-                    >
-                        {orderNumber}
-                    </div>
-                </EdgeLabelRenderer>
+                <text
+                    x={0} // Initial x position, might need adjustment
+                    y={0} // Initial y position, might need adjustment
+                    style={{
+                        fontSize: 10,
+                        fontWeight: 'bold',
+                        dominantBaseline: 'central', // Vertically center text
+                        textAnchor: 'middle', // Horizontally center text
+                        pointerEvents: 'none', // To not interfere with node interactions
+                        fill: 'rgb(0, 0, 0)',
+                    }}
+                >
+                    <animateMotion dur="3s" repeatCount="indefinite" path={edgePath} calcMode="linear" />
+                    {orderNumber}
+                </text>
             )}
         </>
     )
 }
 
+export const CustomOrderedEdge = memo(CustomOrderedEdgeComponent)
+
 export const edgeTypes: { [key: string]: React.FC<OrderedEdgeProps> } = {
-    'ordered-edge': CustomOrderedEdge,
+    'ordered-edge': CustomOrderedEdgeComponent,
 }
