@@ -80,10 +80,7 @@ export const HumanMessageEditor: FunctionComponent<{
     __storybook__focus?: boolean
 
     intent?: ChatMessage['intent']
-    manuallySelectIntent: (
-        intent: ChatMessage['intent'],
-        editorState?: SerializedPromptEditorState
-    ) => void
+    manuallySelectIntent: (intent: ChatMessage['intent']) => void
     transcriptTokens?: number
     imageFile?: File
     setImageFile: (file: File | undefined) => void
@@ -455,7 +452,7 @@ export const HumanMessageEditor: FunctionComponent<{
                                 extensionAPI.hydratePromptMessage(setPromptAsInput.text, initialContext)
                             )
 
-                            manuallySelectIntent(promptIntent, promptEditorState)
+                            manuallySelectIntent(promptIntent)
 
                             // update editor state
                             requestAnimationFrame(async () => {
@@ -574,6 +571,7 @@ export const HumanMessageEditor: FunctionComponent<{
                     isEditorFocused={focused}
                     onMentionClick={onMentionClick}
                     onSubmitClick={onSubmitClick}
+                    manuallySelectIntent={manuallySelectIntent}
                     submitState={submitState}
                     onGapClick={onGapClick}
                     focusEditor={focusEditor}

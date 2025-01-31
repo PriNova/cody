@@ -1,5 +1,4 @@
 import {
-    type AuthCredentials,
     type AuthStatus,
     type BillingCategory,
     type BillingProduct,
@@ -72,7 +71,6 @@ import * as vscode from 'vscode'
 import { type Span, context } from '@opentelemetry/api'
 import { captureException } from '@sentry/core'
 import type { SubMessage } from '@sourcegraph/cody-shared/src/chat/transcript/messages'
-import { resolveAuth } from '@sourcegraph/cody-shared/src/configuration/auth-resolver'
 import type { TelemetryEventParameters } from '@sourcegraph/telemetry'
 import { Subject, map } from 'observable-fns'
 import type { URI } from 'vscode-uri'
@@ -429,6 +427,10 @@ export class ChatController implements vscode.Disposable, vscode.WebviewViewProv
                 )
                 break
             case 'auth': {
+                if (message.authKind === 'callback' && message.endpoint) {
+                    redirectToEndpointLogin(message.endpoint)
+                    break
+                }
                 if (message.authKind === 'simplified-onboarding') {
                     const endpoint = DOTCOM_URL.href
 
@@ -468,28 +470,19 @@ export class ChatController implements vscode.Disposable, vscode.WebviewViewProv
                     }
                     break
                 }
-                if (
-                    (message.authKind === 'signin' || message.authKind === 'callback') &&
-                    message.endpoint
-                ) {
+                if (message.authKind === 'signin' && message.endpoint) {
                     try {
                         const { endpoint, value: token } = message
-                        let auth: AuthCredentials | undefined = undefined
-
-                        if (token) {
-                            auth = { credentials: { token, source: 'paste' }, serverEndpoint: endpoint }
-                        } else {
-                            const { configuration } = await currentResolvedConfig()
-                            auth = await resolveAuth(endpoint, configuration, secretStorage)
+                        const credentials = {
+                            serverEndpoint: endpoint,
+                            accessToken: token || (await secretStorage.getToken(endpoint)) || null,
+                            tokenSource: token ? 'paste' : await secretStorage.getTokenSource(endpoint),
                         }
-
-                        if (!auth || !auth.credentials) {
-                            return redirectToEndpointLogin(endpoint)
+                        if (!credentials.accessToken) {
+                            return redirectToEndpointLogin(credentials.serverEndpoint)
                         }
-
-                        await authProvider.validateAndStoreCredentials(auth, 'always-store')
+                        await authProvider.validateAndStoreCredentials(credentials, 'always-store')
                     } catch (error) {
-                        void vscode.window.showErrorMessage(`Authentication failed: ${error}`)
                         this.postError(new Error(`Authentication failed: ${error}`))
                     }
                     break
@@ -525,7 +518,7 @@ export class ChatController implements vscode.Disposable, vscode.WebviewViewProv
                             const authStatus = await authProvider.validateAndStoreCredentials(
                                 {
                                     serverEndpoint: DOTCOM_URL.href,
-                                    credentials: { token },
+                                    accessToken: token,
                                 },
                                 'store-if-valid'
                             )
@@ -965,12 +958,18 @@ export class ChatController implements vscode.Disposable, vscode.WebviewViewProv
                             )
                         }
 
+                        // Mark the end of the span for chat.handleUserMessage here, as we do not await
+                        // the entire stream of chat messages being sent to the webview.
+                        // The span is concluded when the stream is complete.
+                        span.end()
                         this.saveSession()
                         this.postViewTranscript()
                     },
                 }
             )
         } catch (error) {
+            // This ensures that the span for chat.handleUserMessage is ended even if the operation fails
+            span.end()
             if (isAbortErrorOrSocketHangUp(error as Error)) {
                 return
             }
@@ -1759,18 +1758,6 @@ export class ChatController implements vscode.Disposable, vscode.WebviewViewProv
                         userProductSubscription.pipe(
                             map(value => (value === pendingOperation ? null : value))
                         ),
-                    editTemporarySettings: settingsToEdit => {
-                        return promiseFactoryToObservable(async () => {
-                            const dataOrError = await graphqlClient.editTemporarySettings(settingsToEdit)
-
-                            if (!isError(dataOrError)) {
-                                await ClientConfigSingleton.getInstance().forceUpdate()
-                                return true
-                            }
-
-                            return false
-                        })
-                    },
                 }
             )
         )

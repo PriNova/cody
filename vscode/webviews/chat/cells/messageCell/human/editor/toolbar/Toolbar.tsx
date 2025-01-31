@@ -37,6 +37,8 @@ export const Toolbar: FunctionComponent<{
     hidden?: boolean
     className?: string
     intent?: ChatMessage['intent']
+
+    manuallySelectIntent: (intent: ChatMessage['intent']) => void
     tokenCount?: number
     contextWindow?: number
     transcriptTokens?: number
@@ -57,6 +59,7 @@ export const Toolbar: FunctionComponent<{
     className,
     models,
     intent,
+    manuallySelectIntent,
     tokenCount,
     contextWindow,
     transcriptTokens,
@@ -157,6 +160,7 @@ export const Toolbar: FunctionComponent<{
                         isEditorFocused={isEditorFocused}
                         state={submitState}
                         detectedIntent={intent}
+                        manuallySelectIntent={manuallySelectIntent}
                     />
                 </div>
             </div>

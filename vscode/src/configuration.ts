@@ -130,8 +130,6 @@ export function getConfiguration(
          */
         agenticContextExperimentalOptions: config.get(CONFIG_KEY.agenticContextExperimentalOptions, {}),
 
-        authExternalProviders: config.get(CONFIG_KEY.authExternalProviders, []),
-
         /**
          * Hidden settings for internal use only.
          */
