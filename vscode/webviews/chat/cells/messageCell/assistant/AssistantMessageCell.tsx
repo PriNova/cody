@@ -121,6 +121,7 @@ export const AssistantMessageCell: FunctionComponent<{
                                     error={message.error}
                                     userInfo={userInfo}
                                     postMessage={postMessage}
+                                    humanMessage={humanMessage}
                                 />
                             )
                         ) : null}

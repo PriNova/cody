@@ -866,10 +866,12 @@ export const vsCodeMocks = {
         onDidChangeTextDocument() {},
         onDidOpenTextDocument() {},
         onDidCloseTextDocument() {},
+        onDidCreateFiles() {},
         onDidRenameFiles() {},
         onDidDeleteFiles() {},
         textDocuments: vscodeWorkspaceTextDocuments,
         workspaceFolders: undefined,
+        getWorkspaceFolder: () => undefined,
         onDidChangeWorkspaceFolders: () => {},
     },
     ConfigurationTarget: {
@@ -948,6 +950,8 @@ export const DEFAULT_VSCODE_SETTINGS = {
     experimentalGuardrailsTimeoutSeconds: undefined,
     overrideAuthToken: undefined,
     overrideServerEndpoint: undefined,
+    authExternalProviders: [],
+    rulesEnabled: false,
     chatTemperature: 0.2,
     experimentalChatContextIncludeReadme: true,
 } satisfies ClientConfiguration
