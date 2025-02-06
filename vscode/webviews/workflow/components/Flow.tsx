@@ -44,6 +44,20 @@ export const Flow: React.FC<{
     // UI state
     const [isHelpOpen, setIsHelpOpen] = useState(false)
 
+    const { onEdgesChange, onConnect, onEdgesDelete, orderedEdges } = useEdgeOperations(
+        edges,
+        setEdges,
+        nodes
+    )
+
+    const { movingNodeId, onNodesChange, onNodeDragStart, onNodeAdd, onNodeUpdate } = useNodeOperations(
+        vscodeAPI,
+        nodes,
+        setNodes,
+        selectedNode,
+        setSelectedNode
+    )
+
     const {
         isExecuting,
         executingNodeId,
@@ -57,16 +71,6 @@ export const Flow: React.FC<{
         setInterruptedNodeId,
         setNodeErrors,
     } = useWorkflowExecution(vscodeAPI, nodes, edges, setNodes, setEdges)
-
-    const { movingNodeId, onNodesChange, onNodeDragStart, onNodeAdd, onNodeUpdate } = useNodeOperations(
-        vscodeAPI,
-        nodes,
-        setNodes,
-        selectedNode,
-        setSelectedNode
-    )
-
-    const { onEdgesChange, onConnect, getEdgesWithOrder } = useEdgeOperations(edges, setEdges, nodes)
 
     const { onSave, onLoad, calculatePreviewNodeTokens, handleNodeApproval } = useWorkflowActions(
         vscodeAPI,
@@ -137,6 +141,7 @@ export const Flow: React.FC<{
             data: { ...node.data }, // Ensure data object is properly cloned
         }))
     }, [nodesWithState, edges])
+
     return (
         <div className="tw-flex tw-h-screen tw-w-full tw-border-2 tw-border-solid tw-border-[var(--vscode-panel-border)] tw-text-[14px] tw-overflow-hidden">
             <div
@@ -171,9 +176,10 @@ export const Flow: React.FC<{
                     <div className="tw-flex-1 tw-bg-[var(--vscode-editor-background)] tw-h-full">
                         <ReactFlow
                             nodes={nodesWithHandlers}
-                            edges={getEdgesWithOrder}
+                            edges={orderedEdges}
                             onNodesChange={onNodesChange}
                             onEdgesChange={onEdgesChange}
+                            onEdgesDelete={onEdgesDelete}
                             onConnect={onConnect}
                             onNodeClick={onNodeClick}
                             onNodeDragStart={onNodeDragStart}
@@ -181,7 +187,7 @@ export const Flow: React.FC<{
                             nodeTypes={nodeTypes}
                             edgeTypes={{
                                 'ordered-edge': props => (
-                                    <CustomOrderedEdgeComponent {...props} edges={edges} />
+                                    <CustomOrderedEdgeComponent {...props} edges={orderedEdges} />
                                 ),
                             }}
                             fitView

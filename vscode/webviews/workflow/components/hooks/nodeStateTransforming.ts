@@ -1,4 +1,3 @@
-import { memoize } from 'lodash'
 import { useMemo } from 'react'
 import { processGraphComposition } from '../../../../src/workflow/node-sorting'
 import type { Edge } from '../CustomOrderedEdge'
@@ -117,20 +116,6 @@ export function getInactiveNodes(edges: Edge[], startNodeId: string): Set<string
  * @param edges - The edges between the workflow nodes.
  * @returns The workflow nodes in a sorted order.
  */
-export const memoizedTopologicalSort = memoize(
-    (nodes: WorkflowNodes[], edges: Edge[]) => {
-        return processGraphComposition(nodes, edges, false)
-    },
-    // Keep existing memoization key generator
-    (nodes: WorkflowNodes[], edges: Edge[]) => {
-        const nodeKey = nodes
-            .map(n => `${n.id}-${n.data.title}-${n.data.active}`)
-            .sort()
-            .join('|')
-        const edgeKey = edges
-            .map(e => `${e.source}-${e.target}`)
-            .sort()
-            .join('|')
-        return `${nodeKey}:${edgeKey}`
-    }
-)
+export const memoizedTopologicalSort = (nodes: WorkflowNodes[], edges: Edge[]) => {
+    return processGraphComposition(nodes, edges, false)
+}

@@ -31,7 +31,7 @@ export interface BaseNodeProps {
         executing?: boolean
         error?: boolean
         content?: string
-        active?: boolean
+        active: boolean
         needsUserApproval?: boolean
         tokenCount?: number
         iterations?: number
@@ -50,10 +50,10 @@ export type BaseNodeData = {
     needsUserApproval?: boolean
     tokenCount?: number
     local_remote?: boolean
-    moving?: boolean // Add optional moving property
-    executing?: boolean // Add optional executing property
-    error?: boolean // Add optional error property
-    interrupted?: boolean // Add optional interrupted property
+    moving?: boolean
+    executing?: boolean
+    error?: boolean
+    interrupted?: boolean
     result?: string
 }
 
@@ -139,9 +139,10 @@ export const createNode = (node: Omit<WorkflowNodes, 'id'>): WorkflowNodes => {
  * @returns id: string,: string, target string }} - The edge.
  */
 export const createEdge = (sourceNode: WorkflowNode, targetNode: WorkflowNode): Edge => ({
-    id: `${sourceNode}-${targetNode.id}`,
+    id: `${sourceNode.id}-${targetNode.id}`,
     source: sourceNode.id,
     target: targetNode.id,
+    type: 'smoothstep',
     style: {
         strokeWidth: 1,
     },
@@ -163,7 +164,7 @@ export const defaultWorkflow = (() => {
             type: NodeType.CLI,
             data: { title: 'Git Diff', content: 'git diff', active: true },
             position: { x: 0, y: 0 },
-        }) as CLINode,
+        }),
         createNode({
             type: NodeType.LLM,
             data: {
@@ -175,12 +176,12 @@ export const defaultWorkflow = (() => {
                 model: undefined,
             },
             position: { x: 0, y: 100 },
-        }) as LLMNode,
+        }),
         createNode({
             type: NodeType.CLI,
             data: { title: 'Git Commit', content: 'git commit -m "${1}"', active: true },
             position: { x: 0, y: 200 },
-        }) as CLINode,
+        }),
     ]
 
     return {

@@ -543,7 +543,6 @@ async function executeLLMNode(
                     //let chunksProcessed = 0
                     try {
                         for await (const msg of stream) {
-                            //console.log('Chunks Processed: ', ++chunksProcessed)
                             if (abortSignal?.aborted) reject('LLM Node Aborted')
                             if (msg.type === 'change') {
                                 const newText = msg.text.slice(accumulated.length)
@@ -763,8 +762,21 @@ function stringToContextItems(input: string[] | string | undefined): ContextItem
  * @returns The sanitized string with backslashes and ${} escaped.
  */
 export function sanitizeForShell(input: string): string {
-    // Only escape backslashes and ${} template syntax
-    return input.replace(/\\/g, '\\\\').replace(/\${/g, '\\${').replace(/"/g, '\\"')
+    // Replace backslashes first to avoid double escaping in subsequent steps
+    let sanitized = input.replace(/\\/g, '\\\\')
+
+    // Escape ${} templates
+    sanitized = sanitized.replace(/\${/g, '\\${')
+
+    // Escape quotes
+    sanitized = sanitized.replace(/"/g, '\\"')
+
+    // Check for any remaining forbidden characters and escape them as well
+    for (const char of ["'", ';']) {
+        sanitized = sanitized.replace(new RegExp(`\\${char}`, 'g'), `\\${char}`)
+    }
+
+    return sanitized
 }
 
 /** 

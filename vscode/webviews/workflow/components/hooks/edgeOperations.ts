@@ -1,8 +1,13 @@
 import { type EdgeChange, addEdge, applyEdgeChanges } from '@xyflow/react'
+import type React from 'react'
 import { useCallback, useMemo } from 'react'
 import type { Edge } from '../CustomOrderedEdge'
 import type { WorkflowNodes } from '../nodes/Nodes'
-import { memoizedTopologicalSort } from './nodeStateTransforming'
+
+interface IndexedOrder {
+    bySourceTarget: Map<string, number>
+    byTarget: Map<string, Edge[]>
+}
 
 /**
  * A React hook that provides functionality for managing edges in a workflow application.
@@ -20,72 +25,86 @@ export const useEdgeOperations = (
     setEdges: React.Dispatch<React.SetStateAction<Edge[]>>,
     nodes: WorkflowNodes[]
 ) => {
-    // Memoize the topological sort results
-    const sortedNodes = useMemo(() => memoizedTopologicalSort(nodes, edges), [nodes, edges])
+    const onEdgesDelete = useCallback(
+        (deletedEdges: Edge[]) => {
+            setEdges(prevEdges => {
+                const updatedEdges = prevEdges.filter(
+                    edge => !deletedEdges.some(deleted => deleted.id === edge.id)
+                )
+                return [...updatedEdges]
+            })
+        },
+        [setEdges]
+    )
+
+    // Reimplementing the edgeIndex logic from CustomOrderedEdgeComponent
+    const edgeIndex = useMemo((): IndexedOrder => {
+        const bySourceTarget = new Map<string, number>()
+        const byTarget = new Map<string, Edge[]>()
+
+        if (!edges) return { bySourceTarget, byTarget }
+
+        // Index edges by target for quick parent edge lookups
+        for (const edge of edges) {
+            const targetEdges = byTarget.get(edge.target) || []
+            targetEdges.push(edge)
+            byTarget.set(edge.target, targetEdges)
+        }
+
+        // Precompute order numbers
+        for (const [targetId, targetEdges] of byTarget) {
+            targetEdges.forEach((edge, index) => {
+                const key = `${edge.source}-${targetId}`
+                bySourceTarget.set(key, index + 1)
+            })
+        }
+
+        return { bySourceTarget, byTarget }
+    }, [edges])
 
     // Memoize the edge order map calculation
-    const edgeOrder = useMemo(() => {
-        const orderMap = new Map<string, number>()
-        const edgesByTarget = new Map<string, Edge[]>()
-
-        // Group edges by target
-        for (const edge of edges) {
-            const targetEdges = edgesByTarget.get(edge.target) || []
-            targetEdges.push(edge)
-            edgesByTarget.set(edge.target, targetEdges)
-        }
-
-        // Calculate orders using our memoized sorted nodes
-        for (const targetEdges of edgesByTarget.values()) {
-            const sortedEdges = targetEdges.sort((a, b) => {
-                const aIndex = sortedNodes.findIndex(node => node.id === a.source)
-                const bIndex = sortedNodes.findIndex(node => node.id === b.source)
-                return aIndex - bIndex
-            })
-
-            sortedEdges.forEach((edge, index) => {
-                orderMap.set(edge.id, index + 1)
-            })
-        }
-
-        return orderMap
-    }, [edges, sortedNodes])
-
-    // Memoize the final edges with order data
-    const edgesWithOrder = useMemo(
-        () =>
-            edges.map(edge => ({
+    const edgesWithOrder = useMemo(() => {
+        const ordered = edges.map(edge => {
+            const orderNumber = edgeIndex.bySourceTarget.get(`${edge.source}-${edge.target}`) || 0
+            return {
                 ...edge,
                 type: 'ordered-edge',
                 data: {
-                    orderNumber: edgeOrder.get(edge.id) || 0,
+                    orderNumber: orderNumber,
                 },
-            })),
-        [edges, edgeOrder]
-    )
+            }
+        })
+        return [...ordered]
+    }, [edges, edgeIndex])
 
     const onEdgesChange = useCallback(
-        (changes: EdgeChange[]) => setEdges(eds => applyEdgeChanges(changes, eds) as typeof edges),
+        (changes: EdgeChange[]) => {
+            setEdges(edges => {
+                const updatedEdges = applyEdgeChanges(changes, edges)
+                return [...updatedEdges]
+            })
+        },
         [setEdges]
     )
 
     const onConnect = useCallback(
-        (params: any) =>
-            setEdges(eds =>
-                addEdge(
-                    {
-                        ...params,
-                        type: 'smoothstep',
-                    },
-                    eds
-                )
-            ),
-        [setEdges]
+        (params: any) => {
+            setEdges(eds => {
+                const newEdge = {
+                    ...params,
+                    type: 'smoothstep',
+                } as Edge
+                const updatedEdges = addEdge(newEdge, eds)
+                return [...updatedEdges]
+            })
+        },
+        [setEdges] // ADDED creationOrderedEdges to dependencies to get the updated value in the log
     )
 
     return {
         onEdgesChange,
         onConnect,
-        getEdgesWithOrder: edgesWithOrder,
+        onEdgesDelete,
+        orderedEdges: edgesWithOrder,
     }
 }

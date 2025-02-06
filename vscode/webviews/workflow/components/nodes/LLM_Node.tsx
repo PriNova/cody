@@ -1,7 +1,7 @@
 import type { Model } from '@sourcegraph/cody-shared'
 import { Handle, Position } from '@xyflow/react'
 import type React from 'react'
-import { CodyAILogo } from '../../icons/CodyAILogo'
+import { CodyLogoBW } from '../../../icons/CodyLogo'
 import {
     type BaseNodeData,
     type BaseNodeProps,
@@ -56,7 +56,7 @@ export const LLMNode: React.FC<BaseNodeProps> = ({ data, selected }) => (
                     alignItems: 'center',
                 }}
             >
-                <CodyAILogo size={14} className="tw-mr-2 tw-ml-1" />
+                <CodyLogoBW size={14} className="tw-mr-2 tw-ml-1" />
                 <div
                     className="tw-text-center tw-flex-grow"
                     style={{

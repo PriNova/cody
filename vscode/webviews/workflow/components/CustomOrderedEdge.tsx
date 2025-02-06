@@ -1,17 +1,13 @@
 import { BaseEdge, getSmoothStepPath } from '@xyflow/react'
 import type { EdgeProps } from '@xyflow/react'
 import type React from 'react'
-import { memo, useMemo } from 'react'
-
-interface IndexedOrder {
-    bySourceTarget: Map<string, number>
-    byTarget: Map<string, Edge[]>
-}
+import { memo } from 'react'
 
 export interface Edge {
     id: string
     source: string
     target: string
+    type?: string
     style?: {
         strokeWidth: 1
     }
@@ -29,38 +25,14 @@ export const CustomOrderedEdgeComponent: React.FC<OrderedEdgeProps> = ({
     sourceY,
     targetX,
     targetY,
-    sourcePosition,
-    targetPosition,
+    //  sourcePosition,
+    //  targetPosition,
     style,
     markerEnd,
     source,
     target,
-    edges,
+    data,
 }) => {
-    const edgeIndex = useMemo((): IndexedOrder => {
-        const bySourceTarget = new Map<string, number>()
-        const byTarget = new Map<string, Edge[]>()
-
-        if (!edges) return { bySourceTarget, byTarget }
-
-        // Index edges by target for quick parent edge lookups
-        for (const edge of edges) {
-            const targetEdges = byTarget.get(edge.target) || []
-            targetEdges.push(edge)
-            byTarget.set(edge.target, targetEdges)
-        }
-
-        // Precompute order numbers
-        for (const [targetId, targetEdges] of byTarget) {
-            targetEdges.forEach((edge, index) => {
-                const key = `${edge.source}-${targetId}`
-                bySourceTarget.set(key, index + 1)
-            })
-        }
-
-        return { bySourceTarget, byTarget }
-    }, [edges])
-
     const [edgePath] = getSmoothStepPath({
         sourceX,
         sourceY,
@@ -70,10 +42,7 @@ export const CustomOrderedEdgeComponent: React.FC<OrderedEdgeProps> = ({
         // targetPosition,
     })
 
-    const orderNumber = useMemo(
-        () => edgeIndex.bySourceTarget.get(`${source}-${target}`),
-        [edgeIndex, source, target]
-    )
+    const orderNumber = data?.orderNumber
 
     return (
         <>
