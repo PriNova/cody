@@ -13,6 +13,7 @@ import {
     reformatBotMessageForChat,
     serializedPromptEditorStateFromChatMessage,
 } from '@sourcegraph/cody-shared'
+import { DeepCodyAgentID } from '@sourcegraph/cody-shared/src/models/client'
 import type { PromptEditorRefAPI } from '@sourcegraph/prompt-editor'
 import isEqual from 'lodash/isEqual'
 import { type FunctionComponent, type RefObject, memo, useMemo } from 'react'
@@ -26,7 +27,6 @@ import {
 import { ErrorItem, RequestErrorItem } from '../../../ErrorItem'
 import { type Interaction, editHumanMessage } from '../../../Transcript'
 import { CopyIcon } from '../../../components/CopyIcon'
-import { FeedbackButtons } from '../../../components/FeedbackButtons'
 import { LoadingDots } from '../../../components/LoadingDots'
 import { BaseMessageCell, MESSAGE_CELL_AVATAR_SIZE } from '../BaseMessageCell'
 import { ContextFocusActions } from './ContextFocusActions'
@@ -46,9 +46,6 @@ export const AssistantMessageCell: FunctionComponent<{
     chatEnabled: boolean
     isLoading: boolean
 
-    showFeedbackButtons: boolean
-    feedbackButtonsOnSubmit?: (text: string) => void
-
     copyButtonOnSubmit?: CodeBlockActionsProps['copyButtonOnSubmit']
     insertButtonOnSubmit?: CodeBlockActionsProps['insertButtonOnSubmit']
 
@@ -67,8 +64,6 @@ export const AssistantMessageCell: FunctionComponent<{
         userInfo,
         chatEnabled,
         isLoading,
-        showFeedbackButtons,
-        feedbackButtonsOnSubmit,
         copyButtonOnSubmit,
         insertButtonOnSubmit,
         postMessage,
@@ -129,8 +124,6 @@ export const AssistantMessageCell: FunctionComponent<{
                             <SearchResults
                                 message={message as ChatMessageWithSearch}
                                 onSelectedFiltersUpdate={onSelectedFiltersUpdate}
-                                showFeedbackButtons={showFeedbackButtons}
-                                feedbackButtonsOnSubmit={feedbackButtonsOnSubmit}
                                 enableContextSelection={isLastInteraction}
                             />
                         )}
@@ -177,16 +170,6 @@ export const AssistantMessageCell: FunctionComponent<{
                                 </div>
                             )}
                             <div className="tw-flex tw-items-center tw-divide-x tw-transition tw-divide-muted tw-opacity-65 hover:tw-opacity-100">
-                                {showFeedbackButtons &&
-                                    feedbackButtonsOnSubmit &&
-                                    !(experimentalOneBoxEnabled && isSearchIntent) && (
-                                        <div className="tw-flex tw-items-center">
-                                            <FeedbackButtons
-                                                feedbackButtonsOnSubmit={feedbackButtonsOnSubmit}
-                                                className="tw-pr-4"
-                                            />
-                                        </div>
-                                    )}
                                 {!isLoading && (!message.error || isAborted) && !isSearchIntent && (
                                     <div className="tw-flex tw-items-center">
                                         <button
@@ -298,7 +281,7 @@ function useChatModelByID(
         (model
             ? {
                   id: model,
-                  title: model?.includes('deep-cody') ? 'Deep Cody (Experimental)' : model,
+                  title: model?.includes(DeepCodyAgentID) ? 'Deep Cody (Experimental)' : model,
                   provider: 'unknown',
                   tags: [],
               }
