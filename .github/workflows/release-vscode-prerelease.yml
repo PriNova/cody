@@ -29,7 +29,7 @@ jobs:
       - name: Get package version
         id: version
         run: |
-          VERSION=$(jq -r .version package.json)
+          VERSION=$(jq -r .version vscode/package.json)
           echo "version=vscode-v${VERSION}" >> $GITHUB_OUTPUT
 
       - name: Create/Update Release
