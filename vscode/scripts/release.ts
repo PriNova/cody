@@ -2,8 +2,6 @@ import { execFileSync } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
 
-import semver from 'semver'
-
 /**
  * This script is used by the CI to publish the extension to the VS Code Marketplace.
  *
@@ -18,17 +16,6 @@ const packageJSONBody = fs.readFileSync(packageJSONPath, 'utf-8')
 const packageJSON = JSON.parse(packageJSONBody)
 const packageJSONVersionString: string = packageJSON.version
 let packageJSONWasModified = false
-
-// Check version validity.
-const packageJSONVersion = semver.valid(packageJSONVersionString)
-if (!packageJSONVersion) {
-    console.error(
-        `Invalid version in package.json: ${JSON.stringify(
-            packageJSONVersionString
-        )}. Versions must be valid semantic version strings.`
-    )
-    process.exit(1)
-}
 
 enum ReleaseType {
     Stable = 'stable',
@@ -114,7 +101,7 @@ if (!tokens.vscode || !tokens.openvsx) {
 
 // For an insiders build that strictly uses the package.json version,
 // we simply assign it directly.
-const insidersVersion = packageJSONVersion
+const insidersVersion = packageJSONVersionString
 const githubOutputPath = process.env.GITHUB_OUTPUT
 if (releaseType === ReleaseType.Insiders && githubOutputPath) {
     // Output a tag for the release. We only generate tags for insiders
@@ -127,7 +114,7 @@ if (releaseType === ReleaseType.Insiders && githubOutputPath) {
     })
 }
 
-const version = releaseType === ReleaseType.Insiders ? insidersVersion : packageJSONVersion
+const version = releaseType === ReleaseType.Insiders ? insidersVersion : packageJSONVersionString
 
 // Package (build and bundle) the extension.
 console.error(`Packaging ${releaseType} release at version ${version}...`)
