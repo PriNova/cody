@@ -1,4 +1,5 @@
 import { type Model, ModelTag, isCodyProModel, isWaitlistModel } from '@sourcegraph/cody-shared'
+import { DeepCodyAgentID, ToolCodyModelName } from '@sourcegraph/cody-shared/src/models/client'
 import { clsx } from 'clsx'
 import { BookOpenIcon, BrainIcon, BuildingIcon, ExternalLinkIcon } from 'lucide-react'
 import { type FunctionComponent, type ReactNode, useCallback, useMemo } from 'react'
@@ -304,7 +305,7 @@ function modelAvailability(
 }
 
 function getTooltip(model: Model, availability: string): string {
-    if (model.id.includes('deep-cody')) {
+    if (model.id.includes(DeepCodyAgentID)) {
         return 'Agentic chat reflects on your request and uses tools to dynamically retrieve relevant context, improving accuracy and response quality.'
     }
 
@@ -367,9 +368,13 @@ const ModelTitleWithIcon: React.FC<{
             .join(' ')
 
     return (
-        <span className={clsx(styles.modelTitleWithIcon, { [styles.disabled]: isDisabled })}>
+        <span
+            className={clsx(styles.modelTitleWithIcon, {
+                [styles.disabled]: isDisabled,
+            })}
+        >
             {showIcon ? (
-                model.id.includes('deep-cody') ? (
+                model.id.includes(DeepCodyAgentID) ? (
                     <BrainIcon size={16} className={styles.modelIcon} />
                 ) : (
                     <ChatModelIcon model={model.provider} className={styles.modelIcon} />
@@ -392,10 +397,10 @@ const ModelTitleWithIcon: React.FC<{
     )
 }
 
-const ChatModelIcon: FunctionComponent<{ model: string; className?: string }> = ({
-    model,
-    className,
-}) => {
+const ChatModelIcon: FunctionComponent<{
+    model: string
+    className?: string
+}> = ({ model, className }) => {
     const ModelIcon = chatModelIconComponent(model)
     return ModelIcon ? <ModelIcon size={16} className={className} /> : null
 }
@@ -412,7 +417,8 @@ const ModelUIGroup: Record<string, string> = {
 }
 
 const getModelDropDownUIGroup = (model: Model): string => {
-    if (['deep-cody', 'tool-cody'].some(id => model.id.includes(id))) return ModelUIGroup.Agents
+    if ([DeepCodyAgentID, ToolCodyModelName].some(id => model.id.includes(id)))
+        return ModelUIGroup.Agents
     if (model.tags.includes(ModelTag.Power)) return ModelUIGroup.Power
     if (model.tags.includes(ModelTag.Balanced)) return ModelUIGroup.Balanced
     if (model.tags.includes(ModelTag.Speed)) return ModelUIGroup.Speed

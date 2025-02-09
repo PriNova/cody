@@ -16,7 +16,6 @@ const MOCK_MODELS = getMockedDotComClientModels()
 
 const PROPS: Omit<ComponentProps<typeof Transcript>, 'transcript'> = {
     messageInProgress: null,
-    feedbackButtonsOnSubmit: () => {},
     copyButtonOnSubmit: () => {},
     insertButtonOnSubmit: () => {},
     userInfo: FIXTURE_USER_ACCOUNT_INFO,
@@ -250,12 +249,7 @@ describe('Transcript', () => {
                 ]}
             />
         )
-        expectCells([
-            { message: 'Foo' },
-            { context: {} },
-            { message: 'Model\n\nRequest Failed: some error' },
-        ])
-        expect(screen.queryByText('Try again with different context')).toBeNull()
+        expectCells([{ message: 'Foo' }, { context: {} }, { message: 'Request Failed: some error' }])
     })
 
     test('does not clobber user input into followup while isPendingPriorResponse when it completes', async () => {

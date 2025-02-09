@@ -10,10 +10,10 @@ import {
     isDefined,
     wrapInActiveSpan,
 } from '@sourcegraph/cody-shared'
+import { DeepCodyAgentID } from '@sourcegraph/cody-shared/src/models/client'
 import * as vscode from 'vscode'
 import { logDebug } from '../../output-channel-logger'
 import { PromptBuilder } from '../../prompt-builder'
-import { DeepCodyAgent } from '../agentic/DeepCody'
 import { ChatBuilder } from './ChatBuilder'
 
 export interface PromptInfo {
@@ -106,7 +106,7 @@ export class DefaultPrompter {
                 .flatMap(m => (m.contextFiles ? [...m.contextFiles].reverse() : []))
                 .filter(isDefined)
 
-            const isContextAgentEnabled = reverseTranscript[0]?.agent === DeepCodyAgent.id
+            const isContextAgentEnabled = reverseTranscript[0]?.agent === DeepCodyAgentID
 
             // Apply the context preamble via the prompt mixin to the last open-ended human message that is not a command.
             // The context preamble provides additional instructions on how Cody should respond using the attached context items,

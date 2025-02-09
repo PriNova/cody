@@ -10,8 +10,7 @@ import isEqual from 'lodash/isEqual'
 import { ColumnsIcon } from 'lucide-react'
 import { type FC, memo, useMemo, useRef, useState } from 'react'
 import type { UserAccountInfo } from '../../../../Chat'
-import { UserAvatar } from '../../../../components/UserAvatar'
-import { BaseMessageCell, MESSAGE_CELL_AVATAR_SIZE } from '../BaseMessageCell'
+import { BaseMessageCell } from '../BaseMessageCell'
 import { HumanMessageEditor } from './editor/HumanMessageEditor'
 
 import clsx from 'clsx'
@@ -152,14 +151,6 @@ const HumanMessageCellContent = memo<HumanMessageCellContent>(props => {
 
     return (
         <BaseMessageCell
-            speakerIcon={
-                <UserAvatar
-                    user={userInfo.user}
-                    size={MESSAGE_CELL_AVATAR_SIZE}
-                    sourcegraphGradientBorder={true}
-                />
-            }
-            speakerTitle={userInfo.user.displayName ?? userInfo.user.username}
             cellAction={
                 <div className="tw-flex tw-gap-2 tw-items-center tw-justify-end">
                     {isFirstMessage && <OpenInNewEditorAction />}
@@ -212,12 +203,13 @@ const HumanMessageCellContent = memo<HumanMessageCellContent>(props => {
         />
     )
 }, isEqual)
+
 const OpenInNewEditorAction = () => {
     const {
-        config: { multipleWebviewsEnabled },
+        config: { multipleWebviewsEnabled, webviewType },
     } = useConfig()
 
-    if (!multipleWebviewsEnabled) {
+    if (!multipleWebviewsEnabled || webviewType !== 'sidebar') {
         return null
     }
 
