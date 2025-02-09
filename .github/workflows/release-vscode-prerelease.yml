@@ -2,8 +2,8 @@ name: release-vscode-prerelease
 
 on:
   push:
-    tags:
-      - vscode-v* # automatically create a new insider build with a release
+    branches:
+      - custom-builds    # Only run on custom-builds branch
   workflow_dispatch:
 
 jobs:
@@ -25,8 +25,13 @@ jobs:
           run_install: true
       - run: pnpm build
       - run: CODY_RELEASE_TYPE=insiders pnpm -C vscode run release:dry-run
-      
-      # Replace the Create Release step with this
+      # New step to extract the package version and format it as "vscode-v<version>"
+      - name: Get package version
+        id: version
+        run: |
+          VERSION=$(jq -r .version package.json)
+          echo "version=vscode-v${VERSION}" >> $GITHUB_OUTPUT
+
       - name: Create/Update Release
         uses: softprops/action-gh-release@v1
         with:
@@ -34,7 +39,7 @@ jobs:
           name: Release ${{ github.ref_name }}
           tag_name: ${{ github.ref_name }}
           body: |
-            Release ${{ github.ref_name }}
+            Release ${{ github.ref_name }} ${{ steps.version.outputs.version }}
             
             Automated release from tag push
           draft: false
