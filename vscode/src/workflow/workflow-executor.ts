@@ -18,6 +18,7 @@ import {
 import * as vscode from 'vscode'
 import type { Edge } from '../../webviews/workflow/components/CustomOrderedEdge'
 import { getInactiveNodes } from '../../webviews/workflow/components/hooks/nodeStateTransforming'
+import type { AccumulatorNode } from '../../webviews/workflow/components/nodes/Accumulator_Node'
 import { NodeType, type WorkflowNodes } from '../../webviews/workflow/components/nodes/Nodes'
 import type { ExtensionToWorkflow } from '../../webviews/workflow/services/WorkflowProtocol'
 import { ChatController, type ChatSession } from '../chat/chat-view/ChatController'
@@ -46,6 +47,7 @@ export interface IndexedExecutionContext {
             variable: string
         }
     >
+    accumulatorValues?: Map<string, string>
 }
 
 /**
@@ -76,6 +78,7 @@ export async function executeWorkflow(
         nodeIndex,
         edgeIndex,
         loopStates: new Map(),
+        accumulatorValues: new Map(),
     }
 
     // Calculate all inactive nodes
@@ -275,6 +278,24 @@ export async function executeWorkflow(
                     break
                 }
 
+                case NodeType.ACCUMULATOR: {
+                    const inputs = combineParentOutputsByConnectionOrder(node.id, context)
+                    const inputValue = node.data.content
+                        ? replaceIndexedInputs(node.data.content, inputs, context)
+                        : ''
+                    const {
+                        data: { variableName, initialValue },
+                    } = node as AccumulatorNode
+                    let accumulatedValue =
+                        context.accumulatorValues?.get(variableName) || initialValue || ''
+                    // Accumulation Logic (Initially, just concatenation - enhance later)
+                    accumulatedValue += '\n' + inputValue
+                    context.accumulatorValues?.set(variableName, accumulatedValue)
+
+                    result = accumulatedValue
+                    break
+                }
+
                 default:
                     persistentShell.dispose()
                     throw new Error(`Unknown node type: ${(node as WorkflowNodes).type}`)
@@ -380,6 +401,16 @@ export function replaceIndexedInputs(
                 String(loopState.currentIteration)
             )
         }
+        result = result.replace(/\${(\w+)}/g, (_match, variableName) => {
+            // Matches any word character after ${
+            if (
+                !/^\d+$/.test(variableName) &&
+                !Object.values(context.loopStates).some(loopState => loopState.variable === variableName)
+            ) {
+                return context.accumulatorValues?.get(variableName) || ''
+            }
+            return _match
+        })
     }
 
     return result

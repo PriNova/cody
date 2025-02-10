@@ -177,6 +177,7 @@ describe('combineParentOutputsByConnectionOrder', () => {
             nodeOutputs: new Map([[parentId, 'test output']]),
             nodeIndex: new Map(),
             edgeIndex: createEdgeIndex([{ id: uuidv4(), source: parentId, target: childId }]),
+            accumulatorValues: new Map(),
             loopStates: new Map(),
         }
 

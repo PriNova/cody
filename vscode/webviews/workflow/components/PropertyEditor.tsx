@@ -16,6 +16,7 @@ import { Label } from '../../components/shadcn/ui/label'
 import { Popover, PopoverContent, PopoverTrigger } from '../../components/shadcn/ui/popover'
 import { Slider } from '../../components/shadcn/ui/slider'
 import { Textarea } from '../../components/shadcn/ui/textarea'
+import type { AccumulatorNode } from './nodes/Accumulator_Node'
 import type { LLMNode } from './nodes/LLM_Node'
 import type { LoopStartNode } from './nodes/LoopStart_Node'
 import { NodeType, type WorkflowNodes } from './nodes/Nodes'
@@ -313,6 +314,47 @@ export const PropertyEditor: React.FC<PropertyEditorProps> = ({ node, onUpdate, 
                                 onUpdate(node.id, { loopVariable: e.target.value })
                             }
                             placeholder="Variable name (e.g. i, counter, index)"
+                        />
+                    </div>
+                </div>
+            )}
+            {node.type === NodeType.ACCUMULATOR && ( // ADD ACCUMULATOR NODE PROPERTY EDITOR
+                <div className="tw-flex tw-flex-col tw-gap-4">
+                    <div>
+                        <Label htmlFor="accumulator-variable-name">Unique Variable Name</Label>
+                        <Input
+                            id="accumulator-variable-name"
+                            value={(node as AccumulatorNode).data.variableName || ''}
+                            onChange={(e: { target: { value: any } }) =>
+                                onUpdate(node.id, { variableName: e.target.value })
+                            }
+                            placeholder="Unique variable name to access accumulated value (e.g., accumulatedSummary)"
+                            required // Make it required for clarity
+                        />
+                    </div>
+                    {/* Future: Accumulation Type Dropdown */}
+                    {/* <div>
+            <Label htmlFor="accumulator-type">Accumulation Type (Future)</Label>
+            <Select>
+                <SelectTrigger className="tw-w-full">
+                    <SelectValue placeholder="Concatenate (Default)" />
+                </SelectTrigger>
+                <SelectContent>
+                    <SelectItem value="concatenate">Concatenate</SelectItem>
+                    <SelectItem value="sum">Sum (Numbers)</SelectItem>
+                    <SelectItem value="custom">Custom (Future)</SelectItem>
+                </SelectContent>
+            </Select>
+        </div> */}
+                    <div>
+                        <Label htmlFor="accumulator-initial-value">Input Text</Label>
+                        <Textarea
+                            id="node-input"
+                            value={node.data.content || ''}
+                            onChange={(e: { target: { value: any } }) =>
+                                onUpdate(node.id, { content: e.target.value })
+                            }
+                            placeholder="Enter input text... (use ${1}, ${2} and so on for positional inputs)"
                         />
                     </div>
                 </div>
