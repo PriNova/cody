@@ -143,6 +143,13 @@ export const WorkflowSidebar: React.FC<WorkflowSidebarProps> = ({
                             >
                                 Text
                             </Button>
+                            <Button
+                                onClick={() => onNodeAdd('Accumulator', NodeType.ACCUMULATOR)} // ADD ACCUMULATOR BUTTON
+                                className="tw-w-full"
+                                variant="outline"
+                            >
+                                Accumulator
+                            </Button>
                         </div>
                     </AccordionContent>
                 </AccordionItem>

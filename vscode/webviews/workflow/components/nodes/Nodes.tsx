@@ -2,6 +2,7 @@ import type { Node as ReactFlowNode } from '@xyflow/react'
 import { v4 as uuidv4 } from 'uuid'
 import type { WorkflowToExtension } from '../../services/WorkflowProtocol'
 import type { Edge } from '../CustomOrderedEdge'
+import { AccumulatorNode } from './Accumulator_Node'
 import { CLINode } from './CLI_Node'
 import { CodyOutputNode } from './CodyOutput_Node'
 import { LLMNode } from './LLM_Node'
@@ -21,6 +22,7 @@ export enum NodeType {
     CODY_OUTPUT = 'cody-output',
     LOOP_START = 'loop-start',
     LOOP_END = 'loop-end',
+    ACCUMULATOR = 'accumulator',
 }
 
 // Shared node props interface
@@ -78,6 +80,7 @@ export type WorkflowNodes =
     | CodyOutputNode
     | LoopStartNode
     | LoopEndNode
+    | AccumulatorNode
 
 /**
  * Creates a new workflow node with the specified type, label, and position.
@@ -270,4 +273,5 @@ export const nodeTypes = {
     [NodeType.CODY_OUTPUT]: CodyOutputNode,
     [NodeType.LOOP_START]: LoopStartNode,
     [NodeType.LOOP_END]: LoopEndNode,
+    [NodeType.ACCUMULATOR]: AccumulatorNode,
 }
