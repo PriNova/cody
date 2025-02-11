@@ -122,9 +122,10 @@ export async function executeWorkflow(
             switch (node.type) {
                 case NodeType.CLI: {
                     try {
-                        const inputs = combineParentOutputsByConnectionOrder(node.id, context).map(
+                        const inputs = combineParentOutputsByConnectionOrder(node.id, context)
+                        /*.map(
                             output => sanitizeForShell(output)
-                        )
+                        )*/
                         const command = (node as CLINode).data.content
                             ? replaceIndexedInputs((node as CLINode).data.content, inputs, context)
                             : ''
@@ -386,7 +387,8 @@ export function replaceIndexedInputs(
     parentOutputs: string[],
     context?: IndexedExecutionContext
 ): string {
-    let result = template.replace(/\${(\d+)}/g, (_match, index) => {
+    // Only replace numbered placeholders that match exactly ${1}, ${2}, etc.
+    let result = template.replace(/\${(\d+)}(?!\w)/g, (_match, index) => {
         const adjustedIndex = Number.parseInt(index, 10) - 1
         return adjustedIndex >= 0 && adjustedIndex < parentOutputs.length
             ? parentOutputs[adjustedIndex]
@@ -394,23 +396,24 @@ export function replaceIndexedInputs(
     })
 
     if (context) {
-        // Replace loop variables
+        // Only replace loop variables that are explicitly defined in the context
         for (const [, loopState] of context.loopStates) {
             result = result.replace(
-                new RegExp(`\\$\{${loopState.variable}}`, 'g'),
+                new RegExp(`\\$\{${loopState.variable}}(?!\\w)`, 'g'),
                 String(loopState.currentIteration)
             )
         }
-        result = result.replace(/\${(\w+)}/g, (_match, variableName) => {
-            // Matches any word character after ${
-            if (
-                !/^\d+$/.test(variableName) &&
-                !Object.values(context.loopStates).some(loopState => loopState.variable === variableName)
-            ) {
-                return context.accumulatorValues?.get(variableName) || ''
-            }
-            return _match
-        })
+
+        // Only replace accumulator variables that are explicitly defined
+        const accumulatorVars = context.accumulatorValues
+            ? Array.from(context.accumulatorValues.keys())
+            : []
+        for (const varName of accumulatorVars) {
+            result = result.replace(
+                new RegExp(`\\$\{${varName}}(?!\\w)`, 'g'),
+                context.accumulatorValues?.get(varName) || ''
+            )
+        }
     }
 
     return result
@@ -488,14 +491,13 @@ export async function executeCLINode(
                 result: `${filteredCommand}`,
             },
         } as ExtensionToWorkflow)
-
         const approval = await approvalHandler(node.id)
         if (approval.command) {
-            filteredCommand = approval.command
+            filteredCommand = sanitizeForShell(approval.command)
         }
     }
 
-    if (commandsNotAllowed.some(cmd => filteredCommand.startsWith(cmd))) {
+    if (commandsNotAllowed.some(cmd => sanitizeForShell(filteredCommand).startsWith(cmd))) {
         void vscode.window.showErrorMessage('Cody cannot execute this command')
         throw new Error('Cody cannot execute this command')
     }

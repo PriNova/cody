@@ -11,7 +11,7 @@ import {
 } from '@sourcegraph/cody-shared'
 import { useExtensionAPI, useObservable } from '@sourcegraph/prompt-editor'
 import type React from 'react'
-import { type FunctionComponent, useEffect, useMemo, useRef } from 'react'
+import { type FunctionComponent, useEffect, useMemo, useRef, useState } from 'react'
 import type { ConfigurationSubsetForWebview, LocalEnv } from '../src/chat/protocol'
 import styles from './App.module.css'
 import { Chat } from './Chat'
@@ -109,6 +109,8 @@ export const CodyPanel: FunctionComponent<CodyPanelProps> = ({
         }
     }, [api.clientActionBroadcast])
 
+    const [historySearchQuery, setHistorySearchQuery] = useState('')
+
     return (
         <TabViewContext.Provider value={useMemo(() => ({ view, setView }), [view, setView])}>
             <TabRoot
@@ -153,6 +155,8 @@ export const CodyPanel: FunctionComponent<CodyPanelProps> = ({
                             setView={setView}
                             webviewType={config.webviewType}
                             multipleWebviewsEnabled={config.multipleWebviewsEnabled}
+                            searchQuery={historySearchQuery}
+                            onSearchQueryChange={setHistorySearchQuery}
                         />
                     )}
                     {view === View.Toolbox && config.webviewType === 'sidebar' && (

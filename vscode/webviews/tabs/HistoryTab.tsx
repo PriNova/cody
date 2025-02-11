@@ -10,7 +10,7 @@ import {
 import { SearchIcon } from 'lucide-react'
 import { XCircleIcon } from 'lucide-react'
 import type React from 'react'
-import { memo, useCallback, useMemo, useRef, useState } from 'react'
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { WebviewType } from '../../src/chat/protocol'
 import { getRelativeChatPeriod } from '../../src/common/time-date'
 import { LoadingDots } from '../chat/components/LoadingDots'
@@ -26,6 +26,8 @@ interface HistoryTabProps {
     setView: (view: View) => void
     webviewType?: WebviewType | undefined | null
     multipleWebviewsEnabled?: boolean | undefined | null
+    searchQuery: string
+    onSearchQueryChange: (query: string) => void
 }
 
 export const HistoryTab: React.FC<HistoryTabProps> = props => {
@@ -74,20 +76,20 @@ const filterChatsBySearch = (chats: SerializedChatTranscript[], term: string) =>
 
 export const HistoryTabWithData: React.FC<
     HistoryTabProps & { chats: UserLocalHistory['chat'][string][] }
-> = ({ IDE, webviewType, multipleWebviewsEnabled, setView, chats }) => {
+> = ({
+    IDE,
+    webviewType,
+    multipleWebviewsEnabled,
+    setView,
+    chats,
+    searchQuery,
+    onSearchQueryChange,
+}) => {
     const [editingId, setEditingId] = useState<string | null>(null)
     const [newTitle, setNewTitle] = useState('')
     const inputRef = useRef<HTMLInputElement>(null)
-    const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('')
 
-    const filteredChats = useMemo(
-        () =>
-            filterChatsBySearch(
-                chats.filter(chat => chat.interactions.length > 0),
-                debouncedSearchTerm
-            ),
-        [chats, debouncedSearchTerm]
-    )
+    const { filteredChats, handleSearch } = useHistorySearch(chats, searchQuery)
 
     const chatByPeriod = useMemo(
         () =>
@@ -153,12 +155,20 @@ export const HistoryTabWithData: React.FC<
     )
 
     const SearchBar = memo(
-        ({ initialValue, onSearch }: { initialValue: string; onSearch: (term: string) => void }) => {
-            const [inputValue, setInputValue] = useState(initialValue)
+        ({ value, onSearchSubmit }: { value: string; onSearchSubmit: (term: string) => void }) => {
+            const [inputValue, setInputValue] = useState(value)
+
+            useEffect(() => {
+                setInputValue(value)
+            }, [value])
 
             const handleReset = () => {
                 setInputValue('')
-                onSearch('')
+                onSearchSubmit('') // Clear search by submitting empty term
+            }
+
+            const submitSearch = () => {
+                onSearchSubmit(inputValue) // Submit current input value
             }
 
             return (
@@ -168,11 +178,7 @@ export const HistoryTabWithData: React.FC<
                         placeholder="Search in chat history..."
                         value={inputValue}
                         onChange={e => setInputValue(e.target.value)}
-                        onKeyDown={e => {
-                            if (e.key === 'Enter') {
-                                onSearch(inputValue)
-                            }
-                        }}
+                        onKeyDown={e => e.key === 'Enter' && submitSearch()}
                         className="tw-flex-1 tw-text-sm tw-text-muted-foreground [::placeholder:tw-text-sm] [::placeholder:tw-text-muted-foreground] tw-h-10"
                         variant="search"
                     />
@@ -181,7 +187,7 @@ export const HistoryTabWithData: React.FC<
                             <XCircleIcon size={14} strokeWidth={1.25} />
                         </Button>
                     )}
-                    <Button variant="secondary" onClick={() => onSearch(inputValue)} title="Search">
+                    <Button variant="secondary" onClick={submitSearch} title="Search">
                         <SearchIcon size={14} strokeWidth={1.25} />
                     </Button>
                 </div>
@@ -191,7 +197,10 @@ export const HistoryTabWithData: React.FC<
 
     return (
         <div className="tw-flex tw-flex-col tw-gap-6">
-            <SearchBar initialValue={debouncedSearchTerm} onSearch={setDebouncedSearchTerm} />
+            <SearchBar
+                value={searchQuery}
+                onSearchSubmit={term => onSearchQueryChange(handleSearch(term))} // Update searchQuery in parent
+            />
             {chatByPeriod.map(([period, chats]) => (
                 <CollapsiblePanel
                     id={`history-${period}`.replaceAll(' ', '-').toLowerCase()}
@@ -323,4 +332,27 @@ export const HistoryTabWithData: React.FC<
 function useUserHistory(): UserLocalHistory | null | undefined {
     const userHistory = useExtensionAPI().userHistory
     return useObservable(useMemo(() => userHistory(), [userHistory])).value
+}
+
+function useHistorySearch(chats: SerializedChatTranscript[], initialSearchTerm: string) {
+    const activeSearchTerm = initialSearchTerm // Directly use the prop
+
+    const filteredChats = useMemo(
+        () =>
+            filterChatsBySearch(
+                chats.filter(chat => chat.interactions.length > 0),
+                activeSearchTerm
+            ),
+        [chats, activeSearchTerm]
+    )
+
+    // handleSearch now just updates the external search term (passed via callback)
+    const handleSearch = (term: string) => {
+        return term // Return the term, the parent component will handle state update
+    }
+
+    return {
+        filteredChats,
+        handleSearch,
+    }
 }

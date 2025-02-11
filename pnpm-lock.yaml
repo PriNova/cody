@@ -945,6 +945,9 @@ importers:
       fuzzysort:
         specifier: ^2.0.4
         version: 2.0.4
+      happy-dom:
+        specifier: ^14.3.10
+        version: 14.3.10
       htmlnano:
         specifier: ^2.1.1
         version: 2.1.1(postcss@8.4.38)(typescript@5.7.2)
