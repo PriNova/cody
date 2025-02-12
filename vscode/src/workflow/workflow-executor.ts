@@ -81,6 +81,8 @@ export async function executeWorkflow(
         accumulatorValues: new Map(),
     }
 
+    const skipNodes = new Set<string>()
+
     // Calculate all inactive nodes
     const allInactiveNodes = new Set<string>()
     for (const node of nodes) {
@@ -108,6 +110,10 @@ export async function executeWorkflow(
         }
     }
     for (const node of sortedNodes) {
+        if (skipNodes.has(node.id)) {
+            continue
+        }
+
         if (allInactiveNodes.has(node.id)) {
             continue
         }
@@ -294,6 +300,38 @@ export async function executeWorkflow(
                     context.accumulatorValues?.set(variableName, accumulatedValue)
 
                     result = accumulatedValue
+                    break
+                }
+
+                case NodeType.IF_ELSE: {
+                    const inputs = combineParentOutputsByConnectionOrder(node.id, context)
+                    const condition = node.data.content
+                        ? replaceIndexedInputs(node.data.content, inputs, context)
+                        : ''
+
+                    // Evaluate condition using string comparison
+                    // Format: "${1} === value" or "${1} !== value"
+                    const [leftSide, operator, rightSide] = condition.trim().split(/\s+(===|!==)\s+/)
+
+                    const hasresult =
+                        operator === '===' ? leftSide === rightSide : leftSide !== rightSide
+                    const resultString = hasresult ? 'true' : 'false'
+
+                    // Get paths and mark nodes to skip
+                    const edges = context.edgeIndex.bySource.get(node.id) || []
+                    const nonTakenPath = edges.find(
+                        edge => edge.sourceHandle === (hasresult ? 'false' : 'true')
+                    )
+                    if (nonTakenPath) {
+                        const nodesToSkip = getInactiveNodes(edges, nonTakenPath.target)
+                        for (const nodeId of nodesToSkip) {
+                            skipNodes.add(nodeId)
+                        }
+                    }
+
+                    context.nodeOutputs.set(node.id, resultString)
+                    result = resultString
+
                     break
                 }
 

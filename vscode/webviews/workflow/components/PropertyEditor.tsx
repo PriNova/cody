@@ -359,6 +359,19 @@ export const PropertyEditor: React.FC<PropertyEditorProps> = ({ node, onUpdate, 
                     </div>
                 </div>
             )}
+            {node.type === NodeType.IF_ELSE && (
+                <div className="tw-flex tw-flex-col tw-gap-2">
+                    <Label htmlFor="node-input">Condition</Label>
+                    <Textarea
+                        id="node-input"
+                        value={node.data.content || ''}
+                        onChange={(e: { target: { value: any } }) =>
+                            onUpdate(node.id, { content: e.target.value })
+                        }
+                        placeholder="Enter input text... (use ${1}, ${2} and so on for positional inputs)"
+                    />
+                </div>
+            )}
         </div>
     )
 }

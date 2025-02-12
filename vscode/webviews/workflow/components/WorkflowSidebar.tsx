@@ -153,6 +153,20 @@ export const WorkflowSidebar: React.FC<WorkflowSidebarProps> = ({
                         </div>
                     </AccordionContent>
                 </AccordionItem>
+                <AccordionItem value="conditionals">
+                    <AccordionTrigger>Conditionals</AccordionTrigger>
+                    <AccordionContent>
+                        <div className="tw-flex tw-flex-col tw-gap-2">
+                            <Button
+                                onClick={() => onNodeAdd('If/Else', NodeType.IF_ELSE)}
+                                className="tw-w-full"
+                                variant="outline"
+                            >
+                                If/Else
+                            </Button>
+                        </div>
+                    </AccordionContent>
+                </AccordionItem>
                 <AccordionItem value="context">
                     <AccordionTrigger>Context Nodes</AccordionTrigger>
                     <AccordionContent>

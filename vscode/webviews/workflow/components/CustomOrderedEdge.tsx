@@ -1,17 +1,9 @@
-import { BaseEdge, getSmoothStepPath } from '@xyflow/react'
+import { BaseEdge, type Edge as ReactFlowEdge, getSmoothStepPath } from '@xyflow/react'
 import type { EdgeProps } from '@xyflow/react'
 import type React from 'react'
 import { memo } from 'react'
 
-export interface Edge {
-    id: string
-    source: string
-    target: string
-    type?: string
-    style?: {
-        strokeWidth: 1
-    }
-}
+export type Edge = ReactFlowEdge<any>
 
 export type OrderedEdgeProps = EdgeProps & {
     data?: {

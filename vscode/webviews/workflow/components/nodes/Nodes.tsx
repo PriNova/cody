@@ -5,6 +5,7 @@ import type { Edge } from '../CustomOrderedEdge'
 import { AccumulatorNode } from './Accumulator_Node'
 import { CLINode } from './CLI_Node'
 import { CodyOutputNode } from './CodyOutput_Node'
+import { IfElseNode } from './IfElse_Node'
 import { LLMNode } from './LLM_Node'
 import { LoopEndNode } from './LoopEnd_Node'
 import { LoopStartNode } from './LoopStart_Node'
@@ -23,6 +24,7 @@ export enum NodeType {
     LOOP_START = 'loop-start',
     LOOP_END = 'loop-end',
     ACCUMULATOR = 'accumulator',
+    IF_ELSE = 'if-else',
 }
 
 // Shared node props interface
@@ -39,6 +41,7 @@ export interface BaseNodeProps {
         iterations?: number
         interrupted?: boolean
         handlePostMessage: (message: WorkflowToExtension) => void
+        condition: string
     }
     selected?: boolean
 }
@@ -81,6 +84,7 @@ export type WorkflowNodes =
     | LoopStartNode
     | LoopEndNode
     | AccumulatorNode
+    | IfElseNode
 
 /**
  * Creates a new workflow node with the specified type, label, and position.
@@ -127,6 +131,16 @@ export const createNode = (node: Omit<WorkflowNodes, 'id'>): WorkflowNodes => {
                     local_remote: false,
                 },
             } as SearchContextNode
+        case NodeType.IF_ELSE:
+            return {
+                ...node,
+                id,
+                data: {
+                    ...node.data,
+                    truePathActive: false,
+                    falsePathActive: false,
+                },
+            } as IfElseNode
         default:
             return {
                 ...node,
@@ -274,4 +288,5 @@ export const nodeTypes = {
     [NodeType.LOOP_START]: LoopStartNode,
     [NodeType.LOOP_END]: LoopEndNode,
     [NodeType.ACCUMULATOR]: AccumulatorNode,
+    [NodeType.IF_ELSE]: IfElseNode,
 }
