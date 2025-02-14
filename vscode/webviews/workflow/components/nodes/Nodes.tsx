@@ -41,7 +41,6 @@ export interface BaseNodeProps {
         iterations?: number
         interrupted?: boolean
         handlePostMessage: (message: WorkflowToExtension) => void
-        condition: string
     }
     selected?: boolean
 }
@@ -60,6 +59,7 @@ export type BaseNodeData = {
     error?: boolean
     interrupted?: boolean
     result?: string
+    shouldAbort?: boolean
 }
 
 export type WorkflowNode = Omit<ReactFlowNode, 'data' | 'position' | 'type' | 'id' | 'selected'> & {

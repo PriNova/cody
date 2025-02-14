@@ -92,6 +92,14 @@ export const PropertyEditor: React.FC<PropertyEditorProps> = ({ node, onUpdate, 
                             }
                         />
                         <Label htmlFor="node-approval">Require User Approval</Label>
+                        <Checkbox
+                            id="node-aborting"
+                            checked={node.data.shouldAbort || false}
+                            onCheckedChange={checked =>
+                                onUpdate(node.id, { shouldAbort: checked === true })
+                            }
+                        />
+                        <Label htmlFor="node-aborting">Abort on Error</Label>
                     </div>
                 </div>
             )}

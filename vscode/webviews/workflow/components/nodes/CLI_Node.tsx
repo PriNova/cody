@@ -11,7 +11,9 @@ import {
 
 export type CLINode = Omit<WorkflowNode, 'data'> & {
     type: NodeType.CLI
-    data: BaseNodeData
+    data: BaseNodeData & {
+        shouldAbort: boolean
+    }
 }
 
 export const CLINode: React.FC<BaseNodeProps> = ({ data, selected }) => (

@@ -393,7 +393,8 @@ describe('executeCLINode', () => {
                 mockWebview as any,
                 mockApprovalHandler
             )
-            expect(result.trim()).toBe('hello world')
+            expect(result[0].trim()).toBe('hello world')
+            expect(result[1]).toBe('0')
         },
         { timeout: 10000 }
     )
@@ -440,7 +441,7 @@ describe('executeCLINode', () => {
             mockWebview as any,
             mockApprovalHandler
         )
-        expect(result.trim()).toBe(`${homeDir}/test`)
+        expect(result[0].trim()).toBe(`${homeDir}/test`)
     })
 
     // Security boundary tests

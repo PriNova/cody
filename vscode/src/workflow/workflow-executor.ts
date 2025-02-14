@@ -19,7 +19,12 @@ import * as vscode from 'vscode'
 import type { Edge } from '../../webviews/workflow/components/CustomOrderedEdge'
 import { getInactiveNodes } from '../../webviews/workflow/components/hooks/nodeStateTransforming'
 import type { AccumulatorNode } from '../../webviews/workflow/components/nodes/Accumulator_Node'
-import { NodeType, type WorkflowNodes } from '../../webviews/workflow/components/nodes/Nodes'
+import type { IfElseNode } from '../../webviews/workflow/components/nodes/IfElse_Node'
+import {
+    NodeType,
+    type WorkflowNode,
+    type WorkflowNodes,
+} from '../../webviews/workflow/components/nodes/Nodes'
 import type { ExtensionToWorkflow } from '../../webviews/workflow/services/WorkflowProtocol'
 import { ChatController, type ChatSession } from '../chat/chat-view/ChatController'
 import { type ContextRetriever, toStructuredMentions } from '../chat/chat-view/ContextRetriever'
@@ -48,6 +53,12 @@ export interface IndexedExecutionContext {
         }
     >
     accumulatorValues?: Map<string, string>
+    cliMetadata?: Map<
+        string,
+        {
+            exitCode: string
+        }
+    >
 }
 
 /**
@@ -79,6 +90,7 @@ export async function executeWorkflow(
         edgeIndex,
         loopStates: new Map(),
         accumulatorValues: new Map(),
+        cliMetadata: new Map(),
     }
 
     const skipNodes = new Set<string>()
@@ -134,7 +146,8 @@ export async function executeWorkflow(
                             abortSignal,
                             persistentShell,
                             webview,
-                            approvalHandler
+                            approvalHandler,
+                            context
                         )
                     } catch (error: unknown) {
                         persistentShell.dispose()
@@ -280,34 +293,7 @@ export async function executeWorkflow(
                 }
 
                 case NodeType.IF_ELSE: {
-                    const inputs = combineParentOutputsByConnectionOrder(node.id, context)
-                    const condition = node.data.content
-                        ? replaceIndexedInputs(node.data.content, inputs, context)
-                        : ''
-
-                    // Evaluate condition using string comparison
-                    // Format: "${1} === value" or "${1} !== value"
-                    const [leftSide, operator, rightSide] = condition.trim().split(/\s+(===|!==)\s+/)
-
-                    const hasresult =
-                        operator === '===' ? leftSide === rightSide : leftSide !== rightSide
-                    const resultString = hasresult ? 'true' : 'false'
-
-                    // Get paths and mark nodes to skip
-                    const edges = context.edgeIndex.bySource.get(node.id) || []
-                    const nonTakenPath = edges.find(
-                        edge => edge.sourceHandle === (hasresult ? 'false' : 'true')
-                    )
-                    if (nonTakenPath) {
-                        const nodesToSkip = getInactiveNodes(edges, nonTakenPath.target)
-                        for (const nodeId of nodesToSkip) {
-                            skipNodes.add(nodeId)
-                        }
-                    }
-
-                    context.nodeOutputs.set(node.id, resultString)
-                    result = resultString
-
+                    result = await executeIfElseNode(context, node, skipNodes)
                     break
                 }
 
@@ -480,7 +466,8 @@ export async function executeCLINode(
     abortSignal: AbortSignal,
     persistentShell: PersistentShell,
     webview: vscode.Webview,
-    approvalHandler: (nodeId: string) => Promise<{ command?: string }>
+    approvalHandler: (nodeId: string) => Promise<{ command?: string }>,
+    context?: IndexedExecutionContext
 ): Promise<string> {
     abortSignal.throwIfAborted()
     if (!vscode.env.shell || !vscode.workspace.isTrusted) {
@@ -507,7 +494,7 @@ export async function executeCLINode(
         } as ExtensionToWorkflow)
         const approval = await approvalHandler(node.id)
         if (approval.command) {
-            filteredCommand = sanitizeForShell(approval.command)
+            filteredCommand = approval.command
         }
     }
 
@@ -517,8 +504,12 @@ export async function executeCLINode(
     }
 
     try {
-        const result = await persistentShell.execute(filteredCommand, abortSignal)
-        return result
+        const { output, exitCode } = await persistentShell.execute(filteredCommand, abortSignal)
+        if (exitCode !== '0' && (node as CLINode).data.shouldAbort) {
+            throw new Error(output)
+        }
+        context?.cliMetadata?.set(node.id, { exitCode: exitCode })
+        return output
     } catch (error: unknown) {
         persistentShell.dispose()
         const errorMessage = error instanceof Error ? error.message : String(error)
@@ -763,6 +754,54 @@ async function executeCodyOutputNode(
             })
         )
     })
+}
+
+async function executeIfElseNode(
+    context: IndexedExecutionContext,
+    node: WorkflowNode | IfElseNode,
+    skipNodes: Set<string>
+): Promise<string> {
+    let result = ''
+    const parentEdges = context.edgeIndex.byTarget.get(node.id) || []
+    let cliNode: WorkflowNodes | undefined
+    let cliExitCode: string | undefined
+
+    // Find the CLI parent node and its exit code
+    for (const edge of parentEdges) {
+        const parentNode = context.nodeIndex.get(edge.source)
+        if (parentNode?.type === NodeType.CLI) {
+            cliNode = parentNode
+            cliExitCode = context.cliMetadata?.get(parentNode.id)?.exitCode
+            break
+        }
+    }
+
+    let hasResult: boolean
+
+    if (cliNode) {
+        hasResult = cliExitCode === '0'
+        result = context.nodeOutputs.get(cliNode.id) as string
+    } else {
+        const inputs = combineParentOutputsByConnectionOrder(node.id, context)
+        const condition = node.data.content
+            ? replaceIndexedInputs(node.data.content, inputs, context)
+            : ''
+
+        const [leftSide, operator, rightSide] = condition.trim().split(/\s+(===|!==)\s+/)
+        hasResult = operator === '===' ? leftSide === rightSide : leftSide !== rightSide
+        result = hasResult ? 'true' : 'false'
+    }
+
+    // Get paths and mark nodes to skip
+    const edges = context.edgeIndex.bySource.get(node.id) || []
+    const nonTakenPath = edges.find(edge => edge.sourceHandle === (hasResult ? 'false' : 'true'))
+    if (nonTakenPath) {
+        const nodesToSkip = getInactiveNodes(edges, nonTakenPath.target)
+        for (const nodeId of nodesToSkip) {
+            skipNodes.add(nodeId)
+        }
+    }
+    return result
 }
 
 // #endregion 5 Cody Output Node Execution */

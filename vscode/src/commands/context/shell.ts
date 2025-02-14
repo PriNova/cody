@@ -50,9 +50,14 @@ export class PersistentShell {
         })
     }
 
-    public async execute(cmd: string, abortSignal?: AbortSignal): Promise<string> {
+    public async execute(
+        cmd: string,
+        abortSignal?: AbortSignal
+    ): Promise<{ output: string; exitCode: string }> {
         this.stdoutBuffer = ''
         this.stderrBuffer = ''
+        let exitCode = 0
+
         return new Promise((resolve, reject) => {
             abortSignal?.throwIfAborted()
             const command = sanitizeCommand(cmd)
@@ -60,18 +65,21 @@ export class PersistentShell {
                 reject(new Error('Shell not initialized'))
                 return
             }
-            this.shell.stdin?.write(`${command}` + '\n')
 
-            // Use a unique marker to identify the end of command output
+            // Add exit code capture
+            const getExitCodeCommand = process.platform === 'win32' ? 'echo %errorlevel%' : 'echo $?'
+            this.shell.stdin?.write(`${command}` + '\n')
+            this.shell.stdin?.write(`${getExitCodeCommand}\n`)
+
             const endMarker = `__END_OF_COMMAND_${Date.now()}__`
             this.shell.stdin?.write(`echo "${endMarker}"\n`)
 
-            const timeout = 30000 // 30 seconds timeout
+            const timeout = 30000
 
             const timeoutId = setTimeout(() => {
                 reject(new Error('Command execution timed out'))
-                this.dispose() // Kill the frozen shell
-                this.init() // Reinitialize the shell
+                this.dispose()
+                this.init()
             }, timeout)
 
             const abortListener = () => {
@@ -84,25 +92,34 @@ export class PersistentShell {
 
             const checkBuffer = () => {
                 if (this.stdoutBuffer.includes(endMarker)) {
-                    const sliceStart = process.platform === 'win32' ? 1 : 0
+                    //const sliceStart = process.platform === 'win32' ? 1 : 0
                     clearTimeout(timeoutId)
-                    const output = this.stdoutBuffer
+                    const outputParts = this.stdoutBuffer
                         .split(`echo "${endMarker}"`)[0]
                         .trim()
                         .split('\n')
+
+                    // Extract exit code from the last line
+                    exitCode = Number.parseInt(outputParts[outputParts.length - 2], 10)
+
+                    // Remove exit code line from output
+                    const output = outputParts
+                        .slice(0, -2)
                         .filter(chunk => {
-                            // Filter out Microsoft-specific messages
                             if (chunk.includes('(c) Microsoft Corporation.')) return false
                             if (chunk.includes('Microsoft Windows')) return false
-                            //  // Filter Windows path prompts followed by the command 'command'
                             if (chunk.match(/^[A-Za-z]:\\.*>.*$/)) return false
-                            //if (chunk.includes(command)) return false
                             return true
                         })
-                        .slice(sliceStart, -1)
                         .join('\n')
+
                     abortSignal?.removeEventListener('abort', abortListener)
-                    resolve(output)
+
+                    // Return stderr if command failed, stdout otherwise
+                    resolve({
+                        output: exitCode !== 0 ? this.stderrBuffer : output,
+                        exitCode: `${exitCode}`,
+                    })
                 } else {
                     setTimeout(checkBuffer, 100)
                 }
