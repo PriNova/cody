@@ -38,7 +38,7 @@ export const HistoryTab: React.FC<HistoryTabProps> = props => {
     )
 
     return (
-        <div className="tw-px-8 tw-pt-6 tw-pb-12">
+        <div className="tw-px-8 tw-pt-6 tw-pb-12 tw-overflow-y-scroll">
             {chats === undefined ? (
                 <LoadingDots />
             ) : chats === null ? (

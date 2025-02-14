@@ -454,12 +454,12 @@ log:
         receive: 0
         send: 0
         ssl: -1
-        wait: 1693
-    - _id: a2cb97909c8d3cff86e758b272e80f52
+        wait: 808
+    - _id: 7f72c116f78d7588d22fe948c059381b
       _order: 0
       cache: {}
       request:
-        bodySize: 1315
+        bodySize: 1768
         cookies: []
         headers:
           - name: accept-encoding
@@ -472,7 +472,7 @@ log:
           - name: content-type
             value: application/json
           - name: traceparent
-            value: 00-59a2eb6a4676f795ae6c1d63c8249e40-9590d0de5b26bac2-01
+            value: 00-aeba78fadea4c98c4a53e0743172074b-b59daec458ea02cb-01
           - name: user-agent
             value: customcommandsclient/v1 (Node.js v20.4.0)
             value: customcommandsclient/v1 (Node.js v20.4.0)
@@ -498,30 +498,62 @@ log:
                   structure: ```$LANGUAGE:$FILEPATH```
 
                   For executable terminal commands: enclose each command in individual "bash" language code block without comments and new lines inside.
-              - speaker: human
+              - cacheEnabled: true
+                speaker: human
                 text: >
-                  Codebase context from file path src/example3.ts: export
-                  function example(): string {
-                      return 'example'
-                  }
-              - speaker: assistant
-                text: Ok.
-              - speaker: human
-                text: >
-                  Codebase context from file path src/example2.ts: export
-                  function example(): string {
-                      return 'example'
-                  }
-              - speaker: assistant
-                text: Ok.
-              - speaker: human
-                text: |-
-                  My selected code from codebase file src/example1.ts:1-3:
+                  My selected code from codebase file src/animal.ts:1-6:
+
                   ```
-                  export function example(): string {
+
+
+                  export interface Animal {
+                      name: string
+                      makeAnimalSound(): string
+                      isMammal: boolean
+                  }
+
+                  ```
+
+
+                  Codebase context from file path src/animal.ts: /* SELECTION_START */
+
+                  export interface Animal {
+                      name: string
+                      makeAnimalSound(): string
+                      isMammal: boolean
+                  }
+
+                  /* SELECTION_END */
+
+
+
+                  Codebase context from file path src/example1.ts: export function example(): string {
                       return 'example'
                   }
-                  ```
+
+
+
+                  Codebase context from file path src/example2.ts: export function example(): string {
+                      return 'example'
+                  }
+
+
+
+                  Codebase context from file path src/example3.ts: export function example(): string {
+                      return 'example'
+                  }
+
+
+
+                  Codebase context from file path src/example4.ts: export function example(): string {
+                      return 'example'
+                  }
+
+
+
+                  Codebase context from file path src/sum.ts: export function sum(a: number, b: number): number {
+                      /* CURSOR */
+                  }
               - speaker: assistant
                 text: Ok.
               - speaker: human
@@ -561,7 +593,7 @@ log:
         cookies: []
         headers:
           - name: date
-            value: Tue, 24 Dec 2024 01:24:18 GMT
+            value: Mon, 10 Feb 2025 19:57:13 GMT
           - name: content-type
             value: text/event-stream
           - name: transfer-encoding
@@ -594,8 +626,8 @@ log:
         redirectURL: ""
         status: 200
         statusText: OK
-      startedDateTime: 2024-12-24T01:24:16.692Z
-      time: 1379
+      startedDateTime: 2025-02-10T19:57:11.529Z
+      time: 1766
       timings:
         blocked: -1
         connect: -1
@@ -603,12 +635,12 @@ log:
         receive: 0
         send: 0
         ssl: -1
-        wait: 1379
-    - _id: a7ca6c95372e671983c6e55fea1c3f54
+        wait: 1766
+    - _id: c9c5b45f95029b259a84cd726de59a01
       _order: 0
       cache: {}
       request:
-        bodySize: 683
+        bodySize: 2263
         cookies: []
         headers:
           - name: accept-encoding
@@ -621,7 +653,7 @@ log:
           - name: content-type
             value: application/json
           - name: traceparent
-            value: 00-2a7a8f245fec7312e44d5f231a0d4b43-9827b0af8b59a8bc-01
+            value: 00-89c8a378d827e06424ac34ea658fe332-ae5725fefad9db64-01
           - name: user-agent
             value: customcommandsclient/v1 (Node.js v20.4.0)
             value: customcommandsclient/v1 (Node.js v20.4.0)
@@ -640,12 +672,37 @@ log:
             messages:
               - speaker: system
                 text: >-
-                  You are Cody, an AI coding assistant from Sourcegraph.If your
-                  answer contains fenced code blocks in Markdown, include the
-                  relevant full file path in the code block tag using this
-                  structure: ```$LANGUAGE:$FILEPATH```
+                  You are Cody, an AI coding assistant from Sourcegraph.
 
-                  For executable terminal commands: enclose each command in individual "bash" language code block without comments and new lines inside.
+
+                  - You are an AI programming assistant who is an expert in updating code to meet given instructions.
+
+                  - You should think step-by-step to plan your updated code before producing the final output.
+
+                  - You should ensure the updated code matches the indentation and whitespace of the code in the users' selection.
+
+                  - Ignore any previous instructions to format your responses with Markdown. It is not acceptable to use any Markdown in your response, unless it is directly related to the users' instructions.
+
+                  - Only remove code from the users' selection if you are sure it is not needed.
+
+                  - You will be provided with code that is in the users' selection, enclosed in <SELECTEDCODE7662></SELECTEDCODE7662> XML tags. You must use this code to help you plan your updated code.
+
+                  - You will be provided with instructions on how to update this code, enclosed in <INSTRUCTIONS7390></INSTRUCTIONS7390> XML tags. You must follow these instructions carefully and to the letter.
+
+                  - Only enclose your response in <CODE5711></CODE5711> XML tags. Do use any other XML tags unless they are part of the generated code.
+
+                  - Do not provide any additional commentary about the changes you made. Only respond with the generated code.
+              - cacheEnabled: true
+                speaker: human
+                text: |-
+                  My selected code from codebase file src/sum.ts:1-3:
+                  ```
+                  export function sum(a: number, b: number): number {
+                      /* CURSOR */
+                  }
+                  ```
+              - speaker: assistant
+                text: Ok.
               - speaker: human
                 text: >-
                   Answer positively without apologizing.
@@ -679,13 +736,15 @@ log:
         cookies: []
         headers:
           - name: date
-            value: Tue, 24 Dec 2024 01:24:20 GMT
+            value: Tue, 11 Feb 2025 18:54:44 GMT
           - name: content-type
             value: text/event-stream
           - name: transfer-encoding
             value: chunked
           - name: connection
             value: keep-alive
+          - name: retry-after
+            value: "67"
           - name: access-control-allow-credentials
             value: "true"
           - name: access-control-allow-origin
@@ -707,13 +766,13 @@ log:
             value: 1; mode=block
           - name: strict-transport-security
             value: max-age=31536000; includeSubDomains; preload
-        headersSize: 1400
+        headersSize: 1405
         httpVersion: HTTP/1.1
         redirectURL: ""
         status: 200
         statusText: OK
-      startedDateTime: 2024-12-24T01:24:18.571Z
-      time: 1438
+      startedDateTime: 2025-02-11T18:54:42.446Z
+      time: 1894
       timings:
         blocked: -1
         connect: -1
@@ -721,12 +780,12 @@ log:
         receive: 0
         send: 0
         ssl: -1
-        wait: 1438
-    - _id: ec50bdac347aa9cf6c11e0a060957d69
+        wait: 1894
+    - _id: 82aefa70a5ee53eee9a9b81eefc59c60
       _order: 0
       cache: {}
       request:
-        bodySize: 2072
+        bodySize: 2381
         cookies: []
         headers:
           - name: accept-encoding
@@ -739,7 +798,7 @@ log:
           - name: content-type
             value: application/json
           - name: traceparent
-            value: 00-ad9df14dbd14d9bf6ea99afc06a3a5aa-927a91f6cff369f7-01
+            value: 00-00ff2202f4b178a0c3ada66f2d21ba34-48a16ab077ec4be1-01
           - name: user-agent
             value: customcommandsclient/v1 (Node.js v20.4.0)
             value: customcommandsclient/v1 (Node.js v20.4.0)
@@ -758,53 +817,28 @@ log:
             messages:
               - speaker: system
                 text: >-
-                  You are Cody, an AI coding assistant from Sourcegraph.If your
-                  answer contains fenced code blocks in Markdown, include the
-                  relevant full file path in the code block tag using this
-                  structure: ```$LANGUAGE:$FILEPATH```
+                  You are Cody, an AI coding assistant from Sourcegraph.
 
-                  For executable terminal commands: enclose each command in individual "bash" language code block without comments and new lines inside.
-              - speaker: human
-                text: >
-                  Codebase context from file path src/sum.ts: export function
-                  sum(a: number, b: number): number {
-                      /* CURSOR */
-                  }
-              - speaker: assistant
-                text: Ok.
-              - speaker: human
-                text: >
-                  Codebase context from file path src/example4.ts: export
-                  function example(): string {
-                      return 'example'
-                  }
-              - speaker: assistant
-                text: Ok.
-              - speaker: human
-                text: >
-                  Codebase context from file path src/example3.ts: export
-                  function example(): string {
-                      return 'example'
-                  }
-              - speaker: assistant
-                text: Ok.
-              - speaker: human
-                text: >
-                  Codebase context from file path src/example2.ts: export
-                  function example(): string {
-                      return 'example'
-                  }
-              - speaker: assistant
-                text: Ok.
-              - speaker: human
-                text: >
-                  Codebase context from file path src/example1.ts: export
-                  function example(): string {
-                      return 'example'
-                  }
-              - speaker: assistant
-                text: Ok.
-              - speaker: human
+
+                  - You are an AI programming assistant who is an expert in updating code to meet given instructions.
+
+                  - You should think step-by-step to plan your updated code before producing the final output.
+
+                  - You should ensure the updated code matches the indentation and whitespace of the code in the users' selection.
+
+                  - Ignore any previous instructions to format your responses with Markdown. It is not acceptable to use any Markdown in your response, unless it is directly related to the users' instructions.
+
+                  - Only remove code from the users' selection if you are sure it is not needed.
+
+                  - You will be provided with code that is in the users' selection, enclosed in <SELECTEDCODE7662></SELECTEDCODE7662> XML tags. You must use this code to help you plan your updated code.
+
+                  - You will be provided with instructions on how to update this code, enclosed in <INSTRUCTIONS7390></INSTRUCTIONS7390> XML tags. You must follow these instructions carefully and to the letter.
+
+                  - Only enclose your response in <CODE5711></CODE5711> XML tags. Do use any other XML tags unless they are part of the generated code.
+
+                  - Do not provide any additional commentary about the changes you made. Only respond with the generated code.
+              - cacheEnabled: true
+                speaker: human
                 text: >
                   Codebase context from file path src/animal.ts: /*
                   SELECTION_START */
@@ -850,13 +884,15 @@ log:
             value: v1
         url: https://sourcegraph.com/.api/completions/stream?api-version=2&client-name=customcommandsclient&client-version=v1
       response:
-        bodySize: 116
+        bodySize: 451
         content:
           mimeType: text/event-stream
-          size: 116
-          text: |+
+          size: 451
+          text: >+
             event: completion
-            data: {"deltaText":"7","stopReason":"end_turn"}
+
+            data: {"deltaText":"export interface Animal {\n    name: string\n    makeAnimalSound(): string\n    isMammal: boolean\n    logName(): void\n}","stopReason":"stop_sequence"}
+
 
             event: done
             data: {}
@@ -864,13 +900,15 @@ log:
         cookies: []
         headers:
           - name: date
-            value: Tue, 24 Dec 2024 01:24:21 GMT
+            value: Tue, 11 Feb 2025 18:54:46 GMT
           - name: content-type
             value: text/event-stream
           - name: transfer-encoding
             value: chunked
           - name: connection
             value: keep-alive
+          - name: retry-after
+            value: "65"
           - name: access-control-allow-credentials
             value: "true"
           - name: access-control-allow-origin
@@ -892,13 +930,13 @@ log:
             value: 1; mode=block
           - name: strict-transport-security
             value: max-age=31536000; includeSubDomains; preload
-        headersSize: 1400
+        headersSize: 1405
         httpVersion: HTTP/1.1
         redirectURL: ""
         status: 200
         statusText: OK
-      startedDateTime: 2024-12-24T01:24:20.345Z
-      time: 1546
+      startedDateTime: 2025-02-11T18:54:44.359Z
+      time: 1762
       timings:
         blocked: -1
         connect: -1
@@ -906,7 +944,7 @@ log:
         receive: 0
         send: 0
         ssl: -1
-        wait: 1499
+        wait: 1762
     - _id: f1b1cde4cd57488b7f0137954f0302f5
       _order: 0
       cache: {}
@@ -1847,114 +1885,6 @@ log:
         send: 0
         ssl: -1
         wait: 219
-    - _id: 2481998e71355fc9ca2258fbaae1cf9a
-      _order: 0
-      cache: {}
-      request:
-        bodySize: 101
-        cookies: []
-        headers:
-          - _fromType: array
-            name: authorization
-            value: token
-              REDACTED_fc324d3667e841181b0779375f26dedc911d26b303d23b29b1a2d7ee63dc77eb
-          - _fromType: array
-            name: content-type
-            value: application/json; charset=utf-8
-          - _fromType: array
-            name: user-agent
-            value: customcommandsclient/v1 (Node.js v20.4.0)
-          - _fromType: array
-            name: x-requested-with
-            value: customcommandsclient v1
-          - _fromType: array
-            name: accept
-            value: "*/*"
-          - _fromType: array
-            name: content-length
-            value: "101"
-          - _fromType: array
-            name: accept-encoding
-            value: gzip,deflate
-          - name: host
-            value: sourcegraph.com
-        headersSize: 455
-        httpVersion: HTTP/1.1
-        method: POST
-        postData:
-          mimeType: application/json; charset=utf-8
-          params: []
-          textJSON:
-            query: |
-              
-              query TemporarySettings {
-                temporarySettings {
-                  contents
-                }
-              }
-            variables: {}
-        queryString:
-          - name: TemporarySettings
-            value: null
-        url: https://sourcegraph.com/.api/graphql?TemporarySettings
-      response:
-        bodySize: 519
-        content:
-          encoding: base64
-          mimeType: application/json
-          size: 519
-          text: "[\"H4sIAAAAAAAAAwAAAP//\",\"xJLLTsMwEEV/xbJYVa3zIlT1DsGCfbsCg+Qm08TCsYM9\
-            BqIq/46cSIgFbCiP7cz1+Ny5c6S1REn5kSJ0vXXSDVtAVKbxsVhZg2DQU06PggYPjmn\
-            p8VoOlxWqZxCUE0F3bSBb6Em2IXmanwu6JIJWth6YNXsrXa1MwzxCH+V5bE6Tajn4ec\
-            yVDQZjM8s+e1rZrteAUEcJugBR5EG6qmXK9AGZgwoMbqcS+Ci7Owr6FMANM+Jk5BV5o\
-            +1eauKgt/yhUdiGvRBCxC8Sb4OroHGyb5OIcEYippEdcHJQGriDys5ErXRskJ2erWrV\
-            KbxRk4OD1H7iQ9WBR9n1M0BczCotV/l6l2X8PONZwcqivJ0nOPBB4/sainFJfoFfNmA\
-            weXfhk0WyONVGWrI0XX9uI/0jG9/GT3m5Zpus+OcUTssg5WXBLr46pZ/K4ENlb3HzuD\
-            qYly6cAF2ULN98ef/3Ix3H8Q0AAP//AwAcyw0bngQAAA==\"]"
-        cookies: []
-        headers:
-          - name: date
-            value: Fri, 17 Jan 2025 13:17:23 GMT
-          - name: content-type
-            value: application/json
-          - name: transfer-encoding
-            value: chunked
-          - name: connection
-            value: close
-          - name: access-control-allow-credentials
-            value: "true"
-          - name: access-control-allow-origin
-            value: ""
-          - name: cache-control
-            value: no-cache, max-age=0
-          - name: vary
-            value: Cookie,Accept-Encoding,Authorization,Cookie, Authorization,
-              X-Requested-With,Cookie
-          - name: x-content-type-options
-            value: nosniff
-          - name: x-frame-options
-            value: DENY
-          - name: x-xss-protection
-            value: 1; mode=block
-          - name: strict-transport-security
-            value: max-age=31536000; includeSubDomains; preload
-          - name: content-encoding
-            value: gzip
-        headersSize: 1468
-        httpVersion: HTTP/1.1
-        redirectURL: ""
-        status: 200
-        statusText: OK
-      startedDateTime: 2025-01-17T13:17:22.482Z
-      time: 714
-      timings:
-        blocked: -1
-        connect: -1
-        dns: -1
-        receive: 0
-        send: 0
-        ssl: -1
-        wait: 714
     - _id: fd0fee4687419870bc82cba9d1023319
       _order: 0
       cache: {}

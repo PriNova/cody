@@ -55,7 +55,6 @@ import { CodyToolProvider } from './chat/agentic/CodyToolProvider'
 import { ChatsController, CodyChatEditorViewType } from './chat/chat-view/ChatsController'
 import { ContextRetriever } from './chat/chat-view/ContextRetriever'
 import { SourcegraphRemoteFileProvider } from './chat/chat-view/sourcegraphRemoteFile'
-import type { ChatIntentAPIClient } from './chat/context/chatIntentAPIClient'
 import {
     ACCOUNT_LIMITS_INFO_URL,
     ACCOUNT_UPGRADE_URL,
@@ -250,7 +249,6 @@ const register = async (
         completionsClient,
         guardrails,
         symfRunner,
-        chatIntentAPIClient,
         dispose: disposeExternalServices,
     } = await configureExternalServices({ config, context, platform })
     disposables.push({ dispose: disposeExternalServices })
@@ -265,7 +263,6 @@ const register = async (
             chatClient,
             guardrails,
             editor,
-            chatIntentAPIClient,
             contextRetriever,
         },
         disposables
@@ -469,7 +466,7 @@ async function registerCodyCommands(
     )
 
     // Initialize autoedit provider if experimental feature is enabled
-    registerAutoEdits(chatClient, fixupController, disposables)
+    registerAutoEdits(chatClient, fixupController, statusBar, disposables)
 
     // Initialize autoedit tester
     disposables.push(
@@ -721,6 +718,7 @@ async function tryRegisterTutorial(
 function registerAutoEdits(
     chatClient: ChatClient,
     fixupController: FixupController,
+    statusBar: CodyStatusBar,
     disposables: vscode.Disposable[]
 ): void {
     disposables.push(
@@ -755,6 +753,7 @@ function registerAutoEdits(
                                 autoeditFeatureFlagEnabled,
                                 autoeditImageRenderingEnabled,
                                 fixupController,
+                                statusBar,
                             })
                         }
                     ),
@@ -832,20 +831,11 @@ interface RegisterChatOptions {
     chatClient: ChatClient
     guardrails: Guardrails
     editor: VSCodeEditor
-    chatIntentAPIClient?: ChatIntentAPIClient
     contextRetriever: ContextRetriever
 }
 
 function registerChat(
-    {
-        context,
-        platform,
-        chatClient,
-        guardrails,
-        editor,
-        chatIntentAPIClient,
-        contextRetriever,
-    }: RegisterChatOptions,
+    { context, platform, chatClient, guardrails, editor, contextRetriever }: RegisterChatOptions,
     disposables: vscode.Disposable[]
 ): {
     chatsController: ChatsController
@@ -865,7 +855,6 @@ function registerChat(
         chatClient,
         contextRetriever,
         guardrails,
-        chatIntentAPIClient || null,
         platform.extensionClient
     )
     chatsController.registerViewsAndCommands()

@@ -5,12 +5,12 @@ import { FIXTURE_TRANSCRIPT, FIXTURE_USER_ACCOUNT_INFO, transcriptFixture } from
 
 import {
     type ChatMessage,
+    FIXTURE_MODELS,
     ModelTag,
     ModelUsage,
     PromptString,
     RateLimitError,
     errorToChatError,
-    getMockedDotComClientModels,
     ps,
 } from '@sourcegraph/cody-shared'
 import { MockDefaultContext } from '@sourcegraph/prompt-editor/src/useInitialContext'
@@ -19,8 +19,6 @@ import type { ComponentProps } from 'react'
 import { URI } from 'vscode-uri'
 import { VSCodeWebview } from '../storybook/VSCodeStoryDecorator'
 import { __ContextCellStorybookContext } from './cells/contextCell/ContextCell'
-
-const mockedModels = getMockedDotComClientModels()
 
 const meta: Meta<typeof Transcript> = {
     title: 'ui/Transcript',
@@ -42,7 +40,7 @@ const meta: Meta<typeof Transcript> = {
         userInfo: FIXTURE_USER_ACCOUNT_INFO,
         postMessage: () => {},
         chatEnabled: true,
-        models: mockedModels,
+        models: FIXTURE_MODELS,
         setActiveChatContext: () => {},
         isGoogleSearchEnabled: false,
         setIsGoogleSearchEnabled: () => {},
@@ -70,7 +68,7 @@ export const Empty: StoryObj<typeof meta> = {
 export const ModelSelection: StoryObj<typeof meta> = {
     args: {
         transcript: FIXTURE_TRANSCRIPT.simple,
-        models: mockedModels,
+        models: FIXTURE_MODELS,
         userInfo: { ...FIXTURE_USER_ACCOUNT_INFO, isCodyProUser: true },
     },
 }
@@ -90,7 +88,7 @@ export const WithDifferentModels: StoryObj<typeof meta> = {
                 title: 'Super AI',
                 tags: [ModelTag.Enterprise, ModelTag.Power],
             },
-            ...mockedModels,
+            ...FIXTURE_MODELS,
         ],
     },
 }
@@ -358,5 +356,11 @@ export const StreamingThenFinish: StoryObj<typeof meta> = {
 export const WithToolUseResponse: StoryObj<typeof meta> = {
     args: {
         transcript: transcriptFixture([...FIXTURE_TRANSCRIPT.toolUse]),
+    },
+}
+
+export const WithCode: StoryObj<typeof meta> = {
+    args: {
+        transcript: transcriptFixture([...FIXTURE_TRANSCRIPT.generateCode]),
     },
 }

@@ -6,10 +6,8 @@ import {
     type Guardrails,
     type SourcegraphCompletionsClient,
     SourcegraphGuardrailsClient,
-    graphqlClient,
 } from '@sourcegraph/cody-shared'
 
-import { ChatIntentAPIClient } from './chat/context/chatIntentAPIClient'
 import { completionsLifecycleOutputChannelLogger } from './completions/output-channel-logger'
 import type { PlatformContext } from './extension.common'
 import type { SymfRunner } from './local-context/symf'
@@ -19,7 +17,6 @@ interface ExternalServices {
     completionsClient: SourcegraphCompletionsClient
     guardrails: Guardrails
     symfRunner: SymfRunner | undefined
-    chatIntentAPIClient: ChatIntentAPIClient | undefined
     dispose(): void
 }
 
@@ -60,14 +57,11 @@ export async function configureExternalServices({
 
     const guardrails = new SourcegraphGuardrailsClient()
 
-    const chatIntentAPIClient = new ChatIntentAPIClient(graphqlClient)
-
     return {
         chatClient,
         completionsClient,
         guardrails,
         symfRunner,
-        chatIntentAPIClient,
         dispose(): void {
             for (const d of disposables) {
                 d?.dispose()
