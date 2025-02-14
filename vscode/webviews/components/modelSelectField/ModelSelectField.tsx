@@ -336,6 +336,7 @@ const getBadgeText = (model: Model, modelAvailability?: ModelAvailability): stri
         [ModelTag.Recommended]: 'Recommended',
         [ModelTag.Deprecated]: 'Deprecated',
         [ModelTag.Dev]: 'Preview',
+        [ModelTag.BYOK]: 'BYOK',
     }
 
     return model.tags.reduce((text, tag) => text || tagToText[tag] || '', null as string | null)
@@ -384,7 +385,7 @@ const ModelTitleWithIcon: React.FC<{
                         'tw-opacity-75': modelAvailability === 'needs-cody-pro',
                     })}
                 >
-                    {isGeminiFlash2Model(model) ? 'Vision' : modelBadge}
+                    {model.tags.includes(ModelTag.BYOK) ? 'BYOK' : modelBadge}
                 </Badge>
             )}
         </span>
@@ -407,7 +408,7 @@ const ModelUIGroup: Record<string, string> = {
     Speed: 'Faster models',
     Ollama: 'Ollama (Local models)',
     Other: 'Other',
-    Vision: 'Vision',
+    BYOK: 'BYOK',
 }
 
 const getModelDropDownUIGroup = (model: Model): string => {
@@ -417,7 +418,8 @@ const getModelDropDownUIGroup = (model: Model): string => {
     if (model.tags.includes(ModelTag.Balanced)) return ModelUIGroup.Balanced
     if (model.tags.includes(ModelTag.Speed)) return ModelUIGroup.Speed
     if (model.tags.includes(ModelTag.Ollama)) return ModelUIGroup.Ollama
-    if (model.tags.includes(ModelTag.Vision)) return ModelUIGroup.Vision
+    if (model.tags.includes(ModelTag.BYOK)) return ModelUIGroup.BYOK
+    //if (model.tags.includes(ModelTag.Vision)) return ModelUIGroup.Vision
     return ModelUIGroup.Other
 }
 
@@ -428,7 +430,8 @@ const optionByGroup = (
         ModelUIGroup.Power,
         ModelUIGroup.Balanced,
         ModelUIGroup.Speed,
-        ModelUIGroup.Vision,
+        ModelUIGroup.BYOK,
+        //ModelUIGroup.Vision,
         ModelUIGroup.Ollama,
         ModelUIGroup.Other,
     ]
