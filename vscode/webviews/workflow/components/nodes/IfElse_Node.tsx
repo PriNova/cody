@@ -49,9 +49,12 @@ export const IfElseNode: React.FC<BaseNodeProps> = ({ data, selected }) => (
             >
                 IF...ELSE
             </div>
-            <div className="tw-flex tw-items-center tw-justify-center tw-p-2 tw-border tw-border-[var(--vscode-input-border)] tw-rounded">
-                <span>{data.condition || 'Condition'}</span>
+            <div className="tw-flex tw-items-center tw-justify-center">
+                <span>{data.title}</span>
             </div>
+            {/*<div className="tw-flex tw-items-center tw-justify-center tw-p-2 tw-border tw-border-[var(--vscode-input-border)] tw-rounded">
+                <span>{data.condition || 'Condition'}</span>
+            </div>*/}
             <div className="tw-flex tw-justify-between tw-mt-2">
                 <div className="tw-text-sm tw-opacity-75">True</div>
                 <div className="tw-text-sm tw-opacity-75">False</div>

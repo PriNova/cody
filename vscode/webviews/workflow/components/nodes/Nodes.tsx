@@ -141,6 +141,15 @@ export const createNode = (node: Omit<WorkflowNodes, 'id'>): WorkflowNodes => {
                     falsePathActive: false,
                 },
             } as IfElseNode
+        case NodeType.LOOP_START:
+            return {
+                ...node,
+                id,
+                data: {
+                    ...node.data,
+                    overrideIterations: false,
+                },
+            } as LoopStartNode
         default:
             return {
                 ...node,

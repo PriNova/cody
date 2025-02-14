@@ -101,15 +101,6 @@ export async function executeWorkflow(
     } as ExtensionToWorkflow)
 
     for (const node of sortedNodes) {
-        if (node.type === NodeType.LOOP_START) {
-            context.loopStates.set(node.id, {
-                currentIteration: -1,
-                maxIterations: (node as LoopStartNode).data.iterations,
-                variable: (node as LoopStartNode).data.loopVariable,
-            })
-        }
-    }
-    for (const node of sortedNodes) {
         if (skipNodes.has(node.id)) {
             continue
         }
@@ -261,22 +252,7 @@ export async function executeWorkflow(
                     break
                 }
                 case NodeType.LOOP_START: {
-                    const inputs = combineParentOutputsByConnectionOrder(node.id, context)
-
-                    const loopState = context.loopStates.get(node.id) || {
-                        currentIteration: -1,
-                        maxIterations: (node as LoopStartNode).data.iterations,
-                        variable: (node as LoopStartNode).data.loopVariable,
-                    }
-
-                    // Only increment for next iteration if not at max
-                    if (loopState.currentIteration < loopState.maxIterations) {
-                        context.loopStates.set(node.id, {
-                            ...loopState,
-                            currentIteration: loopState.currentIteration + 1,
-                        })
-                    }
-                    result = await executePreviewNode(inputs.join('\n'), node.id, webview, context)
+                    result = await executeLoopStartNode(node as LoopStartNode, context)
                     break
                 }
                 case NodeType.LOOP_END: {
@@ -913,3 +889,51 @@ const commandsNotAllowed = [
     'lsusb',
     'lspci',
 ]
+
+async function executeLoopStartNode(
+    node: LoopStartNode,
+    context: IndexedExecutionContext
+): Promise<string> {
+    // Helper function to filter edges by handle type
+    const getInputsByHandle = (handleType: string) =>
+        combineParentOutputsByConnectionOrder(node.id, {
+            ...context,
+            edgeIndex: {
+                ...context.edgeIndex,
+                byTarget: new Map([
+                    [
+                        node.id,
+                        (context.edgeIndex.byTarget.get(node.id) || []).filter(
+                            edge => edge.targetHandle === handleType
+                        ),
+                    ],
+                ]),
+            },
+        })
+
+    const mainInputs = getInputsByHandle('main')
+    const iterationOverrides = getInputsByHandle('iterations-override')
+
+    let loopState = context.loopStates.get(node.id)
+
+    if (!loopState) {
+        const maxIterations =
+            iterationOverrides.length > 0
+                ? Number.parseInt(iterationOverrides[0], 10) || node.data.iterations
+                : node.data.iterations
+
+        loopState = {
+            currentIteration: 0, // Start at 0 for clearer iteration counting
+            maxIterations,
+            variable: node.data.loopVariable,
+        }
+        context.loopStates.set(node.id, loopState)
+    } else if (loopState.currentIteration < loopState.maxIterations - 1) {
+        context.loopStates.set(node.id, {
+            ...loopState,
+            currentIteration: loopState.currentIteration + 1,
+        })
+    }
+
+    return mainInputs.join('\n')
+}

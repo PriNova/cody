@@ -572,8 +572,7 @@ function processLoopWithCycles(
         const preLoopNodeIds = new Set(preLoopNodes.map(node => node.id))
         const nodesInsideLoop = findLoopNodes(loopStart, nodes, edges, preLoopNodeIds)
 
-        // Process loop iterations
-        const iterations = shouldIterateLoops ? (loopStart as LoopStartNode).data.iterations : 1
+        const iterations = getLoopIterations(loopStart, nodes, edges, shouldIterateLoops)
 
         for (let i = 0; i < iterations; i++) {
             processedNodes.push({ ...loopStart })
@@ -596,4 +595,28 @@ function processLoopWithCycles(
     }
 
     return processedNodes
+}
+
+function getLoopIterations(
+    loopStart: WorkflowNodes,
+    nodes: WorkflowNodes[],
+    edges: Edge[],
+    shouldIterateLoops: boolean
+): number {
+    if (!shouldIterateLoops) {
+        return 1
+    }
+
+    const iterationOverrideEdges = edges.filter(
+        edge => edge.target === loopStart.id && edge.targetHandle === 'iterations-override'
+    )
+
+    if (iterationOverrideEdges.length === 0) {
+        return (loopStart as LoopStartNode).data.iterations
+    }
+
+    const sourceNode = nodes.find(n => n.id === iterationOverrideEdges[0].source)
+    const overrideValue = Number.parseInt(sourceNode?.data.content || '', 10)
+
+    return !Number.isNaN(overrideValue) ? overrideValue : (loopStart as LoopStartNode).data.iterations
 }

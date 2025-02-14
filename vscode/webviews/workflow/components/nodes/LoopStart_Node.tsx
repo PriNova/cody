@@ -14,6 +14,7 @@ export type LoopStartNode = Omit<WorkflowNode, 'data'> & {
     data: BaseNodeData & {
         iterations: number
         loopVariable: string
+        overrideIterations?: boolean
     }
 }
 
@@ -33,6 +34,7 @@ export const LoopStartNode: React.FC<BaseNodeProps> = ({ data, selected }) => (
         }}
     >
         <Handle type="target" position={Position.Top} />
+        <Handle type="target" position={Position.Left} id="iterations-override" style={{ top: '83%' }} />
         <div className="tw-flex tw-flex-col tw-gap-2">
             <div
                 className="tw-text-center tw-py-1 tw-mb-2 tw-rounded-t-sm tw-font-bold"
@@ -44,7 +46,7 @@ export const LoopStartNode: React.FC<BaseNodeProps> = ({ data, selected }) => (
                         selected,
                         interrupted: data.interrupted,
                         active: data.active,
-                    })}`,
+                    })})`,
                     color: ' #1e1e1e',
                     marginLeft: '-0.5rem',
                     marginRight: '-0.5rem',
@@ -56,6 +58,7 @@ export const LoopStartNode: React.FC<BaseNodeProps> = ({ data, selected }) => (
             <div className="tw-flex tw-flex-col tw-justify-center">
                 <span>{data.title}</span>
                 <span className="tw-text-sm tw-opacity-70">Iterations: {data.iterations || 1}</span>
+                <span className="tw-text-xs tw-opacity-50">← Iterations Override</span>
             </div>
         </div>
         <Handle type="source" position={Position.Bottom} />
