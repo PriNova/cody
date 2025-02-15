@@ -150,6 +150,13 @@ export const WorkflowSidebar: React.FC<WorkflowSidebarProps> = ({
                             >
                                 Accumulator
                             </Button>
+                            <Button
+                                onClick={() => onNodeAdd('Variable', NodeType.VARIABLE)} // ADD VARIABLE BUTTON
+                                className="tw-w-full"
+                                variant="outline"
+                            >
+                                Variable
+                            </Button>
                         </div>
                     </AccordionContent>
                 </AccordionItem>

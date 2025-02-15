@@ -8,15 +8,15 @@ import {
     getNodeStyle,
 } from './Nodes'
 
-export type AccumulatorNode = Omit<WorkflowNode, 'data'> & {
-    type: NodeType.ACCUMULATOR
+export type VariableNode = Omit<WorkflowNode, 'data'> & {
+    type: NodeType.VARIABLE
     data: BaseNodeData & {
         variableName: string
         initialValue?: string
     }
 }
 
-export const AccumulatorNode: React.FC<BaseNodeProps> = ({ data, selected }) => (
+export const VariableNode: React.FC<BaseNodeProps> = ({ data, selected }) => (
     <div
         style={getNodeStyle(
             NodeType.INPUT,
@@ -47,7 +47,7 @@ export const AccumulatorNode: React.FC<BaseNodeProps> = ({ data, selected }) => 
                     marginTop: '-0.5rem',
                 }}
             >
-                ACCUMULATOR
+                VARIABLE
             </div>
             <div className="tw-flex tw-items-center tw-justify-center">
                 <span>{data.title}</span>

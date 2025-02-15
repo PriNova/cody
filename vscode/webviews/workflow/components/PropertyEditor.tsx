@@ -21,6 +21,7 @@ import type { LLMNode } from './nodes/LLM_Node'
 import type { LoopStartNode } from './nodes/LoopStart_Node'
 import { NodeType, type WorkflowNodes } from './nodes/Nodes'
 import type { SearchContextNode } from './nodes/SearchContext_Node'
+import type { VariableNode } from './nodes/Variable_Node'
 
 interface PropertyEditorProps {
     node: WorkflowNodes
@@ -340,20 +341,6 @@ export const PropertyEditor: React.FC<PropertyEditorProps> = ({ node, onUpdate, 
                             required // Make it required for clarity
                         />
                     </div>
-                    {/* Future: Accumulation Type Dropdown */}
-                    {/* <div>
-            <Label htmlFor="accumulator-type">Accumulation Type (Future)</Label>
-            <Select>
-                <SelectTrigger className="tw-w-full">
-                    <SelectValue placeholder="Concatenate (Default)" />
-                </SelectTrigger>
-                <SelectContent>
-                    <SelectItem value="concatenate">Concatenate</SelectItem>
-                    <SelectItem value="sum">Sum (Numbers)</SelectItem>
-                    <SelectItem value="custom">Custom (Future)</SelectItem>
-                </SelectContent>
-            </Select>
-        </div> */}
                     <div>
                         <Label htmlFor="accumulator-initial-value">Input Text</Label>
                         <Textarea
@@ -378,6 +365,33 @@ export const PropertyEditor: React.FC<PropertyEditorProps> = ({ node, onUpdate, 
                         }
                         placeholder="Enter input text... (use ${1}, ${2} and so on for positional inputs)"
                     />
+                </div>
+            )}
+            {node.type === NodeType.VARIABLE && (
+                <div className="tw-flex tw-flex-col tw-gap-4">
+                    <div>
+                        <Label htmlFor="variable-name">Variable Name</Label>
+                        <Input
+                            id="variable-name"
+                            value={(node as VariableNode).data.variableName || ''}
+                            onChange={(e: { target: { value: any } }) =>
+                                onUpdate(node.id, { variableName: e.target.value })
+                            }
+                            placeholder="Unique variable name to access variable value (e.g., userInput)"
+                            required // Make it required for clarity
+                        />
+                    </div>
+                    <div>
+                        <Label htmlFor="variable-initial-value">Initial Value</Label>
+                        <Textarea
+                            id="node-input"
+                            value={node.data.content || ''}
+                            onChange={(e: { target: { value: any } }) =>
+                                onUpdate(node.id, { content: e.target.value })
+                            }
+                            placeholder="Enter input text... (use ${1}, ${2} and so on for positional inputs)"
+                        />
+                    </div>
                 </div>
             )}
         </div>

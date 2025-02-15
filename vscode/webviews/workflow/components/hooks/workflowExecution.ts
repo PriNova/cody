@@ -59,6 +59,22 @@ export const useWorkflowExecution = (
             return
         }
 
+        const updatedNodes = nodes.map(node => {
+            if (node.type === NodeType.PREVIEW) {
+                return {
+                    ...node,
+                    data: {
+                        ...node.data,
+                        content: '',
+                        tokenCount: 0,
+                    },
+                }
+            }
+            return node
+        })
+        setNodes(updatedNodes)
+        setNodeResults(new Map())
+
         setNodeErrors(new Map())
         const controller = new AbortController()
         setAbortController(controller)
@@ -67,9 +83,9 @@ export const useWorkflowExecution = (
 
         vscodeAPI.postMessage({
             type: 'execute_workflow',
-            data: { nodes, edges },
+            data: { nodes: updatedNodes, edges },
         })
-    }, [nodes, edges, vscodeAPI])
+    }, [nodes, edges, setNodes, vscodeAPI])
 
     const onAbort = useCallback(() => {
         if (abortController) {

@@ -12,6 +12,7 @@ import { LoopStartNode } from './LoopStart_Node'
 import { PreviewNode } from './Preview_Node'
 import { SearchContextNode } from './SearchContext_Node'
 import { TextNode } from './Text_Node'
+import { VariableNode } from './Variable_Node'
 
 // Core type definitions
 export enum NodeType {
@@ -24,6 +25,7 @@ export enum NodeType {
     LOOP_START = 'loop-start',
     LOOP_END = 'loop-end',
     ACCUMULATOR = 'accumulator',
+    VARIABLE = 'variable',
     IF_ELSE = 'if-else',
 }
 
@@ -84,6 +86,7 @@ export type WorkflowNodes =
     | LoopStartNode
     | LoopEndNode
     | AccumulatorNode
+    | VariableNode
     | IfElseNode
 
 /**
@@ -298,4 +301,5 @@ export const nodeTypes = {
     [NodeType.LOOP_END]: LoopEndNode,
     [NodeType.ACCUMULATOR]: AccumulatorNode,
     [NodeType.IF_ELSE]: IfElseNode,
+    [NodeType.VARIABLE]: VariableNode,
 }

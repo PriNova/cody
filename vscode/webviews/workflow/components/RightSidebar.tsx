@@ -103,8 +103,9 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
                                             <div className="tw-w-4 tw-mr-2">
                                                 {node.id === executingNodeId && (
                                                     <Loader2Icon
-                                                        strokeWidth={1.5}
-                                                        size={16}
+                                                        stroke="#33ffcc"
+                                                        strokeWidth={3}
+                                                        size={24}
                                                         className="tw-h-4 tw-w-4 tw-animate-spin"
                                                     />
                                                 )}

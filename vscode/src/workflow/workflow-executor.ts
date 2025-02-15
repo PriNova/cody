@@ -25,6 +25,7 @@ import {
     type WorkflowNode,
     type WorkflowNodes,
 } from '../../webviews/workflow/components/nodes/Nodes'
+import type { VariableNode } from '../../webviews/workflow/components/nodes/Variable_Node'
 import type { ExtensionToWorkflow } from '../../webviews/workflow/services/WorkflowProtocol'
 import { ChatController, type ChatSession } from '../chat/chat-view/ChatController'
 import { type ContextRetriever, toStructuredMentions } from '../chat/chat-view/ContextRetriever'
@@ -59,6 +60,8 @@ export interface IndexedExecutionContext {
             exitCode: string
         }
     >
+    variableValues?: Map<string, string>
+    ifelseSkipPaths?: Map<string, Set<string>>
 }
 
 /**
@@ -91,9 +94,9 @@ export async function executeWorkflow(
         loopStates: new Map(),
         accumulatorValues: new Map(),
         cliMetadata: new Map(),
+        variableValues: new Map(),
+        ifelseSkipPaths: new Map(),
     }
-
-    const skipNodes = new Set<string>()
 
     // Calculate all inactive nodes
     const allInactiveNodes = new Set<string>()
@@ -113,7 +116,11 @@ export async function executeWorkflow(
     } as ExtensionToWorkflow)
 
     for (const node of sortedNodes) {
-        if (skipNodes.has(node.id)) {
+        const shouldSkip = Array.from(context.ifelseSkipPaths?.values() ?? []).some(skipNodes =>
+            skipNodes.has(node.id)
+        )
+
+        if (shouldSkip) {
             continue
         }
 
@@ -293,7 +300,22 @@ export async function executeWorkflow(
                 }
 
                 case NodeType.IF_ELSE: {
-                    result = await executeIfElseNode(context, node, skipNodes)
+                    result = await executeIfElseNode(context, node)
+                    break
+                }
+                case NodeType.VARIABLE: {
+                    const inputs = combineParentOutputsByConnectionOrder(node.id, context)
+                    const inputValue = node.data.content
+                        ? replaceIndexedInputs(node.data.content, inputs, context)
+                        : ''
+                    const {
+                        data: { variableName, initialValue },
+                    } = node as VariableNode
+                    let variableValue = context.variableValues?.get(variableName) || initialValue || ''
+                    variableValue = inputValue
+                    context.variableValues?.set(variableName, variableValue)
+
+                    result = variableValue
                     break
                 }
 
@@ -412,6 +434,15 @@ export function replaceIndexedInputs(
             result = result.replace(
                 new RegExp(`\\$\{${varName}}(?!\\w)`, 'g'),
                 context.accumulatorValues?.get(varName) || ''
+            )
+        }
+
+        // Only replace variable variables that are explicitly defined
+        const variableVars = context.variableValues ? Array.from(context.variableValues.keys()) : []
+        for (const varName of variableVars) {
+            result = result.replace(
+                new RegExp(`\\$\{${varName}}(?!\\w)`, 'g'),
+                context.variableValues?.get(varName) || ''
             )
         }
     }
@@ -758,8 +789,7 @@ async function executeCodyOutputNode(
 
 async function executeIfElseNode(
     context: IndexedExecutionContext,
-    node: WorkflowNode | IfElseNode,
-    skipNodes: Set<string>
+    node: WorkflowNode | IfElseNode
 ): Promise<string> {
     let result = ''
     const parentEdges = context.edgeIndex.byTarget.get(node.id) || []
@@ -793,10 +823,23 @@ async function executeIfElseNode(
     }
 
     // Get paths and mark nodes to skip
+    context.ifelseSkipPaths?.set(node.id, new Set<string>())
     const edges = context.edgeIndex.bySource.get(node.id) || []
     const nonTakenPath = edges.find(edge => edge.sourceHandle === (hasResult ? 'false' : 'true'))
     if (nonTakenPath) {
-        const nodesToSkip = getInactiveNodes(edges, nonTakenPath.target)
+        // Initialize ifelseSkipPaths if it's undefined
+        if (!context.ifelseSkipPaths) {
+            context.ifelseSkipPaths = new Map<string, Set<string>>()
+        }
+
+        // Get or create the set of nodes to skip for this IfElse node
+        let skipNodes = context.ifelseSkipPaths?.get(node.id)
+
+        skipNodes = new Set<string>()
+        context.ifelseSkipPaths?.set(node.id, skipNodes)
+
+        const allEdges = Array.from(context.edgeIndex.byId.values())
+        const nodesToSkip = getInactiveNodes(allEdges, nonTakenPath.target)
         for (const nodeId of nodesToSkip) {
             skipNodes.add(nodeId)
         }
