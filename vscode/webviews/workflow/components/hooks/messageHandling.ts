@@ -36,7 +36,8 @@ export const useMessageHandler = (
     calculatePreviewNodeTokens: (nodes: WorkflowNodes[]) => void,
     setPendingApprovalNodeId: React.Dispatch<React.SetStateAction<string | null>>,
     setModels: React.Dispatch<React.SetStateAction<Model[]>>,
-    vscodeAPI: GenericVSCodeWrapper<WorkflowToExtension, ExtensionToWorkflow>
+    vscodeAPI: GenericVSCodeWrapper<WorkflowToExtension, ExtensionToWorkflow>,
+    setCustomNodes: React.Dispatch<React.SetStateAction<WorkflowNodes[]>>
 ) => {
     const batchUpdateNodeResults = useCallback(
         (updates: Map<string, string>, node?: WorkflowNodes) => {
@@ -121,6 +122,13 @@ export const useMessageHandler = (
                     }
                     break
                 }
+                case 'provide_custom_nodes': {
+                    const customNodes = event.data.data
+                    if (customNodes) {
+                        setCustomNodes(customNodes)
+                    }
+                    break
+                }
             }
         }
 
@@ -140,5 +148,6 @@ export const useMessageHandler = (
         setPendingApprovalNodeId,
         batchUpdateNodeResults,
         setModels,
+        setCustomNodes,
     ])
 }

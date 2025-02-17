@@ -1,6 +1,7 @@
 import type { GenericVSCodeWrapper } from '@sourcegraph/cody-shared'
 import { type NodeChange, applyNodeChanges, useReactFlow } from '@xyflow/react'
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { v4 as uuidv4 } from 'uuid'
 import type { ExtensionToWorkflow, WorkflowToExtension } from '../../services/WorkflowProtocol'
 import type { LLMNode } from '../nodes/LLM_Node'
 import type { LoopStartNode } from '../nodes/LoopStart_Node'
@@ -9,6 +10,20 @@ import { NodeType, type WorkflowNodes, createNode } from '../nodes/Nodes'
 interface IndexedNodes {
     byId: Map<string, WorkflowNodes>
     allIds: string[]
+}
+
+/* function sanitizeFilename(name: string): string {
+    return name.replace(/[^a-zA-Z0-9_-]/g, '_')
+}
+
+const CODY_NODES_DIR = '.cody/nodes' */
+
+export interface UseCustomNodes {
+    onSaveCustomNode: (node: WorkflowNodes, name: string) => Promise<void>
+    //getCustomNodes: () => Promise<WorkflowNodes[]>
+    //renameCustomNode: (id: string, newName: string) => Promise<void>
+    //deleteCustomNode: (id: string) => Promise<void>
+    //customNodes: WorkflowNodes[]
 }
 
 /**
@@ -135,56 +150,62 @@ export const useNodeOperations = (
     )
 
     const onNodeAdd = useCallback(
-        (nodeLabel: string, nodeType: NodeType) => {
-            const flowElement = document.querySelector('.react-flow')
-            const flowBounds = flowElement?.getBoundingClientRect()
+        (nodeOrLabel: WorkflowNodes | string, nodeType?: NodeType) => {
+            if (typeof nodeOrLabel === 'string') {
+                // Existing logic for creating node from label + type
+                const flowElement = document.querySelector('.react-flow')
+                const flowBounds = flowElement?.getBoundingClientRect()
 
-            const centerPosition = flowInstance.screenToFlowPosition({
-                x: flowBounds ? flowBounds.x + flowBounds.width / 2 : 0,
-                y: flowBounds ? flowBounds.y + flowBounds.height / 2 : 0,
-            })
+                const centerPosition = flowInstance.screenToFlowPosition({
+                    x: flowBounds ? flowBounds.x + flowBounds.width / 2 : 0,
+                    y: flowBounds ? flowBounds.y + flowBounds.height / 2 : 0,
+                })
 
-            // Create new node with type-specific defaults
-            const newNode = createNode({
-                type: nodeType,
-                data: {
-                    title: nodeLabel,
-                    content: '',
-                    active: true,
-                },
-                position: centerPosition,
-            }) as WorkflowNodes
+                const newNode = createNode({
+                    type: nodeType!,
+                    data: {
+                        title: nodeOrLabel,
+                        content: '',
+                        active: true,
+                    },
+                    position: centerPosition,
+                }) as WorkflowNodes
 
-            // Set type-specific defaults
-            switch (nodeType) {
-                case NodeType.LLM:
-                    newNode.data = {
-                        ...newNode.data,
-                        temperature: 0.0,
-                        maxTokens: 1000,
-                        model: undefined,
-                    }
-                    break
-                case NodeType.PREVIEW:
-                case NodeType.INPUT:
-                    newNode.data.content = ''
-                    break
-                case NodeType.LOOP_START:
-                    newNode.data = {
-                        ...newNode.data,
-                        iterations: 1,
-                        loopVariable: 'loop',
-                    }
-                    break
-                case NodeType.SEARCH_CONTEXT:
-                    newNode.data = {
-                        ...newNode.data,
-                        local_remote: false,
-                    }
-                    break
+                // Set type-specific defaults
+                switch (nodeType) {
+                    case NodeType.LLM:
+                        newNode.data = {
+                            ...newNode.data,
+                            temperature: 0.0,
+                            maxTokens: 1000,
+                            model: undefined,
+                        }
+                        break
+                    case NodeType.PREVIEW:
+                    case NodeType.INPUT:
+                        newNode.data.content = ''
+                        break
+                    case NodeType.LOOP_START:
+                        newNode.data = {
+                            ...newNode.data,
+                            iterations: 1,
+                            loopVariable: 'loop',
+                        }
+                        break
+                    case NodeType.SEARCH_CONTEXT:
+                        newNode.data = {
+                            ...newNode.data,
+                            local_remote: false,
+                        }
+                        break
+                }
+
+                setNodes(nodes => [...nodes, newNode])
+            } else {
+                // Direct node object provided
+                const nodeWithId = { ...nodeOrLabel, id: uuidv4() }
+                setNodes(nodes => [...nodes, nodeWithId])
             }
-
-            setNodes(nodes => [...nodes, newNode])
         },
         [flowInstance, setNodes]
     )
@@ -234,5 +255,57 @@ export const useNodeOperations = (
         onNodeAdd,
         onNodeUpdate,
         indexedNodes,
+    }
+}
+
+export const useCustomNodes = (
+    vscodeAPI: GenericVSCodeWrapper<WorkflowToExtension, ExtensionToWorkflow>
+) => {
+    const onGetCustomNodes = useCallback(() => {
+        vscodeAPI.postMessage({
+            type: 'get_custom_nodes',
+        })
+    }, [vscodeAPI])
+
+    const onSaveCustomNode = useCallback(
+        (node: WorkflowNodes) => {
+            vscodeAPI.postMessage({
+                type: 'save_customNode',
+                data: node,
+            })
+        },
+        [vscodeAPI]
+    )
+
+    const onDeleteCustomNode = useCallback(
+        (nodeTitle: string) => {
+            vscodeAPI.postMessage({
+                type: 'delete_customNode',
+                data: nodeTitle,
+            })
+        },
+        [vscodeAPI]
+    )
+
+    const onRenameCustomNode = useCallback(
+        (oldNodeTitle: string, newNodeTitle: string) => {
+            vscodeAPI.postMessage({
+                type: 'rename_customNode',
+                data: {
+                    oldNodeTitle: oldNodeTitle,
+                    newNodeTitle: newNodeTitle,
+                },
+            })
+        },
+        [vscodeAPI]
+    )
+
+    useEffect(() => {
+        onGetCustomNodes()
+    }, [onGetCustomNodes])
+    return {
+        onSaveCustomNode,
+        onDeleteCustomNode,
+        onRenameCustomNode,
     }
 }

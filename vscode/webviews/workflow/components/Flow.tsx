@@ -2,7 +2,7 @@ import { Background, Controls, ReactFlow } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import type { GenericVSCodeWrapper, Model } from '@sourcegraph/cody-shared'
 import type React from 'react'
-import { useCallback, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import type { ExtensionToWorkflow, WorkflowToExtension } from '../services/WorkflowProtocol'
 import { CustomOrderedEdgeComponent } from './CustomOrderedEdge'
 import styles from './Flow.module.css'
@@ -11,7 +11,7 @@ import { RightSidebar } from './RightSidebar'
 import { WorkflowSidebar } from './WorkflowSidebar'
 import { useEdgeOperations } from './hooks/edgeOperations'
 import { useMessageHandler } from './hooks/messageHandling'
-import { useNodeOperations } from './hooks/nodeOperations'
+import { useCustomNodes, useNodeOperations } from './hooks/nodeOperations'
 import { memoizedTopologicalSort, useNodeStateTransformation } from './hooks/nodeStateTransforming'
 import { useInteractionHandling } from './hooks/selectionHandling'
 import { useRightSidebarResize, useSidebarResize } from './hooks/sidebarResizing'
@@ -37,6 +37,7 @@ export const Flow: React.FC<{
     const [nodeResults, setNodeResults] = useState<Map<string, string>>(new Map())
     const [pendingApprovalNodeId, setPendingApprovalNodeId] = useState<string | null>(null)
     const [models, setModels] = useState<Model[]>([])
+    const [customNodes, setCustomNodes] = useState<WorkflowNodes[]>([])
 
     // Edge-related state
     const [edges, setEdges] = useState(defaultWorkflow.edges)
@@ -94,7 +95,8 @@ export const Flow: React.FC<{
         calculatePreviewNodeTokens,
         setPendingApprovalNodeId,
         setModels,
-        vscodeAPI
+        vscodeAPI,
+        setCustomNodes
     )
 
     const { sidebarWidth, handleMouseDown } = useSidebarResize()
@@ -103,13 +105,6 @@ export const Flow: React.FC<{
 
     const { onNodeClick, handleBackgroundClick, handleBackgroundKeyDown } =
         useInteractionHandling(setSelectedNode)
-
-    const handlePostMessage = useCallback(
-        (message: WorkflowToExtension) => {
-            vscodeAPI.postMessage(message)
-        },
-        [vscodeAPI]
-    )
 
     const nodesWithState = useNodeStateTransformation(
         nodes,
@@ -122,15 +117,7 @@ export const Flow: React.FC<{
         edges
     )
 
-    const nodesWithHandlers = useMemo(() => {
-        return nodesWithState.map(node => ({
-            ...node,
-            data: {
-                ...node.data,
-                handlePostMessage,
-            },
-        }))
-    }, [nodesWithState, handlePostMessage])
+    const { onSaveCustomNode, onDeleteCustomNode, onRenameCustomNode } = useCustomNodes(vscodeAPI)
 
     // Recalculate sortedNodes on each render
     const sortedNodes = useMemo(() => {
@@ -159,6 +146,10 @@ export const Flow: React.FC<{
                     isExecuting={isExecuting}
                     onAbort={onAbort}
                     models={models}
+                    onSaveCustomNode={onSaveCustomNode}
+                    onDeleteCustomNode={onDeleteCustomNode}
+                    onRenameCustomNode={onRenameCustomNode}
+                    customNodes={customNodes}
                 />
             </div>
             <div
@@ -175,7 +166,7 @@ export const Flow: React.FC<{
                 <div className="tw-flex tw-flex-1 tw-h-full">
                     <div className="tw-flex-1 tw-bg-[var(--vscode-editor-background)] tw-h-full">
                         <ReactFlow
-                            nodes={nodesWithHandlers}
+                            nodes={nodesWithState}
                             edges={orderedEdges}
                             onNodesChange={onNodesChange}
                             onEdgesChange={onEdgesChange}
@@ -192,7 +183,7 @@ export const Flow: React.FC<{
                             }}
                             fitView
                         >
-                            <Background />
+                            <Background color="transparent" />
                             <Controls className={styles.controls}>
                                 <button
                                     type="button"
@@ -216,7 +207,6 @@ export const Flow: React.FC<{
                         className="tw-flex-shrink-0 tw-border-r tw-border-solid tw-border-[var(--vscode-panel-border)] tw-bg-[var(--vscode-sideBar-background)] tw-h-full tw-overflow-y-auto"
                     >
                         <RightSidebar
-                            handlePostMessage={handlePostMessage}
                             sortedNodes={sortedNodes}
                             nodeResults={nodeResults}
                             executingNodeId={executingNodeId}

@@ -59,7 +59,32 @@ interface GetModelsCommand extends BaseWorkflowMessage {
     type: 'get_models'
 }
 
+interface SaveCustomNodeCommand extends BaseWorkflowMessage {
+    type: 'save_customNode'
+    data: WorkflowNodes
+}
+
+interface DeleteCustomNodeCommand extends BaseWorkflowMessage {
+    type: 'delete_customNode'
+    data: string
+}
+
+interface RenameCustomNodeCommand extends BaseWorkflowMessage {
+    type: 'rename_customNode'
+    data: {
+        oldNodeTitle: string
+        newNodeTitle: string
+    }
+}
+
+interface GetCustomNodesCommand extends BaseWorkflowMessage {
+    type: 'get_custom_nodes'
+}
+
+// --------------------------------
 // Messages FROM Extension (Events)
+// --------------------------------
+// region: Extension To Workflow
 interface WorkflowLoadedEvent extends BaseWorkflowMessage {
     type: 'workflow_loaded'
     data: WorkflowPayload
@@ -107,6 +132,11 @@ interface ModelsLoadedEvent extends BaseWorkflowMessage {
     data: Model[]
 }
 
+interface ProvideCustomModelsEvent extends BaseWorkflowMessage {
+    type: 'provide_custom_nodes'
+    data: WorkflowNodes[]
+}
+
 // Export discriminated unions
 export type WorkflowToExtension =
     | OpenExternalLink
@@ -117,6 +147,10 @@ export type WorkflowToExtension =
     | AbortWorkflowCommand
     | CalculateTokensCommand
     | NodeApprovalCommand
+    | SaveCustomNodeCommand
+    | DeleteCustomNodeCommand
+    | RenameCustomNodeCommand
+    | GetCustomNodesCommand
 
 export type ExtensionToWorkflow =
     | ModelsLoadedEvent
@@ -125,3 +159,4 @@ export type ExtensionToWorkflow =
     | ExecutionCompletedEvent
     | NodeExecutionStatusEvent
     | TokenCountEvent
+    | ProvideCustomModelsEvent

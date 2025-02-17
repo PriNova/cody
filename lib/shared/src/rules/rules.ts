@@ -119,7 +119,7 @@ function isValidPatternFilters(v: any): v is PatternFilters {
 export function ruleFileDisplayName(uri: URI, root: URI): string {
     return posixFilePaths
         .relative(root.path, uri.path)
-        .replace(/\.sourcegraph\/([^/]+)\.rule\.md$/, '$1')
+        .replace(/\.sourcegraph\/rules\/([^/]+)\.rule\.md$/, '$1')
 }
 
 export function isRuleFilename(file: string | URI): boolean {
@@ -139,7 +139,7 @@ export function ruleSearchPaths(uri: URI, root: URI): URI[] {
             break
         }
         current = current.with({ path: pathFuncs.dirname(current.path) })
-        searchPaths.push(current.with({ path: pathFuncs.resolve(current.path, '.sourcegraph') }))
+        searchPaths.push(current.with({ path: pathFuncs.resolve(current.path, '.sourcegraph/rules') }))
     }
     return searchPaths
 }

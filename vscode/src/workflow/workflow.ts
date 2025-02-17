@@ -13,7 +13,14 @@ import {
 } from '@sourcegraph/cody-shared'
 import type { ContextRetriever } from '../chat/chat-view/ContextRetriever'
 import { executeWorkflow } from './workflow-executor'
-import { handleWorkflowLoad, handleWorkflowSave } from './workflow-io'
+import {
+    deleteCustomNode,
+    getCustomNodes,
+    handleWorkflowLoad,
+    handleWorkflowSave,
+    renameCustomNode,
+    saveCustomNodes,
+} from './workflow-io'
 
 /**
  * Registers the Cody workflow commands in the Visual Studio Code extension context.
@@ -58,9 +65,9 @@ export function registerWorkflowCommands(
                         case 'get_models': {
                             const chatModelsSubscription = modelsService
                                 .getModels(ModelUsage.Chat)
-                                .subscribe(models => {
+                                .subscribe(async models => {
                                     if (models !== pendingOperation) {
-                                        panel.webview.postMessage({
+                                        await panel.webview.postMessage({
                                             type: 'models_loaded',
                                             data: models,
                                         } as ExtensionToWorkflow)
@@ -75,7 +82,7 @@ export function registerWorkflowCommands(
                         case 'load_workflow': {
                             const loadedData = await handleWorkflowLoad()
                             if (loadedData) {
-                                panel.webview.postMessage({
+                                await panel.webview.postMessage({
                                     type: 'workflow_loaded',
                                     data: loadedData,
                                 } as ExtensionToWorkflow)
@@ -109,7 +116,7 @@ export function registerWorkflowCommands(
                             break
                         case 'calculate_tokens': {
                             const count = await TokenCounterUtils.encode(message.data.text)
-                            panel.webview.postMessage({
+                            await panel.webview.postMessage({
                                 type: 'token_count',
                                 data: {
                                     nodeId: message.data.nodeId,
@@ -130,6 +137,41 @@ export function registerWorkflowCommands(
                         case 'open_external_link': {
                             const url = vscode.Uri.parse(message.url)
                             vscode.env.openExternal(url)
+                            break
+                        }
+                        case 'save_customNode': {
+                            await saveCustomNodes(message.data)
+                            const nodes = await getCustomNodes()
+                            await panel.webview.postMessage({
+                                type: 'provide_custom_nodes',
+                                data: nodes,
+                            } as ExtensionToWorkflow)
+                            break
+                        }
+                        case 'get_custom_nodes': {
+                            const nodes = await getCustomNodes()
+                            await panel.webview.postMessage({
+                                type: 'provide_custom_nodes',
+                                data: nodes,
+                            } as ExtensionToWorkflow)
+                            break
+                        }
+                        case 'delete_customNode': {
+                            await deleteCustomNode(message.data)
+                            const nodes = await getCustomNodes()
+                            await panel.webview.postMessage({
+                                type: 'provide_custom_nodes',
+                                data: nodes,
+                            } as ExtensionToWorkflow)
+                            break
+                        }
+                        case 'rename_customNode': {
+                            await renameCustomNode(message.data.oldNodeTitle, message.data.newNodeTitle)
+                            const nodes = await getCustomNodes()
+                            await panel.webview.postMessage({
+                                type: 'provide_custom_nodes',
+                                data: nodes,
+                            } as ExtensionToWorkflow)
                             break
                         }
                     }

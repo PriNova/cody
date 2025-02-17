@@ -1,4 +1,5 @@
 import { type Model, ModelTag } from '@sourcegraph/cody-shared'
+import { Save } from 'lucide-react'
 import type React from 'react'
 import { useCallback, useEffect, useState } from 'react'
 import { Button } from '../../components/shadcn/ui/button'
@@ -27,9 +28,15 @@ interface PropertyEditorProps {
     node: WorkflowNodes
     onUpdate: (nodeId: string, data: Partial<WorkflowNodes['data']>) => void
     models: Model[]
+    onSaveCustomNode: (node: WorkflowNodes) => void
 }
 
-export const PropertyEditor: React.FC<PropertyEditorProps> = ({ node, onUpdate, models }) => {
+export const PropertyEditor: React.FC<PropertyEditorProps> = ({
+    node,
+    onUpdate,
+    models,
+    onSaveCustomNode,
+}) => {
     const [open, setOpen] = useState(false)
     const [selectedModel, setSelectedModel] = useState<Model | undefined>(undefined)
 
@@ -49,6 +56,12 @@ export const PropertyEditor: React.FC<PropertyEditorProps> = ({ node, onUpdate, 
         },
         [node.id, onUpdate]
     )
+
+    const handleSaveCustomNode = () => {
+        if (node.type === NodeType.CLI) {
+            onSaveCustomNode(node)
+        }
+    }
 
     return (
         <div className="tw-flex tw-flex-col tw-gap-4">
@@ -75,6 +88,11 @@ export const PropertyEditor: React.FC<PropertyEditorProps> = ({ node, onUpdate, 
             </div>
             {node.type === NodeType.CLI && (
                 <div className="tw-flex tw-flex-col tw-gap-2">
+                    <Button variant="secondary" onClick={handleSaveCustomNode} className="tw-w-full">
+                        <Save className="tw-mr-2" size={16} />
+                        Save as Custom Node
+                    </Button>
+
                     <Label htmlFor="node-command">Command</Label>
                     <Input
                         id="node-command"

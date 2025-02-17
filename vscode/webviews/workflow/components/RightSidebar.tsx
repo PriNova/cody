@@ -9,12 +9,9 @@ import {
 } from '../../components/shadcn/ui/accordion'
 import { Button } from '../../components/shadcn/ui/button'
 import { Textarea } from '../../components/shadcn/ui/textarea'
-import type { WorkflowToExtension } from '../services/WorkflowProtocol'
-import { SimpleMarkdown } from './SimpleMarkdown'
 import { NodeType, type WorkflowNodes } from './nodes/Nodes'
 
 interface RightSidebarProps {
-    handlePostMessage: (message: WorkflowToExtension) => void
     sortedNodes: WorkflowNodes[]
     nodeResults: Map<string, string>
     executingNodeId: string | null
@@ -24,7 +21,6 @@ interface RightSidebarProps {
 }
 
 export const RightSidebar: React.FC<RightSidebarProps> = ({
-    handlePostMessage,
     sortedNodes,
     nodeResults,
     executingNodeId,
@@ -129,21 +125,14 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
                                                         }
                                                     />
                                                 ) : (
-                                                    <SimpleMarkdown
-                                                        handlePostMessage={handlePostMessage}
+                                                    <Textarea
+                                                        value={nodeResults.get(node.id) || ''}
+                                                        readOnly={true}
                                                         style={{
-                                                            // Inline styles should now be valid
                                                             backgroundColor:
                                                                 'var(--vscode-sideBar-background)',
-                                                            border: '1px solid var(--vscode-panel-border)',
-                                                            borderRadius:
-                                                                'var(--vscode-widgets-borderWidth)',
-                                                            padding: '10px',
-                                                            marginBottom: '10px',
                                                         }}
-                                                    >
-                                                        {nodeResults.get(node.id) || ''}
-                                                    </SimpleMarkdown>
+                                                    />
                                                 )}
                                                 {node.type === NodeType.CLI &&
                                                     node.id === pendingApprovalNodeId && (
