@@ -56,7 +56,6 @@ export class PersistentShell {
     ): Promise<{ output: string; exitCode: string }> {
         this.stdoutBuffer = ''
         this.stderrBuffer = ''
-        let exitCode = 0
 
         return new Promise((resolve, reject) => {
             abortSignal?.throwIfAborted()
@@ -68,11 +67,11 @@ export class PersistentShell {
 
             // Add exit code capture
             const getExitCodeCommand = process.platform === 'win32' ? 'echo %errorlevel%' : 'echo $?'
-            this.shell.stdin?.write(`${command}` + '\n')
-            this.shell.stdin?.write(`${getExitCodeCommand}\n`)
+            this.shell.stdin?.write(`${command}` + os.EOL)
+            this.shell.stdin?.write(`${getExitCodeCommand}` + os.EOL)
 
             const endMarker = `__END_OF_COMMAND_${Date.now()}__`
-            this.shell.stdin?.write(`echo "${endMarker}"\n`)
+            this.shell.stdin?.write(`echo "${endMarker}"` + os.EOL)
 
             const timeout = 30000
 
@@ -85,37 +84,38 @@ export class PersistentShell {
             const abortListener = () => {
                 clearTimeout(timeoutId)
                 this.dispose()
-                reject(new Error('Command execution aborted'))
                 abortSignal?.removeEventListener('abort', abortListener)
+                reject(new Error('Command execution aborted'))
             }
             abortSignal?.addEventListener('abort', abortListener)
 
             const checkBuffer = () => {
                 if (this.stdoutBuffer.includes(endMarker)) {
-                    //const sliceStart = process.platform === 'win32' ? 1 : 0
+                    const sliceStart = process.platform === 'win32' ? 1 : 0
+                    const sliceEnd = process.platform === 'win32' ? -4 : -2
+
                     clearTimeout(timeoutId)
                     const outputParts = this.stdoutBuffer
                         .split(`echo "${endMarker}"`)[0]
                         .trim()
                         .split('\n')
-
                     // Extract exit code from the last line
-                    exitCode = Number.parseInt(outputParts[outputParts.length - 2], 10)
-
+                    const exitCode = Number.parseInt(
+                        outputParts[outputParts.length - (2 + sliceStart)],
+                        10
+                    )
                     // Remove exit code line from output
                     const output = outputParts
-                        .slice(0, -2)
+                        //.slice(0, -2)
                         .filter(chunk => {
                             if (chunk.includes('(c) Microsoft Corporation.')) return false
                             if (chunk.includes('Microsoft Windows')) return false
                             if (chunk.match(/^[A-Za-z]:\\.*>.*$/)) return false
                             return true
                         })
-                        .join('\n')
-
+                        .slice(sliceStart, sliceEnd)
+                        .join(os.EOL)
                     abortSignal?.removeEventListener('abort', abortListener)
-
-                    // Return stderr if command failed, stdout otherwise
                     resolve({
                         output: exitCode !== 0 ? this.stderrBuffer : output,
                         exitCode: `${exitCode}`,
