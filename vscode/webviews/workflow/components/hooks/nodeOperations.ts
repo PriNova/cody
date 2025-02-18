@@ -151,16 +151,15 @@ export const useNodeOperations = (
 
     const onNodeAdd = useCallback(
         (nodeOrLabel: WorkflowNodes | string, nodeType?: NodeType) => {
+            // Existing logic for creating node from label + type
+            const flowElement = document.querySelector('.react-flow')
+            const flowBounds = flowElement?.getBoundingClientRect()
+
+            const centerPosition = flowInstance.screenToFlowPosition({
+                x: flowBounds ? flowBounds.x + flowBounds.width / 2 : 0,
+                y: flowBounds ? flowBounds.y + flowBounds.height / 2 : 0,
+            })
             if (typeof nodeOrLabel === 'string') {
-                // Existing logic for creating node from label + type
-                const flowElement = document.querySelector('.react-flow')
-                const flowBounds = flowElement?.getBoundingClientRect()
-
-                const centerPosition = flowInstance.screenToFlowPosition({
-                    x: flowBounds ? flowBounds.x + flowBounds.width / 2 : 0,
-                    y: flowBounds ? flowBounds.y + flowBounds.height / 2 : 0,
-                })
-
                 const newNode = createNode({
                     type: nodeType!,
                     data: {
@@ -202,8 +201,12 @@ export const useNodeOperations = (
 
                 setNodes(nodes => [...nodes, newNode])
             } else {
-                // Direct node object provided
-                const nodeWithId = { ...nodeOrLabel, id: uuidv4() }
+                // Direct node object provided - override position
+                const nodeWithId = {
+                    ...nodeOrLabel,
+                    id: uuidv4(),
+                    position: centerPosition, // Override position to center
+                }
                 setNodes(nodes => [...nodes, nodeWithId])
             }
         },

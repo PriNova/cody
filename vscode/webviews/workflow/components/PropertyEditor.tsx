@@ -58,7 +58,12 @@ export const PropertyEditor: React.FC<PropertyEditorProps> = ({
     )
 
     const handleSaveCustomNode = () => {
-        if (node.type === NodeType.CLI) {
+        if (
+            node.type !== NodeType.LOOP_START &&
+            node.type !== NodeType.LOOP_END &&
+            node.type !== NodeType.IF_ELSE &&
+            node.type !== NodeType.PREVIEW
+        ) {
             onSaveCustomNode(node)
         }
     }
@@ -89,7 +94,7 @@ export const PropertyEditor: React.FC<PropertyEditorProps> = ({
             {node.type === NodeType.CLI && (
                 <div className="tw-flex tw-flex-col tw-gap-2">
                     <Button variant="secondary" onClick={handleSaveCustomNode} className="tw-w-full">
-                        <Save className="tw-mr-2" size={16} />
+                        <Save className="tw-mr-2" size={14} />
                         Save as Custom Node
                     </Button>
 
@@ -123,7 +128,11 @@ export const PropertyEditor: React.FC<PropertyEditorProps> = ({
                 </div>
             )}
             {node.type === NodeType.LLM && (
-                <>
+                <div className="tw-flex tw-flex-col tw-gap-2">
+                    <Button variant="secondary" onClick={handleSaveCustomNode} className="tw-w-full">
+                        <Save className="tw-mr-2" size={14} />
+                        Save as Custom Node
+                    </Button>
                     <div>
                         <Label htmlFor="node-prompt">Prompt</Label>
                         <Textarea
@@ -265,10 +274,14 @@ export const PropertyEditor: React.FC<PropertyEditorProps> = ({
                             {(node as LLMNode).data.maxTokens || 250}
                         </span>
                     </div>
-                </>
+                </div>
             )}
             {node.type === NodeType.INPUT && (
                 <div>
+                    <Button variant="secondary" onClick={handleSaveCustomNode} className="tw-w-full">
+                        <Save className="tw-mr-2" size={14} />
+                        Save as Custom Node
+                    </Button>
                     <Label htmlFor="node-input">Input Text</Label>
                     <Textarea
                         id="node-input"
@@ -282,6 +295,10 @@ export const PropertyEditor: React.FC<PropertyEditorProps> = ({
             )}
             {node.type === NodeType.SEARCH_CONTEXT && (
                 <div className="tw-flex tw-flex-col tw-gap-2">
+                    <Button variant="secondary" onClick={handleSaveCustomNode} className="tw-w-full">
+                        <Save className="tw-mr-2" size={14} />
+                        Save as Custom Node
+                    </Button>
                     <Label htmlFor="node-input">Context</Label>
                     <Textarea
                         id="node-input"
@@ -345,9 +362,13 @@ export const PropertyEditor: React.FC<PropertyEditorProps> = ({
                     </div>
                 </div>
             )}
-            {node.type === NodeType.ACCUMULATOR && ( // ADD ACCUMULATOR NODE PROPERTY EDITOR
+            {node.type === NodeType.ACCUMULATOR && (
                 <div className="tw-flex tw-flex-col tw-gap-4">
                     <div>
+                        <Button variant="secondary" onClick={handleSaveCustomNode} className="tw-w-full">
+                            <Save className="tw-mr-2" size={14} />
+                            Save as Custom Node
+                        </Button>
                         <Label htmlFor="accumulator-variable-name">Unique Variable Name</Label>
                         <Input
                             id="accumulator-variable-name"
@@ -388,6 +409,10 @@ export const PropertyEditor: React.FC<PropertyEditorProps> = ({
             {node.type === NodeType.VARIABLE && (
                 <div className="tw-flex tw-flex-col tw-gap-4">
                     <div>
+                        <Button variant="secondary" onClick={handleSaveCustomNode} className="tw-w-full">
+                            <Save className="tw-mr-2" size={14} />
+                            Save as Custom Node
+                        </Button>
                         <Label htmlFor="variable-name">Variable Name</Label>
                         <Input
                             id="variable-name"
