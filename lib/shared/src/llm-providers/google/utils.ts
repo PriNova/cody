@@ -38,9 +38,6 @@ export async function constructGeminiChatMessages(messages: Message[]): Promise<
     return geminiMessages.filter((_, i, arr) => i !== arr.length - 1 || arr[i].role !== 'model')
 }
 
-export const isGeminiFlash2Model = (model: Model): boolean =>
-    model?.tags.includes(ModelTag.BYOK) && model?.id.includes('gemini-2.0-flash')
-
 export const isGeminiThinkingModel = (model: Model | undefined | typeof pendingOperation): boolean =>
     Boolean(
         model &&

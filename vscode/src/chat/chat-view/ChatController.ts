@@ -561,9 +561,6 @@ export class ChatController implements vscode.Disposable, vscode.WebviewViewProv
                 await this.chatBuilder.addImage(message.image)
                 break
             }
-            case 'chat/google-search': {
-                await this.chatBuilder.setGoogleSearchToggle()
-            }
         }
     }
 

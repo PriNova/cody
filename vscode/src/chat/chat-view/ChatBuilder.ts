@@ -96,8 +96,7 @@ export class ChatBuilder {
         public readonly sessionID: string = new Date(Date.now()).toUTCString(),
         private messages: ChatMessage[] = [],
         private customChatTitle?: string,
-        private images: ImageData[] = [],
-        private isGoogleSearchEnabled = false
+        private images: ImageData[] = []
     ) {}
 
     /** An observable that emits whenever the {@link ChatBuilder}'s chat changes. */
@@ -388,24 +387,6 @@ export class ChatBuilder {
 
         // Default to jpeg if unknown
         return 'image/jpeg'
-    }
-
-    /**
-     * Sets the Google search toggle to enabled.
-     */
-    public async setGoogleSearchToggle(): Promise<void> {
-        this.isGoogleSearchEnabled = true
-    }
-
-    /**
-     * Retrieves the current state of the Google search toggle and resets it to disabled.
-     *
-     * @returns The previous state of the Google search toggle, indicating whether it was enabled or disabled.
-     */
-    public getAndResetGoogleSearchToggle(): boolean {
-        const isGoogleSearchEnabled = this.isGoogleSearchEnabled
-        this.isGoogleSearchEnabled = false
-        return isGoogleSearchEnabled
     }
 }
 

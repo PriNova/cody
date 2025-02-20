@@ -8,7 +8,6 @@ import { PromptSelectField } from '../../../../../../components/promptSelectFiel
 import { Checkbox } from '../../../../../../components/shadcn/ui/checkbox'
 import toolbarStyles from '../../../../../../components/shadcn/ui/toolbar.module.css'
 import { useActionSelect } from '../../../../../../prompts/PromptsTab'
-import { isGeminiFlash2Model } from '../../../../../../utils/modelUtils'
 import { useClientConfig } from '../../../../../../utils/useClientConfig'
 import { AddContextButton } from './AddContextButton'
 import { SubmitButton, type SubmitButtonState } from './SubmitButton'
@@ -85,10 +84,6 @@ export const Toolbar: FunctionComponent<{
         [onGapClick]
     )
 
-    const isGoogleModel = useCallback((model: Model) => {
-        return isGeminiFlash2Model(model)
-    }, [])
-
     return (
         // biome-ignore lint/a11y/useKeyWithClickEvents: only relevant to click areas
         <menu
@@ -105,7 +100,7 @@ export const Toolbar: FunctionComponent<{
         >
             <div className="tw-flex tw-items-center">
                 {/* Can't use tw-gap-1 because the popover creates an empty element when open. */}
-                {isGoogleModel(models[0]) && (
+                {models[0]?.clientSideConfig?.options?.googleImage && (
                     <UploadImageButton
                         className="tw-opacity-60"
                         imageFile={imageFile}
@@ -124,7 +119,7 @@ export const Toolbar: FunctionComponent<{
                     userInfo={userInfo}
                     focusEditor={focusEditor}
                     className="tw-mr-1"
-                    supportsImageUpload={isGoogleModel(models[0])}
+                    supportsImageUpload={models[0]?.clientSideConfig?.options?.googleImage}
                 />
 
                 {tokenCount !== undefined &&
@@ -139,7 +134,7 @@ export const Toolbar: FunctionComponent<{
                     )}
             </div>
             <div className="tw-flex tw-items-center tw-gap-2">
-                {isGoogleModel(models[0]) && (
+                {models[0]?.clientSideConfig?.options?.googleSearch && (
                     <div className="tw-flex tw-items-center">
                         <Checkbox
                             id="google-search-toggle"

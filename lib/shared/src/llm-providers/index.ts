@@ -18,7 +18,6 @@ export interface ChatNetworkClientParams {
     completionsEndpoint: string
     logger?: CompletionLogger
     signal?: AbortSignal
-    isGoogleSearchEnabled?: boolean
 }
 
 export type ChatNetworkClient = (params: ChatNetworkClientParams) => Promise<void>

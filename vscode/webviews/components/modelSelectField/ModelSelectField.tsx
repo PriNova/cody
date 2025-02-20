@@ -5,7 +5,6 @@ import { BookOpenIcon, BrainIcon, BuildingIcon, ExternalLinkIcon } from 'lucide-
 import { type FunctionComponent, type ReactNode, useCallback, useMemo } from 'react'
 import type { UserAccountInfo } from '../../Chat'
 import { getVSCodeAPI } from '../../utils/VSCodeApi'
-import { isGeminiFlash2Model } from '../../utils/modelUtils'
 import { useTelemetryRecorder } from '../../utils/telemetry'
 import { chatModelIconComponent } from '../ChatModelIcon'
 import { Badge } from '../shadcn/ui/badge'
@@ -376,17 +375,36 @@ const ModelTitleWithIcon: React.FC<{
                 )
             ) : null}
             <span className={clsx('tw-flex-grow', styles.modelName)}>
-                {isGeminiFlash2Model(model) ? getModelTitle(model.title) : model.title}
+                {model.tags.includes(ModelTag.BYOK) ? getModelTitle(model.title) : model.title}
             </span>
             {modelBadge && (
-                <Badge
-                    variant="secondary"
-                    className={clsx(styles.badge, {
-                        'tw-opacity-75': modelAvailability === 'needs-cody-pro',
-                    })}
-                >
-                    {model.tags.includes(ModelTag.BYOK) ? 'BYOK' : modelBadge}
-                </Badge>
+                <>
+                    <Badge
+                        variant="secondary"
+                        className={clsx(styles.badge, {
+                            'tw-opacity-75': modelAvailability === 'needs-cody-pro',
+                        })}
+                    >
+                        {model.tags.includes(ModelTag.BYOK) &&
+                        model?.clientSideConfig?.options?.googleSearch
+                            ? 'SEARCH'
+                            : !model.tags.includes(ModelTag.BYOK)
+                              ? modelBadge
+                              : ''}
+                    </Badge>
+
+                    {model.tags.includes(ModelTag.BYOK) &&
+                        model?.clientSideConfig?.options?.googleImage && (
+                            <Badge
+                                variant="secondary"
+                                className={clsx(styles.badge, {
+                                    'tw-opacity-75': modelAvailability === 'needs-cody-pro',
+                                })}
+                            >
+                                IMAGE
+                            </Badge>
+                        )}
+                </>
             )}
         </span>
     )
@@ -419,7 +437,6 @@ const getModelDropDownUIGroup = (model: Model): string => {
     if (model.tags.includes(ModelTag.Speed)) return ModelUIGroup.Speed
     if (model.tags.includes(ModelTag.Ollama)) return ModelUIGroup.Ollama
     if (model.tags.includes(ModelTag.BYOK)) return ModelUIGroup.BYOK
-    //if (model.tags.includes(ModelTag.Vision)) return ModelUIGroup.Vision
     return ModelUIGroup.Other
 }
 
@@ -431,7 +448,6 @@ const optionByGroup = (
         ModelUIGroup.Balanced,
         ModelUIGroup.Speed,
         ModelUIGroup.BYOK,
-        //ModelUIGroup.Vision,
         ModelUIGroup.Ollama,
         ModelUIGroup.Other,
     ]

@@ -177,9 +177,6 @@ export type WebviewMessage =
           command: 'openRelativeFile'
           uri: Uri
       }
-    | {
-          command: 'chat/google-search'
-      }
 
 export interface SmartApplyResult {
     taskId: FixupTaskID
@@ -248,7 +245,6 @@ export interface WebviewSubmitMessage extends WebviewContextMessage {
     manuallySelectedIntent?: ChatMessage['intent'] | undefined | null
     traceparent?: string | undefined | null
     steps?: ProcessingStep[] | undefined | null
-    isGoogleSearchEnabled?: boolean
 }
 
 interface WebviewEditMessage extends WebviewContextMessage {

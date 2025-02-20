@@ -155,7 +155,6 @@ export class ChatHandler implements AgentHandler {
                 model,
                 maxTokensToSample: contextWindow.output,
                 images: chatBuilder.getAndResetImages(),
-                googleSearch: chatBuilder.getAndResetGoogleSearchToggle(),
             } as CompletionParameters
 
             // Set stream param only when the model is disabled for streaming.

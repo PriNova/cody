@@ -1,6 +1,7 @@
 import type { GeminiChatMessage, GeminiCompletionResponse } from '.'
 import type { ChatNetworkClientParams } from '..'
 import {
+    type Model,
     ModelUsage,
     contextFiltersProvider,
     firstValueFrom,
@@ -82,8 +83,8 @@ export async function googleChatClient({
             })
         }
     }
-
-    const tools = params.googleSearch ? [{ google_search: {} }] : []
+    const hasSearch = (model as Model).clientSideConfig?.options?.googleSearch
+    const tools = hasSearch ? [{ google_search: {} }] : []
     const configs = isGeminiThinkModel ? { thinkingConfig: { includeThoughts: true } } : {}
 
     const body = {

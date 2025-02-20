@@ -66,7 +66,7 @@ export const HumanMessageEditor: FunctionComponent<{
 
     onEditorFocusChange?: (focused: boolean) => void
     onChange?: (editorState: SerializedPromptEditorValue) => void
-    onSubmit: (intent?: ChatMessage['intent'], isGoogleSearchEnabled?: boolean) => void
+    onSubmit: (intent?: ChatMessage['intent']) => void
     onStop: () => void
 
     isFirstInteraction?: boolean
@@ -223,16 +223,16 @@ export const HumanMessageEditor: FunctionComponent<{
             }
             setImageFile(undefined)
             processImage()
-            const processGoogleSearch = async () => {
+            /* const processGoogleSearch = async () => {
                 if (isGoogleSearchEnabled) {
                     getVSCodeAPI().postMessage({
                         command: 'chat/google-search',
                     })
                 }
             }
-            processGoogleSearch()
+            processGoogleSearch() */
 
-            parentOnSubmit(intent, isGoogleSearchEnabled)
+            parentOnSubmit(intent)
 
             telemetryRecorder.recordEvent('cody.humanMessageEditor', 'submit', {
                 metadata: {
@@ -257,7 +257,6 @@ export const HumanMessageEditor: FunctionComponent<{
             isSent,
             imageFile,
             setImageFile,
-            isGoogleSearchEnabled,
         ]
     )
 

@@ -373,7 +373,6 @@ const TranscriptInteraction: FC<TranscriptInteractionProps> = memo(props => {
             } else {
                 submitHumanMessage({
                     ...commonProps,
-                    isGoogleSearchEnabled: isGoogleSearchEnabled,
                 })
             }
         },
@@ -383,7 +382,6 @@ const TranscriptInteraction: FC<TranscriptInteractionProps> = memo(props => {
             isLastSentInteraction,
             lastEditorRef,
             manuallySelectedIntent,
-            isGoogleSearchEnabled,
         ]
     )
     const onEditSubmit = useCallback(
@@ -536,7 +534,7 @@ const TranscriptInteraction: FC<TranscriptInteractionProps> = memo(props => {
     }, [humanMessage, assistantMessage, isContextLoading])
 
     const onHumanMessageSubmit = useCallback(
-        (intent?: ChatMessage['intent'], isGoogleSearchEnabled?: boolean) => {
+        (intent?: ChatMessage['intent']) => {
             if (humanMessage.isUnsentFollowup) {
                 return onFollowupSubmit(intent)
             }
@@ -695,12 +693,10 @@ function submitHumanMessage({
     editorValue,
     manuallySelectedIntent,
     traceparent,
-    isGoogleSearchEnabled,
 }: {
     editorValue: SerializedPromptEditorValue
     manuallySelectedIntent?: ChatMessage['intent']
     traceparent: string
-    isGoogleSearchEnabled: boolean
 }): void {
     getVSCodeAPI().postMessage({
         command: 'submit',
@@ -709,7 +705,6 @@ function submitHumanMessage({
         contextItems: editorValue.contextItems.map(deserializeContextItem),
         manuallySelectedIntent,
         traceparent,
-        isGoogleSearchEnabled,
     })
     focusLastHumanMessageEditor()
 }

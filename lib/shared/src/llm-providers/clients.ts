@@ -10,7 +10,6 @@ export async function useCustomChatClient({
     completionsEndpoint,
     logger,
     signal,
-    isGoogleSearchEnabled,
 }: ChatNetworkClientParams): Promise<boolean> {
     const model = modelsService.getModelByID(params.model ?? '')
     if (!model || !isCustomModel(model)) {
@@ -28,7 +27,7 @@ export async function useCustomChatClient({
     const client = clientMap[model.provider.toLowerCase()]
 
     if (client) {
-        await client({ params, cb, completionsEndpoint, logger, signal, isGoogleSearchEnabled })
+        await client({ params, cb, completionsEndpoint, logger, signal })
         return true
     }
 
