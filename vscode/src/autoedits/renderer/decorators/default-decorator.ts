@@ -3,6 +3,7 @@ import * as vscode from 'vscode'
 import { GHOST_TEXT_COLOR } from '../../../commands/GhostHintDecorator'
 
 import { getEditorInsertSpaces, getEditorTabSize } from '@sourcegraph/cody-shared'
+import { isOnlyAddingTextForModifiedLines } from '../diff-utils'
 import { generateSuggestionAsImage } from '../image-gen'
 import type { AutoEditsDecorator, DecorationInfo, ModifiedLineInfo } from './base'
 import { UNICODE_SPACE, blockify } from './blockify'
@@ -172,7 +173,7 @@ export class DefaultDecorator implements AutoEditsDecorator {
 
         if (this.options.shouldRenderImage) {
             this.renderAddedLinesImageDecorations(
-                addedLinesInfo.addedLinesDecorationInfo,
+                decorationInfo,
                 addedLinesInfo.startLine,
                 addedLinesInfo.replacerCol
             )
@@ -367,16 +368,20 @@ export class DefaultDecorator implements AutoEditsDecorator {
     }
 
     private renderAddedLinesImageDecorations(
-        addedLinesInfo: AddedLinesDecorationInfo[],
+        decorationInfo: DecorationInfo,
         startLine: number,
         replacerCol: number
     ): void {
-        // Blockify the added lines so they are suitable to be rendered together as a VS Code decoration
-        const blockifiedAddedLines = blockify(this.editor.document, addedLinesInfo)
-
-        const { dark, light } = generateSuggestionAsImage({
-            decorations: blockifiedAddedLines,
+        // TODO: Diff mode will likely change depending on the environment.
+        // This should be determined by client capabilities.
+        // VS Code: 'additions'
+        // Client capabiliies === image: 'unified'
+        const diffMode = 'additions'
+        const { dark, light, pixelRatio } = generateSuggestionAsImage({
+            decorations: decorationInfo,
             lang: this.editor.document.languageId,
+            mode: diffMode,
+            document: this.editor.document,
         })
         const startLineEndColumn = this.getEndColumn(this.editor.document.lineAt(startLine))
 
@@ -390,8 +395,8 @@ export class DefaultDecorator implements AutoEditsDecorator {
             position: 'absolute',
             // Make sure the decoration is rendered on top of other decorations
             'z-index': '9999',
-            // Scale to decoration to the correct size (upscaled to boost resolution)
-            scale: '0.5',
+            // Scale the decoration to the correct size (upscaled to boost resolution)
+            scale: String(1 / pixelRatio),
             'transform-origin': '0px 0px',
             height: 'auto',
             // The decoration will be entirely taken up by the image.
@@ -457,16 +462,4 @@ export class DefaultDecorator implements AutoEditsDecorator {
             decorationType.dispose()
         }
     }
-}
-
-/**
- * Checks if the only changes for modified lines are additions of text.
- */
-function isOnlyAddingTextForModifiedLines(modifiedLines: ModifiedLineInfo[]): boolean {
-    for (const modifiedLine of modifiedLines) {
-        if (modifiedLine.changes.some(change => change.type === 'delete')) {
-            return false
-        }
-    }
-    return true
 }

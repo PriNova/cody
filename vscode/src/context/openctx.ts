@@ -35,7 +35,6 @@ import type {
 } from '@openctx/client'
 import type { createController } from '@openctx/vscode-lib'
 import { Observable, map } from 'observable-fns'
-import { CodyToolProvider } from '../chat/agentic/CodyToolProvider'
 import { logDebug } from '../output-channel-logger'
 import { createCodeSearchProvider } from './openctx/codeSearch'
 import { gitMentionsProvider } from './openctx/git'
@@ -104,7 +103,6 @@ export function observeOpenCtxController(
                     providers: getCodyWebOpenCtxProviders(),
                     mergeConfiguration,
                 })
-                CodyToolProvider.setupOpenCtxProviderListener()
                 return controller
             } catch (error) {
                 logDebug('openctx', `Failed to load OpenCtx client: ${error}`)

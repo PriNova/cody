@@ -3,24 +3,17 @@ import type React from 'react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import { clsx } from 'clsx'
-import { URI } from 'vscode-uri'
+import { LoaderIcon, PlusIcon } from 'lucide-react'
 import type { FixupTaskID } from '../../../src/non-stop/FixupTask'
 import { CodyTaskState } from '../../../src/non-stop/state'
 import { type ClientActionListener, useClientActionListener } from '../../client/clientState'
 import { MarkdownFromCody } from '../../components/MarkdownFromCody'
-import {
-    Accordion,
-    AccordionContent,
-    AccordionItem,
-    AccordionTrigger,
-} from '../../components/shadcn/ui/accordion'
-import { getVSCodeAPI } from '../../utils/VSCodeApi'
 import { useConfig } from '../../utils/useConfig'
 import type { PriorHumanMessageInfo } from '../cells/messageCell/assistant/AssistantMessageCell'
 import styles from './ChatMessageContent.module.css'
 import { GuardrailsStatusController } from './GuardRailStatusController'
 import { createButtons, createButtonsExperimentalUI } from './create-buttons'
-import { getCodeBlockId, getFileName } from './utils'
+import { extractThinkContent, getCodeBlockId, getFileName } from './utils'
 
 export interface CodeBlockActionsProps {
     copyButtonOnSubmit: (text: string, event?: 'Keydown' | 'Button') => void
@@ -63,8 +56,6 @@ export const ChatMessageContent: React.FunctionComponent<ChatMessageContentProps
 }) => {
     const rootRef = useRef<HTMLDivElement>(null)
     const config = useConfig()
-    const [textContent, setTextContent] = useState<string>(displayMarkdown)
-    const [textareas, setTextareas] = useState<JSX.Element[]>([])
 
     const [smartApplyStates, setSmartApplyStates] = useState<Record<FixupTaskID, CodyTaskState>>({})
     const smartApplyInterceptor = useMemo<CodeBlockActionsProps['smartApply'] | undefined>(() => {
@@ -97,47 +88,6 @@ export const ChatMessageContent: React.FunctionComponent<ChatMessageContentProps
             }
         }, [])
     )
-
-    useEffect(() => {
-        const parts: string[] = []
-        const textareaElements: JSX.Element[] = []
-        let lastIndex = 0
-
-        // Match opening thinking tags immediately
-        const matches = [...displayMarkdown.matchAll(/<think7345>/g)]
-
-        for (const match of matches) {
-            const startIndex = match.index!
-            const endIndex = displayMarkdown.indexOf('</think7345>', startIndex)
-            const thinkingContent =
-                endIndex !== -1
-                    ? displayMarkdown.slice(startIndex + '<think7345>'.length, endIndex)
-                    : displayMarkdown.slice(startIndex + '<think7345>'.length)
-
-            parts.push(displayMarkdown.slice(lastIndex, startIndex))
-            textareaElements.push(
-                <div key={`thinking-${startIndex}`} className={styles.thinkingContainer}>
-                    <Accordion type="single" collapsible defaultValue="thinking">
-                        <AccordionItem value="thinking">
-                            <AccordionTrigger className={styles.thinkingTitle}>
-                                Thinking Process
-                            </AccordionTrigger>
-                            <AccordionContent className="accordion-content">
-                                <MarkdownFromCody className={styles.content}>
-                                    {thinkingContent}
-                                </MarkdownFromCody>
-                            </AccordionContent>
-                        </AccordionItem>
-                    </Accordion>
-                </div>
-            )
-            lastIndex = endIndex !== -1 ? endIndex + '</think7345>'.length : displayMarkdown.length
-        }
-
-        parts.push(displayMarkdown.slice(lastIndex))
-        setTextContent(parts.join(''))
-        setTextareas(textareaElements)
-    }, [displayMarkdown])
 
     // See SRCH-942: this `useEffect` is very large and any update to the
     // dependencies triggers a network request to our guardrails server. Be very
@@ -233,19 +183,9 @@ export const ChatMessageContent: React.FunctionComponent<ChatMessageContentProps
 
                 if (fileName) {
                     const fileNameContainer = document.createElement('div')
-                    fileNameContainer.className = clsx(styles.fileNameContainer, styles.clickable)
+                    fileNameContainer.className = styles.fileNameContainer
                     fileNameContainer.textContent = getFileName(fileName)
                     fileNameContainer.title = fileName
-
-                    fileNameContainer.addEventListener('click', () => {
-                        // Get workspace URI attributes from document root
-                        const uri = URI.file(fileName)
-                        getVSCodeAPI().postMessage({
-                            command: 'openRelativeFile',
-                            uri: uri,
-                        })
-                    })
-
                     metadataContainer.append(fileNameContainer)
                 }
 
@@ -265,11 +205,43 @@ export const ChatMessageContent: React.FunctionComponent<ChatMessageContentProps
         smartApplyStates,
     ])
 
+    const { displayContent, thinkContent, isThinking } = useMemo(
+        () => extractThinkContent(displayMarkdown),
+        [displayMarkdown]
+    )
+
     return (
         <div ref={rootRef} data-testid="chat-message-content">
-            {textareas}
+            {thinkContent.length > 0 && (
+                <details
+                    open
+                    className="tw-container tw-mb-7 tw-border tw-border-gray-500/20 dark:tw-border-gray-600/40 tw-rounded-lg tw-overflow-hidden tw-backdrop-blur-sm hover:tw-bg-gray-200/50 dark:hover:tw-bg-gray-700/50"
+                    title="Thinking & Reasoning Space"
+                >
+                    <summary
+                        className={clsx(
+                            'tw-flex tw-items-center tw-gap-2 tw-px-3 tw-py-2 tw-bg-gray-100/50 dark:tw-bg-gray-800/80 tw-cursor-pointer tw-select-none tw-transition-colors',
+                            {
+                                'tw-animate-pulse': isThinking,
+                            }
+                        )}
+                    >
+                        {isThinking ? (
+                            <LoaderIcon size={16} className="tw-animate-spin tw-text-muted-foreground" />
+                        ) : (
+                            <PlusIcon size={16} className="tw-text-muted-foreground" />
+                        )}
+                        <span className="tw-font-medium tw-text-gray-600 dark:tw-text-gray-300">
+                            {isThinking ? 'Thinking...' : 'Thought Process'}
+                        </span>
+                    </summary>
+                    <div className="tw-px-4 tw-py-3 tw-mx-4 tw-text-sm tw-prose dark:tw-prose-invert tw-max-w-none tw-leading-relaxed tw-text-base/7 tw-text-muted-foreground">
+                        {thinkContent}
+                    </div>
+                </details>
+            )}
             <MarkdownFromCody className={clsx(styles.content, className)}>
-                {textContent}
+                {displayContent}
             </MarkdownFromCody>
         </div>
     )

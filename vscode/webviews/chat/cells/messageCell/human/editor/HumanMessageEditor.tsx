@@ -1,7 +1,6 @@
 import {
     type ChatMessage,
     FAST_CHAT_INPUT_TOKEN_BUDGET,
-    FeatureFlag,
     type Model,
     ModelTag,
     type SerializedPromptEditorState,
@@ -38,7 +37,6 @@ import { promptModeToIntent } from '../../../../../prompts/PromptsTab'
 import { getVSCodeAPI } from '../../../../../utils/VSCodeApi'
 import { useTelemetryRecorder } from '../../../../../utils/telemetry'
 import { useConfig } from '../../../../../utils/useConfig'
-import { useFeatureFlag } from '../../../../../utils/useFeatureFlags'
 import { useLinkOpener } from '../../../../../utils/useLinkOpener'
 import { useOmniBox } from '../../../../../utils/useOmniBox'
 import styles from './HumanMessageEditor.module.css'
@@ -117,7 +115,7 @@ export const HumanMessageEditor: FunctionComponent<{
     const telemetryRecorder = useTelemetryRecorder()
 
     const editorRef = useRef<PromptEditorRefAPI>(null)
-    useImperativeHandle(parentEditorRef, (): PromptEditorRefAPI | null => editorRef.current, [])
+    useImperativeHandle(parentEditorRef, (): PromptEditorRefAPI | null => editorRef.current)
 
     // The only PromptEditor state we really need to track in our own state is whether it's empty.
     const [isEmptyEditorValue, setIsEmptyEditorValue] = useState(
@@ -180,9 +178,6 @@ export const HumanMessageEditor: FunctionComponent<{
         : isEmptyEditorValue
           ? 'emptyEditorValue'
           : 'submittable'
-
-    // TODO: Finish implementing "current repo not indexed" handling for v2 editor
-    const experimentalPromptEditorEnabled = useFeatureFlag(FeatureFlag.CodyExperimentalPromptEditor)
 
     const onSubmitClick = useCallback(
         (intent?: ChatMessage['intent'], forceSubmit?: boolean): void => {
@@ -267,7 +262,10 @@ export const HumanMessageEditor: FunctionComponent<{
     )
 
     const omniBoxEnabled = useOmniBox()
-    const { isDotComUser } = useConfig()
+    const {
+        isDotComUser,
+        config: { experimentalPromptEditorEnabled },
+    } = useConfig()
 
     const onEditorEnterKey = useCallback(
         (event: KeyboardEvent | null): void => {
@@ -529,6 +527,7 @@ export const HumanMessageEditor: FunctionComponent<{
         [linkOpener]
     )
 
+    // TODO: Finish implementing "current repo not indexed" handling for v2 editor
     const Editor = experimentalPromptEditorEnabled ? PromptEditorV2 : PromptEditor
 
     const totalContextWindow =

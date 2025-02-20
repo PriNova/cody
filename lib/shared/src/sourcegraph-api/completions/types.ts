@@ -41,6 +41,7 @@ export interface PromptTokensDetails {
 
 export interface CompletionResponse {
     completion: string
+    thinking?: string
     stopReason?: string
 }
 
