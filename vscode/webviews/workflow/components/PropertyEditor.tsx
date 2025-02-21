@@ -274,6 +274,18 @@ export const PropertyEditor: React.FC<PropertyEditorProps> = ({
                             {(node as LLMNode).data.maxTokens || 250}
                         </span>
                     </div>
+                    {selectedModel?.clientSideConfig?.options?.googleSearch && (
+                        <div className="tw-flex tw-items-center tw-space-x-2">
+                            <Checkbox
+                                id="node-google-search"
+                                checked={(node as LLMNode).data.hasGoogleSearch || false}
+                                onCheckedChange={checked =>
+                                    onUpdate(node.id, { hasGoogleSearch: checked === true })
+                                }
+                            />
+                            <Label htmlFor="node-google-search">Google Search</Label>
+                        </div>
+                    )}
                 </div>
             )}
             {node.type === NodeType.INPUT && (

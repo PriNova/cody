@@ -604,6 +604,7 @@ async function executeLLMNode(
                         model:
                             (node as LLMNode).data.model?.id ??
                             'anthropic::2024-10-22::claude-3-5-sonnet-latest',
+                        isGoogleSearchEnabled: (node as LLMNode).data.hasGoogleSearch,
                     },
                     abortSignal
                 )

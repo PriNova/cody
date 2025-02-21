@@ -17,6 +17,7 @@ export type LLMNode = Omit<WorkflowNode, 'data'> & {
         temperature: number
         maxTokens?: number
         model?: Model
+        hasGoogleSearch: boolean
     }
 }
 
