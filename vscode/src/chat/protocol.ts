@@ -177,6 +177,9 @@ export type WebviewMessage =
           command: 'openRelativeFile'
           uri: Uri
       }
+    | {
+          command: 'chat/google-search'
+      }
 
 export interface SmartApplyResult {
     taskId: FixupTaskID

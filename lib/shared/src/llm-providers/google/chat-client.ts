@@ -83,7 +83,8 @@ export async function googleChatClient({
             })
         }
     }
-    const hasSearch = (model as Model).clientSideConfig?.options?.googleSearch
+    const hasSearch =
+        (model as Model).clientSideConfig?.options?.googleSearch && params.isGoogleSearchEnabled
     const tools = hasSearch ? [{ google_search: {} }] : []
     const configs = isGeminiThinkModel ? { thinkingConfig: { includeThoughts: true } } : {}
 

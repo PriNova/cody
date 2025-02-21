@@ -223,14 +223,14 @@ export const HumanMessageEditor: FunctionComponent<{
             }
             setImageFile(undefined)
             processImage()
-            /* const processGoogleSearch = async () => {
+            const processGoogleSearch = async () => {
                 if (isGoogleSearchEnabled) {
                     getVSCodeAPI().postMessage({
                         command: 'chat/google-search',
                     })
                 }
             }
-            processGoogleSearch() */
+            processGoogleSearch()
 
             parentOnSubmit(intent)
 
@@ -257,6 +257,7 @@ export const HumanMessageEditor: FunctionComponent<{
             isSent,
             imageFile,
             setImageFile,
+            isGoogleSearchEnabled,
         ]
     )
 
