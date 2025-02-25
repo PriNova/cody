@@ -24,7 +24,7 @@ Cody is an AI coding assistant that uses the latest LLMs and codebase context to
 
 ## Get started with the original Cody AI based on Sourcegraph
 
-[⭐ **Install Cody from the VS Code Marketplace**](https://marketplace.visualstudio.com/items?itemName=sourcegraph.cody-ai) or the [JetBrains Marketplace](https://plugins.jetbrains.com/plugin/9682-cody-ai-by-sourcegraph), then check out the [demos](#demos) to see what you can do. And don't forget to [give us feedback](#feedback)!
+[⭐ **Install Cody from the VS Code Marketplace**](https://marketplace.visualstudio.com/items?itemName=sourcegraph.cody-ai) or the [JetBrains Marketplace](https://plugins.jetbrains.com/plugin/9682-cody-ai-by-sourcegraph), then check out the [demo](#demo) to see what you can do. And don't forget to [give us feedback](#feedback)!
 
 ## Get started with the custom Cody AI build
 
