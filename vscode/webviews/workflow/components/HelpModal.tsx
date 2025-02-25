@@ -29,6 +29,7 @@ export const HelpModal: React.FC<HelpModalProps> = ({ isOpen, onClose }) => {
                             <li>Clone Node: Shift + Drag</li>
                             <li>Delete Node: Select and press Delete/Backspace</li>
                             <li>Edit Node: Click to select and use Property Editor</li>
+                            <li>Shift + Drag: Select multiple nodes</li>
                         </ul>
                     </section>
                     <section>

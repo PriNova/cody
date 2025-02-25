@@ -34,3 +34,11 @@
       margin-top: -7px; /* Adjust to center the handle, half the height - default margin */
   }
   
+  :global(.react-flow__node.selected) {
+    z-index: 10 !important;
+}
+
+:global(.react-flow__selection) {
+    background: rgba(var(--vscode-focusBorder-rgb), 0.1);
+    border: 1px solid var(--vscode-focusBorder);
+}

@@ -43,8 +43,10 @@ export const useNodeOperations = (
     vscodeAPI: GenericVSCodeWrapper<WorkflowToExtension, ExtensionToWorkflow>,
     nodes: WorkflowNodes[],
     setNodes: React.Dispatch<React.SetStateAction<WorkflowNodes[]>>,
-    selectedNode: WorkflowNodes | null,
-    setSelectedNode: React.Dispatch<React.SetStateAction<WorkflowNodes | null>>
+    selectedNodes: WorkflowNodes[],
+    setSelectedNodes: React.Dispatch<React.SetStateAction<WorkflowNodes[]>>,
+    activeNode: WorkflowNodes | null,
+    setActiveNode: React.Dispatch<React.SetStateAction<WorkflowNodes | null>>
 ) => {
     const [movingNodeId, setMovingNodeId] = useState<string | null>(null)
     const flowInstance = useReactFlow()
@@ -81,12 +83,31 @@ export const useNodeOperations = (
             const updatedNodes = applyNodeChanges(changes, nodes) as typeof nodes
             setNodes(updatedNodes)
 
-            if (selectedNode) {
-                const updatedSelectedNode = indexedNodes.byId.get(selectedNode.id)
-                setSelectedNode(updatedSelectedNode || null)
+            // Update the selected nodes when changes occur
+            if (selectedNodes.length > 0) {
+                const updatedSelectedNodes = selectedNodes
+                    .map(node => indexedNodes.byId.get(node.id))
+                    .filter(Boolean) as WorkflowNodes[]
+
+                setSelectedNodes(updatedSelectedNodes)
+            }
+
+            // Update the active node if it exists
+            if (activeNode) {
+                const updatedActiveNode = indexedNodes.byId.get(activeNode.id)
+                setActiveNode(updatedActiveNode || null)
             }
         },
-        [selectedNode, nodes, movingNodeId, setNodes, setSelectedNode, indexedNodes]
+        [
+            selectedNodes,
+            activeNode,
+            nodes,
+            movingNodeId,
+            setNodes,
+            setSelectedNodes,
+            setActiveNode,
+            indexedNodes,
+        ]
     )
 
     const onNodeDragStart = useCallback(
@@ -218,37 +239,63 @@ export const useNodeOperations = (
             setNodes(currentNodes =>
                 currentNodes.map(node => {
                     if (node.id === nodeId) {
-                        let model = (node as LLMNode).data.model
-                        if (node.type === NodeType.LLM && 'model' in data && data.model) {
-                            model = { ...data.model }
+                        let updatedNode: WorkflowNodes
+
+                        if (node.type === NodeType.LLM) {
+                            // It's an LLM node, so handle it as LLMNode
+                            const llmNode = node as LLMNode
+                            const updatedLLMData: Partial<LLMNode['data']> = { ...llmNode.data, ...data }
+
+                            if ('model' in data && data.model) {
+                                updatedLLMData.model = { ...data.model }
+                            }
+
+                            updatedNode = {
+                                ...llmNode,
+                                data: updatedLLMData as LLMNode['data'],
+                            }
+                        } else {
+                            // It's not an LLM node, so create a generic update
+                            updatedNode = {
+                                ...node,
+                                data: { ...node.data, ...data },
+                            }
                         }
-                        const updatedNode = {
-                            ...node,
-                            data: {
-                                ...node.data,
-                                ...data,
-                                model: model,
-                            },
+
+                        // Update selection state
+                        if (selectedNodes.some(n => n.id === nodeId)) {
+                            setTimeout(() => {
+                                setSelectedNodes(prev =>
+                                    prev.map(n => (n.id === nodeId ? updatedNode! : n))
+                                )
+                            }, 0)
                         }
-                        if (selectedNode?.id === nodeId) {
-                            setSelectedNode(updatedNode)
+
+                        // Update active node if needed
+                        if (activeNode?.id === nodeId) {
+                            setTimeout(() => {
+                                setActiveNode(updatedNode)
+                            }, 0)
                         }
+
+                        // Handle token calculation for Preview nodes
                         if (node.type === NodeType.PREVIEW && 'content' in data) {
                             vscodeAPI.postMessage({
                                 type: 'calculate_tokens',
                                 data: {
                                     text: data.content || '',
-                                    nodeId: nodeId,
+                                    nodeId,
                                 },
                             })
                         }
+
                         return updatedNode
                     }
                     return node
                 })
             )
         },
-        [selectedNode, setNodes, setSelectedNode, vscodeAPI]
+        [selectedNodes, activeNode, setNodes, setSelectedNodes, setActiveNode, vscodeAPI]
     )
 
     return {

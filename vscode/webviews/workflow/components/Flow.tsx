@@ -1,4 +1,4 @@
-import { Background, Controls, ReactFlow } from '@xyflow/react'
+import { Background, Controls, ReactFlow, SelectionMode } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import type { GenericVSCodeWrapper, Model } from '@sourcegraph/cody-shared'
 import type React from 'react'
@@ -33,7 +33,8 @@ export const Flow: React.FC<{
 }> = ({ vscodeAPI }) => {
     // Node-related state
     const [nodes, setNodes] = useState<WorkflowNodes[]>(defaultWorkflow.nodes)
-    const [selectedNode, setSelectedNode] = useState<WorkflowNodes | null>(null)
+    const [selectedNodes, setSelectedNodes] = useState<WorkflowNodes[]>([])
+    const [activeNode, setActiveNode] = useState<WorkflowNodes | null>(null)
     const [nodeResults, setNodeResults] = useState<Map<string, string>>(new Map())
     const [pendingApprovalNodeId, setPendingApprovalNodeId] = useState<string | null>(null)
     const [models, setModels] = useState<Model[]>([])
@@ -55,8 +56,10 @@ export const Flow: React.FC<{
         vscodeAPI,
         nodes,
         setNodes,
-        selectedNode,
-        setSelectedNode
+        selectedNodes,
+        setSelectedNodes,
+        activeNode,
+        setActiveNode
     )
 
     const {
@@ -103,12 +106,14 @@ export const Flow: React.FC<{
 
     const { rightSidebarWidth, handleMouseDown: handleRightSidebarMouseDown } = useRightSidebarResize()
 
-    const { onNodeClick, handleBackgroundClick, handleBackgroundKeyDown } =
-        useInteractionHandling(setSelectedNode)
+    const { onNodeClick, handleBackgroundClick, handleBackgroundKeyDown } = useInteractionHandling(
+        setSelectedNodes,
+        setActiveNode
+    )
 
     const nodesWithState = useNodeStateTransformation(
         nodes,
-        selectedNode,
+        selectedNodes,
         movingNodeId,
         executingNodeId,
         nodeErrors,
@@ -137,7 +142,7 @@ export const Flow: React.FC<{
             >
                 <WorkflowSidebar
                     onNodeAdd={onNodeAdd}
-                    selectedNode={selectedNode}
+                    selectedNode={activeNode} // Pass the single active node to sidebar
                     onNodeUpdate={onNodeUpdate}
                     onSave={onSave}
                     onLoad={onLoad}
@@ -176,6 +181,9 @@ export const Flow: React.FC<{
                             onNodeDragStart={onNodeDragStart}
                             deleteKeyCode={['Backspace', 'Delete']}
                             nodeTypes={nodeTypes}
+                            selectionMode={SelectionMode.Partial}
+                            selectionOnDrag={true}
+                            selectionKeyCode="Shift"
                             edgeTypes={{
                                 'ordered-edge': props => (
                                     <CustomOrderedEdgeComponent {...props} edges={orderedEdges} />

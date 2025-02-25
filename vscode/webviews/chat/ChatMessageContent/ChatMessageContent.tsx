@@ -4,10 +4,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import { clsx } from 'clsx'
 import { LoaderIcon, MinusIcon, PlusIcon } from 'lucide-react'
+import { URI } from 'vscode-uri'
 import type { FixupTaskID } from '../../../src/non-stop/FixupTask'
 import { CodyTaskState } from '../../../src/non-stop/state'
 import { type ClientActionListener, useClientActionListener } from '../../client/clientState'
 import { MarkdownFromCody } from '../../components/MarkdownFromCody'
+import { getVSCodeAPI } from '../../utils/VSCodeApi'
 import { useConfig } from '../../utils/useConfig'
 import type { PriorHumanMessageInfo } from '../cells/messageCell/assistant/AssistantMessageCell'
 import styles from './ChatMessageContent.module.css'
@@ -183,9 +185,16 @@ export const ChatMessageContent: React.FunctionComponent<ChatMessageContentProps
 
                 if (fileName) {
                     const fileNameContainer = document.createElement('div')
-                    fileNameContainer.className = styles.fileNameContainer
+                    fileNameContainer.className = clsx(styles.fileNameContainer, styles.clickable)
                     fileNameContainer.textContent = getFileName(fileName)
                     fileNameContainer.title = fileName
+                    fileNameContainer.addEventListener('click', () => {
+                        // Using the existing vscode.workspace.openTextDocument API
+                        getVSCodeAPI().postMessage({
+                            command: 'openFileLink',
+                            uri: URI.file(fileName),
+                        })
+                    })
                     metadataContainer.append(fileNameContainer)
                 }
 

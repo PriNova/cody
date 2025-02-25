@@ -24,7 +24,7 @@ import { NodeType, type WorkflowNodes } from '../nodes/Nodes'
  */
 export const useNodeStateTransformation = (
     nodes: WorkflowNodes[],
-    selectedNode: WorkflowNodes | null,
+    selectedNodes: WorkflowNodes[],
     movingNodeId: string | null,
     executingNodeId: string | null,
     nodeErrors: Map<string, string>,
@@ -32,17 +32,27 @@ export const useNodeStateTransformation = (
     interruptedNodeId: string | null,
     edges: Edge[]
 ): WorkflowNodes[] => {
+    // Create a Set for O(1) lookups instead of O(n)
+    const selectedNodeIds = useMemo(() => new Set(selectedNodes.map(node => node.id)), [selectedNodes])
+
     // Memoize inactive nodes calculation
     const allInactiveNodes = useMemo(() => {
         const inactiveSet = new Set<string>()
-        for (const node of nodes) {
-            if (node.data.active === false) {
-                const dependentInactiveNodes = getInactiveNodes(edges, node.id)
-                for (const id of dependentInactiveNodes) {
-                    inactiveSet.add(id)
+
+        // Only recalculate if there are inactive nodes
+        const hasInactiveNodes = nodes.some(node => node.data.active === false)
+
+        if (hasInactiveNodes) {
+            for (const node of nodes) {
+                if (node.data.active === false) {
+                    const dependentInactiveNodes = getInactiveNodes(edges, node.id)
+                    for (const id of dependentInactiveNodes) {
+                        inactiveSet.add(id)
+                    }
                 }
             }
         }
+
         return inactiveSet
     }, [nodes, edges])
 
@@ -50,27 +60,38 @@ export const useNodeStateTransformation = (
     return useMemo(() => {
         return nodes.map(node => {
             const nodeId = node.id
+            const nodeIsSelected = selectedNodeIds.has(nodeId)
+            const nodeIsMoving = nodeId === movingNodeId
+            const nodeIsExecuting = nodeId === executingNodeId
+            const nodeIsInterrupted = nodeId === interruptedNodeId
+            const nodeHasError = nodeErrors.has(nodeId)
+            const nodeResult = nodeResults.get(nodeId)
+            const nodeIsActive = !allInactiveNodes.has(nodeId) && node.data.active !== false
+
+            // Only calculate token count for preview nodes
+            const tokenCount =
+                node.type === NodeType.PREVIEW
+                    ? Number.parseInt(nodeResults.get(`${nodeId}_tokens`) || '0', 10)
+                    : undefined
+
             return {
                 ...node,
-                selected: nodeId === selectedNode?.id,
+                selected: nodeIsSelected,
                 data: {
                     ...node.data,
-                    moving: nodeId === movingNodeId,
-                    executing: nodeId === executingNodeId,
-                    interrupted: nodeId === interruptedNodeId,
-                    error: nodeErrors.has(nodeId),
-                    result: nodeResults.get(nodeId),
-                    active: !allInactiveNodes.has(nodeId) && node.data.active !== false,
-                    tokenCount:
-                        node.type === NodeType.PREVIEW
-                            ? Number.parseInt(nodeResults.get(`${nodeId}_tokens`) || '0', 10)
-                            : undefined,
+                    moving: nodeIsMoving,
+                    executing: nodeIsExecuting,
+                    interrupted: nodeIsInterrupted,
+                    error: nodeHasError,
+                    result: nodeResult,
+                    active: nodeIsActive,
+                    tokenCount,
                 },
             }
         })
     }, [
         nodes,
-        selectedNode?.id,
+        selectedNodeIds,
         movingNodeId,
         executingNodeId,
         nodeErrors,
