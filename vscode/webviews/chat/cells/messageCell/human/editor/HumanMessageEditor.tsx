@@ -1,5 +1,6 @@
 import {
     type ChatMessage,
+    type ContextItemMedia,
     FAST_CHAT_INPUT_TOKEN_BUDGET,
     type Model,
     ModelTag,
@@ -263,7 +264,6 @@ export const HumanMessageEditor: FunctionComponent<{
 
     const omniBoxEnabled = useOmniBox()
     const {
-        isDotComUser,
         config: { experimentalPromptEditorEnabled },
     } = useConfig()
 
@@ -273,24 +273,10 @@ export const HumanMessageEditor: FunctionComponent<{
             if (!event || event.isComposing || isEmptyEditorValue || event.shiftKey) {
                 return
             }
-
             event.preventDefault()
-
-            if (!omniBoxEnabled || isDotComUser) {
-                onSubmitClick('chat')
-                return
-            }
-
-            // Submit search intent query when CMD + Options + Enter is pressed.
-            if ((event.metaKey || event.ctrlKey) && event.altKey) {
-                manuallySelectIntent('search')
-                onSubmitClick('search')
-                return
-            }
-
-            onSubmitClick('chat')
+            onSubmitClick()
         },
-        [isEmptyEditorValue, onSubmitClick, manuallySelectIntent, omniBoxEnabled, isDotComUser]
+        [isEmptyEditorValue, onSubmitClick]
     )
 
     const [isEditorFocused, setIsEditorFocused] = useState(false)
@@ -349,31 +335,6 @@ export const HumanMessageEditor: FunctionComponent<{
         },
         [onGapClick]
     )
-
-    const onMentionClick = useCallback((): void => {
-        if (!editorRef.current) {
-            throw new Error('No editorRef')
-        }
-        if (editorRef.current.getSerializedValue().text.trim().endsWith('@')) {
-            editorRef.current.setFocus(true, { moveCursorToEnd: true })
-        } else {
-            editorRef.current.appendText('@')
-        }
-
-        const value = editorRef.current.getSerializedValue()
-        telemetryRecorder.recordEvent('cody.humanMessageEditor.toolbar.mention', 'click', {
-            metadata: {
-                isFirstMessage: isFirstMessage ? 1 : 0,
-                isEdit: isSent ? 1 : 0,
-                messageLength: value.text.length,
-                contextItems: value.contextItems.length,
-            },
-            billingMetadata: {
-                product: 'cody',
-                category: 'billable',
-            },
-        })
-    }, [telemetryRecorder.recordEvent, isFirstMessage, isSent])
 
     const extensionAPI = useExtensionAPI()
 
@@ -533,12 +494,21 @@ export const HumanMessageEditor: FunctionComponent<{
         [linkOpener]
     )
 
-    // TODO: Finish implementing "current repo not indexed" handling for v2 editor
     const Editor = experimentalPromptEditorEnabled ? PromptEditorV2 : PromptEditor
 
     const totalContextWindow =
         (currentChatModel?.contextWindow?.context?.user || 0) +
         (currentChatModel?.contextWindow?.input || 0)
+    const onMediaUpload = useCallback(
+        (media: ContextItemMedia) => {
+            // Add the media context item as a mention chip in the editor.
+            const editor = editorRef?.current
+            if (editor && focused) {
+                editor.upsertMentions([media], 'after')
+            }
+        },
+        [focused]
+    )
 
     return (
         // biome-ignore lint/a11y/useKeyWithClickEvents: only relevant to click areas
@@ -577,7 +547,7 @@ export const HumanMessageEditor: FunctionComponent<{
                     models={models}
                     userInfo={userInfo}
                     isEditorFocused={focused}
-                    onMentionClick={onMentionClick}
+                    omniBoxEnabled={omniBoxEnabled}
                     onSubmitClick={onSubmitClick}
                     manuallySelectIntent={manuallySelectIntent}
                     submitState={submitState}
@@ -594,6 +564,8 @@ export const HumanMessageEditor: FunctionComponent<{
                     setImageFile={setImageFile}
                     isGoogleSearchEnabled={isGoogleSearchEnabled}
                     setIsGoogleSearchEnabled={setIsGoogleSearchEnabled}
+                    extensionAPI={extensionAPI}
+                    onMediaUpload={onMediaUpload}
                 />
             )}
         </div>
