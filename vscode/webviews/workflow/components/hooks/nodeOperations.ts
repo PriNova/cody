@@ -1,6 +1,7 @@
 import type { GenericVSCodeWrapper } from '@sourcegraph/cody-shared'
 import { type NodeChange, applyNodeChanges, useReactFlow } from '@xyflow/react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { unstable_batchedUpdates } from 'react-dom'
 import { v4 as uuidv4 } from 'uuid'
 import type { ExtensionToWorkflow, WorkflowToExtension } from '../../services/WorkflowProtocol'
 import type { LLMNode } from '../nodes/LLM_Node'
@@ -236,66 +237,61 @@ export const useNodeOperations = (
 
     const onNodeUpdate = useCallback(
         (nodeId: string, data: Partial<WorkflowNodes['data']>) => {
-            setNodes(currentNodes =>
-                currentNodes.map(node => {
-                    if (node.id === nodeId) {
-                        let updatedNode: WorkflowNodes
+            // First find the node to update
+            const nodeToUpdate = nodes.find(n => n.id === nodeId)
+            if (!nodeToUpdate) return
 
-                        if (node.type === NodeType.LLM) {
-                            // It's an LLM node, so handle it as LLMNode
-                            const llmNode = node as LLMNode
-                            const updatedLLMData: Partial<LLMNode['data']> = { ...llmNode.data, ...data }
+            // Create the updated node
+            let updatedNode: WorkflowNodes
+            if (nodeToUpdate.type === NodeType.LLM) {
+                const llmNode = nodeToUpdate as LLMNode
+                const updatedLLMData: Partial<LLMNode['data']> = { ...llmNode.data, ...data }
 
-                            if ('model' in data && data.model) {
-                                updatedLLMData.model = { ...data.model }
-                            }
+                if ('model' in data && data.model) {
+                    updatedLLMData.model = { ...data.model }
+                }
 
-                            updatedNode = {
-                                ...llmNode,
-                                data: updatedLLMData as LLMNode['data'],
-                            }
-                        } else {
-                            // It's not an LLM node, so create a generic update
-                            updatedNode = {
-                                ...node,
-                                data: { ...node.data, ...data },
-                            }
-                        }
+                updatedNode = {
+                    ...llmNode,
+                    data: updatedLLMData as LLMNode['data'],
+                }
+            } else {
+                updatedNode = {
+                    ...nodeToUpdate,
+                    data: { ...nodeToUpdate.data, ...data },
+                }
+            }
 
-                        // Update selection state
-                        if (selectedNodes.some(n => n.id === nodeId)) {
-                            setTimeout(() => {
-                                setSelectedNodes(prev =>
-                                    prev.map(n => (n.id === nodeId ? updatedNode! : n))
-                                )
-                            }, 0)
-                        }
-
-                        // Update active node if needed
-                        if (activeNode?.id === nodeId) {
-                            setTimeout(() => {
-                                setActiveNode(updatedNode)
-                            }, 0)
-                        }
-
-                        // Handle token calculation for Preview nodes
-                        if (node.type === NodeType.PREVIEW && 'content' in data) {
-                            vscodeAPI.postMessage({
-                                type: 'calculate_tokens',
-                                data: {
-                                    text: data.content || '',
-                                    nodeId,
-                                },
-                            })
-                        }
-
-                        return updatedNode
-                    }
-                    return node
+            // Handle token calculation for Preview nodes
+            if (nodeToUpdate.type === NodeType.PREVIEW && 'content' in data) {
+                vscodeAPI.postMessage({
+                    type: 'calculate_tokens',
+                    data: {
+                        text: data.content || '',
+                        nodeId,
+                    },
                 })
-            )
+            }
+
+            // Batch all state updates to execute at once
+            // This prevents the multiple re-renders that are causing the cursor jump
+
+            unstable_batchedUpdates(() => {
+                // Update main nodes array
+                setNodes(currentNodes => currentNodes.map(n => (n.id === nodeId ? updatedNode : n)))
+
+                // Update selected nodes if needed
+                if (selectedNodes.some(n => n.id === nodeId)) {
+                    setSelectedNodes(prev => prev.map(n => (n.id === nodeId ? updatedNode : n)))
+                }
+
+                // Update active node if needed
+                if (activeNode?.id === nodeId) {
+                    setActiveNode(updatedNode)
+                }
+            })
         },
-        [selectedNodes, activeNode, setNodes, setSelectedNodes, setActiveNode, vscodeAPI]
+        [nodes, selectedNodes, activeNode, setNodes, setSelectedNodes, setActiveNode, vscodeAPI]
     )
 
     return {

@@ -1,6 +1,5 @@
 import * as os from 'node:os'
 import * as path from 'node:path'
-import type { CLINode } from '@/workflow/components/nodes/CLI_Node'
 import type { LLMNode } from '@/workflow/components/nodes/LLM_Node'
 import type { LoopStartNode } from '@/workflow/components/nodes/LoopStart_Node'
 import type { SearchContextNode } from '@/workflow/components/nodes/SearchContext_Node'
@@ -138,18 +137,8 @@ export async function executeWorkflow(
             switch (node.type) {
                 case NodeType.CLI: {
                     try {
-                        const inputs = combineParentOutputsByConnectionOrder(node.id, context)
-                        /*.map(
-                            output => sanitizeForShell(output)
-                        )*/
-                        const command = (node as CLINode).data.content
-                            ? replaceIndexedInputs((node as CLINode).data.content, inputs, context)
-                            : ''
                         result = await executeCLINode(
-                            {
-                                ...(node as CLINode),
-                                data: { ...(node as CLINode).data, content: command },
-                            },
+                            node,
                             abortSignal,
                             persistentShell,
                             webview,
@@ -176,50 +165,26 @@ export async function executeWorkflow(
                     break
                 }
                 case NodeType.LLM: {
-                    const inputs = combineParentOutputsByConnectionOrder(node.id, context).map(input =>
-                        sanitizeForPrompt(input)
-                    )
-                    const prompt = node.data.content
-                        ? replaceIndexedInputs(node.data.content, inputs, context)
-                        : ''
-
-                    const oldTemperature = await chatClient.getTemperature()
-                    await chatClient.setTemperature((node as LLMNode).data.temperature)
-                    result = await executeLLMNode(
-                        { ...node, data: { ...node.data, content: prompt } },
-                        chatClient,
-                        abortSignal
-                    )
-                    await chatClient.setTemperature(oldTemperature)
+                    try {
+                        result = await executeLLMNode(node, chatClient, abortSignal, context)
+                    } catch (error) {
+                        console.error('Error in LLM Node:', error)
+                        throw error
+                    }
                     break
                 }
                 case NodeType.PREVIEW: {
-                    const inputs = combineParentOutputsByConnectionOrder(node.id, context)
-                    result = await executePreviewNode(inputs.join('\n'), node.id, webview, context)
+                    result = await executePreviewNode(node.id, webview, context)
                     break
                 }
 
                 case NodeType.INPUT: {
-                    const inputs = combineParentOutputsByConnectionOrder(node.id, context)
-                    const text = node.data.content
-                        ? replaceIndexedInputs(node.data.content, inputs, context)
-                        : ''
-                    result = await executeInputNode(text)
+                    result = await executeInputNode(node, context)
                     break
                 }
 
                 case NodeType.SEARCH_CONTEXT: {
-                    const inputs = combineParentOutputsByConnectionOrder(node.id, context)
-                    const text = node.data.content
-                        ? replaceIndexedInputs(node.data.content, inputs, context)
-                        : ''
-                    const allowRemoteContext = (node as SearchContextNode).data.local_remote
-                    result = await executeSearchContextNode(
-                        text,
-                        contextRetriever,
-                        abortSignal,
-                        allowRemoteContext
-                    )
+                    result = await executeSearchContextNode(node, contextRetriever, abortSignal, context)
                     break
                 }
                 case NodeType.CODY_OUTPUT: {
@@ -276,8 +241,7 @@ export async function executeWorkflow(
                     break
                 }
                 case NodeType.LOOP_END: {
-                    const inputs = combineParentOutputsByConnectionOrder(node.id, context)
-                    result = await executePreviewNode(inputs.join('\n'), node.id, webview, context)
+                    result = await executePreviewNode(node.id, webview, context)
                     break
                 }
 
@@ -459,13 +423,13 @@ export function replaceIndexedInputs(
  */
 export function combineParentOutputsByConnectionOrder(
     nodeId: string,
-    context: IndexedExecutionContext
+    context?: IndexedExecutionContext
 ): string[] {
-    const parentEdges = context.edgeIndex.byTarget.get(nodeId) || []
+    const parentEdges = context?.edgeIndex.byTarget.get(nodeId) || []
 
     return parentEdges
         .map(edge => {
-            let output = context.nodeOutputs.get(edge.source)
+            let output = context?.nodeOutputs.get(edge.source)
             if (Array.isArray(output)) {
                 output = output.join('\n')
             }
@@ -504,15 +468,14 @@ export async function executeCLINode(
     if (!vscode.env.shell || !vscode.workspace.isTrusted) {
         throw new Error('Shell command is not supported in your current workspace.')
     }
-    // Add validation for empty commands
-    if (!node.data.content?.trim()) {
+    const inputs = combineParentOutputsByConnectionOrder(node.id, context)
+    const command = node.data.content ? replaceIndexedInputs(node.data.content, inputs, context) : ''
+    if (!command.trim()) {
         throw new Error('CLI Node requires a non-empty command')
     }
 
     const homeDir = os.homedir() || process.env.HOME || process.env.USERPROFILE || ''
-
-    let filteredCommand =
-        (node as CLINode).data.content?.replaceAll(/(\s~\/)/g, ` ${homeDir}${path.sep}`) || ''
+    let filteredCommand = command.replaceAll(/(\s~\/)/g, ` ${homeDir}${path.sep}`) || ''
 
     if (node.data.needsUserApproval) {
         await webview.postMessage({
@@ -536,7 +499,7 @@ export async function executeCLINode(
 
     try {
         const { output, exitCode } = await persistentShell.execute(filteredCommand, abortSignal)
-        if (exitCode !== '0' && (node as CLINode).data.shouldAbort) {
+        if (exitCode !== '0' && node.data.shouldAbort) {
             throw new Error(output)
         }
         context?.cliMetadata?.set(node.id, { exitCode: exitCode })
@@ -568,10 +531,18 @@ export async function executeCLINode(
 async function executeLLMNode(
     node: WorkflowNodes,
     chatClient: ChatClient,
-    abortSignal?: AbortSignal
+    abortSignal?: AbortSignal,
+    context?: IndexedExecutionContext
 ): Promise<string> {
     abortSignal?.throwIfAborted()
-    if (!node.data.content) {
+    const oldTemperature = await chatClient.getTemperature()
+    await chatClient.setTemperature((node as LLMNode).data.temperature)
+
+    const inputs = combineParentOutputsByConnectionOrder(node.id, context).map(input =>
+        sanitizeForPrompt(input)
+    )
+    const prompt = node.data.content ? replaceIndexedInputs(node.data.content, inputs, context) : ''
+    if (!prompt || prompt.trim() === '') {
         throw new Error(`No prompt specified for LLM node ${node.id} with ${node.data.title}`)
     }
 
@@ -589,7 +560,7 @@ async function executeLLMNode(
             ...preamble,
             {
                 speaker: 'human',
-                text: PromptString.unsafe_fromUserQuery(node.data.content),
+                text: PromptString.unsafe_fromUserQuery(prompt),
             },
         ]
 
@@ -628,14 +599,16 @@ async function executeLLMNode(
                             }
                         }
                     } catch (error) {
+                        await chatClient.setTemperature(oldTemperature)
                         reject(error)
                     }
                 })
                 .catch(reject)
         })
-
+        await chatClient.setTemperature(oldTemperature)
         return await Promise.race([streamPromise, timeout])
     } catch (error) {
+        await chatClient.setTemperature(oldTemperature)
         if (error instanceof Error) {
             if (error.name === 'AbortError') {
                 throw new Error('Workflow execution aborted')
@@ -658,11 +631,11 @@ async function executeLLMNode(
  * @returns The trimmed input string.
  */
 async function executePreviewNode(
-    input: string,
     nodeId: string,
     webview: vscode.Webview,
     context: IndexedExecutionContext
 ): Promise<string> {
+    const input = combineParentOutputsByConnectionOrder(nodeId, context).join('\n')
     const processedInput = replaceIndexedInputs(input, [], context)
     const trimmedInput = processedInput.trim()
     const tokenCount = await TokenCounterUtils.encode(trimmedInput)
@@ -686,8 +659,10 @@ async function executePreviewNode(
  * @param input - The input string to be processed.
  * @returns The trimmed input string.
  */
-async function executeInputNode(input: string): Promise<string> {
-    return input.trim()
+async function executeInputNode(node: WorkflowNode, context: IndexedExecutionContext): Promise<string> {
+    const inputs = combineParentOutputsByConnectionOrder(node.id, context)
+    const text = node.data.content ? replaceIndexedInputs(node.data.content, inputs, context) : ''
+    return text.trim()
 }
 
 // #region 4 Search Context Node Execution */
@@ -700,12 +675,15 @@ async function executeInputNode(input: string): Promise<string> {
  * @returns An array of strings, where each string represents a formatted context item (path + newline + content).
  */
 async function executeSearchContextNode(
-    input: string,
+    node: WorkflowNode,
     contextRetriever: Pick<ContextRetriever, 'retrieveContext'>,
     abortSignal: AbortSignal,
-    allowRemoteContext: boolean
+    context: IndexedExecutionContext
 ): Promise<string> {
     abortSignal.throwIfAborted()
+    const inputs = combineParentOutputsByConnectionOrder(node.id, context)
+    const text = node.data.content ? replaceIndexedInputs(node.data.content, inputs, context) : ''
+    const allowRemoteContext = (node as SearchContextNode).data.local_remote
     const corpusItems = await firstValueFrom(getCorpusContextItemsForEditorState(allowRemoteContext))
     if (corpusItems === pendingOperation || corpusItems.length === 0) {
         return ''
@@ -715,15 +693,15 @@ async function executeSearchContextNode(
         return ''
     }
     const span = tracer.startSpan('chat.submit')
-    const context = await contextRetriever.retrieveContext(
+    const fetchedContext = await contextRetriever.retrieveContext(
         toStructuredMentions(corpusItems),
-        PromptString.unsafe_fromLLMResponse(input),
+        PromptString.unsafe_fromLLMResponse(text),
         span,
         abortSignal,
         false
     )
     span.end()
-    const result = context.map(item => {
+    const result = fetchedContext.map(item => {
         // Format each context item as path + newline + content
         return `${item.uri.path}\n${item.content || ''}`
     })

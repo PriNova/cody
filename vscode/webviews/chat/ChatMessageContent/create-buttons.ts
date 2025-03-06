@@ -1,4 +1,5 @@
 import { type Guardrails, isError } from '@sourcegraph/cody-shared'
+import { URI } from 'vscode-uri'
 import type { FixupTaskID } from '../../../src/non-stop/FixupTask'
 import { CodyTaskState } from '../../../src/non-stop/state'
 import {
@@ -197,6 +198,13 @@ export function createButtonsExperimentalUI(
         fileNameContainer.className = styles.fileNameContainer
         fileNameContainer.textContent = getFileName(codeBlockName)
         fileNameContainer.title = codeBlockName
+        fileNameContainer.addEventListener('click', () => {
+            // Using the existing vscode.workspace.openTextDocument API
+            getVSCodeAPI().postMessage({
+                command: 'openFileLink',
+                uri: URI.file(codeBlockName),
+            })
+        })
         metadataContainer.append(fileNameContainer)
     }
 

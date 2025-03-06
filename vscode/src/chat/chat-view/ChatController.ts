@@ -113,6 +113,7 @@ import {
     handleCopiedCode,
     handleSmartApply,
 } from '../../services/utils/codeblock-action-tracker'
+import { resolveRelativeOrAbsoluteUri } from '../../services/utils/edit-create-file'
 import { openExternalLinks } from '../../services/utils/workspace-action'
 import { TestSupport } from '../../test-support'
 import type { MessageErrorType } from '../MessageProvider'
@@ -350,13 +351,21 @@ export class ChatController implements vscode.Disposable, vscode.WebviewViewProv
                 break
             }
             case 'openFileLink':
-                vscode.commands.executeCommand('vscode.open', message.uri, {
-                    selection: message.range,
-                    preserveFocus: true,
-                    background: false,
-                    preview: true,
-                    viewColumn: vscode.ViewColumn.Beside,
-                })
+                {
+                    const workspaceUri = vscode.workspace.workspaceFolders?.[0].uri
+                    const uri = await resolveRelativeOrAbsoluteUri(
+                        workspaceUri,
+                        message.uri.path,
+                        message.uri
+                    )
+                    vscode.commands.executeCommand('vscode.open', uri, {
+                        selection: message.range,
+                        preserveFocus: true,
+                        background: false,
+                        preview: true,
+                        viewColumn: vscode.ViewColumn.One,
+                    })
+                }
                 break
             case 'openRemoteFile':
                 this.openRemoteFile(message.uri, message.tryLocal ?? false)

@@ -1,23 +1,19 @@
+import type { Guardrails, PromptString } from '@sourcegraph/cody-shared'
 import { clsx } from 'clsx'
 import { LRUCache } from 'lru-cache'
 import { LoaderIcon, MinusIcon, PlusIcon } from 'lucide-react'
 import type React from 'react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { URI } from 'vscode-uri'
-
-import type { Guardrails, PromptString } from '@sourcegraph/cody-shared'
-
 import type { FixupTaskID } from '../../../src/non-stop/FixupTask'
 import { CodyTaskState } from '../../../src/non-stop/state'
 import { type ClientActionListener, useClientActionListener } from '../../client/clientState'
 import { MarkdownFromCody } from '../../components/MarkdownFromCody'
 import { useLocalStorage } from '../../components/hooks'
-import { getVSCodeAPI } from '../../utils/VSCodeApi'
 import { useConfig } from '../../utils/useConfig'
 import type { PriorHumanMessageInfo } from '../cells/messageCell/assistant/AssistantMessageCell'
 import styles from './ChatMessageContent.module.css'
 import { createButtons, createButtonsExperimentalUI } from './create-buttons'
-import { extractThinkContent, getCodeBlockId, getFileName } from './utils'
+import { extractThinkContent, getCodeBlockId } from './utils'
 
 export interface CodeBlockActionsProps {
     copyButtonOnSubmit: (text: string, event?: 'Keydown' | 'Button') => void
@@ -205,20 +201,6 @@ export const ChatMessageContent: React.FunctionComponent<ChatMessageContentProps
                     parent.insertBefore(actionsContainer, preElement.nextSibling)
                 } else {
                     parent.appendChild(actionsContainer)
-                }
-                if (fileName) {
-                    const fileNameContainer = document.createElement('div')
-                    fileNameContainer.className = clsx(styles.fileNameContainer, styles.clickable)
-                    fileNameContainer.textContent = getFileName(fileName)
-                    fileNameContainer.title = fileName
-                    fileNameContainer.addEventListener('click', () => {
-                        // Using the existing vscode.workspace.openTextDocument API
-                        getVSCodeAPI().postMessage({
-                            command: 'openFileLink',
-                            uri: URI.file(fileName),
-                        })
-                    })
-                    parent.append(fileNameContainer)
                 }
             }
         }
