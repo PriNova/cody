@@ -26,7 +26,7 @@ import {
     SMART_APPLY_FILE_DECORATION,
     type SmartApplySelectionType,
     getSmartApplySelection,
-} from './prompt/smart-apply'
+} from './prompt/smart-apply/selection'
 import type { SmartApplyArguments } from './smart-apply'
 
 type SmartApplyCacheEntry = Promise<null | {
@@ -210,7 +210,11 @@ export class SmartApplyManager implements vscode.Disposable {
                 instruction: ps`Ensuring that you do not duplicate code that is outside of the selection, apply the following change:
 ${replacementCode}`,
                 model,
-                intent: 'edit',
+                intent: 'smartApply',
+                smartApplyMetadata: {
+                    chatQuery: configuration.instruction,
+                    replacementCodeBlock: replacementCode,
+                },
             },
             source: 'chat',
         })

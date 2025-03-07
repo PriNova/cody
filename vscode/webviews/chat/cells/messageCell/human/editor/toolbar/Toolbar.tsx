@@ -9,12 +9,10 @@ import type {
 import clsx from 'clsx'
 import { type FunctionComponent, useCallback } from 'react'
 import type { UserAccountInfo } from '../../../../../../Chat'
-import { ModelSelectField } from '../../../../../../components/modelSelectField/ModelSelectField'
 import { PromptSelectField } from '../../../../../../components/promptSelectField/PromptSelectField'
 import { Checkbox } from '../../../../../../components/shadcn/ui/checkbox'
 //import toolbarStyles from '../../../../../../components/shadcn/ui/toolbar.module.css'
 import { useActionSelect } from '../../../../../../prompts/PromptsTab'
-import { useClientConfig } from '../../../../../../utils/useClientConfig'
 //import { MediaUploadButton } from './MediaUploadButton'
 import { ModeSelectorField } from './ModeSelectorButton'
 import { SubmitButton, type SubmitButtonState } from './SubmitButton'
@@ -144,15 +142,6 @@ export const Toolbar: FunctionComponent<{
                     />
                 )} */}
                 <PromptSelectFieldToolbarItem focusEditor={focusEditor} className="tw-ml-1 tw-mr-1" />
-                <ModelSelectFieldToolbarItem
-                    models={models}
-                    userInfo={userInfo}
-                    focusEditor={focusEditor}
-                    className="tw-mr-1"
-                    extensionAPI={extensionAPI}
-                    supportsImageUpload={models[0]?.clientSideConfig?.options?.googleImage}
-                />
-
                 {tokenCount !== undefined &&
                     contextWindow &&
                     transcriptTokens !== undefined &&
@@ -212,41 +201,4 @@ const PromptSelectFieldToolbarItem: FunctionComponent<{
     )
 
     return <PromptSelectField onSelect={onSelect} onCloseByEscape={focusEditor} className={className} />
-}
-
-const ModelSelectFieldToolbarItem: FunctionComponent<{
-    models: Model[]
-    userInfo: UserAccountInfo
-    focusEditor?: () => void
-    className?: string
-    extensionAPI: WebviewToExtensionAPI
-    supportsImageUpload?: boolean
-}> = ({ userInfo, focusEditor, className, models, extensionAPI, supportsImageUpload }) => {
-    const clientConfig = useClientConfig()
-    const serverSentModelsEnabled = !!clientConfig?.modelsAPIEnabled
-
-    const onModelSelect = useCallback(
-        (model: Model) => {
-            extensionAPI.setChatModel(model.id).subscribe({
-                error: error => console.error('setChatModel:', error),
-            })
-            focusEditor?.()
-        },
-        [extensionAPI.setChatModel, focusEditor]
-    )
-
-    return (
-        !!models?.length &&
-        (userInfo.isDotComUser || serverSentModelsEnabled) && (
-            <ModelSelectField
-                models={models}
-                onModelSelect={onModelSelect}
-                serverSentModelsEnabled={serverSentModelsEnabled}
-                userInfo={userInfo}
-                onCloseByEscape={focusEditor}
-                className={className}
-                data-testid="chat-model-selector"
-            />
-        )
-    )
 }

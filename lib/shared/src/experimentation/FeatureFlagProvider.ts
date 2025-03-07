@@ -62,8 +62,8 @@ export enum FeatureFlag {
 
     CodyAutoEditExperimentEnabledFeatureFlag = 'cody-autoedit-experiment-enabled-flag',
 
-    // Enables image-based rendering of autoedit suggestions
-    CodyAutoEditImageRendering = 'cody-autoedit-image-rendering',
+    // Enables inline rendering of autoedit suggestions
+    CodyAutoEditInlineRendering = 'cody-autoedit-inline-rendering',
 
     // Enables gpt-4o-mini as a default Edit model
     CodyEditDefaultToGpt4oMini = 'cody-edit-default-to-gpt-4o-mini',
@@ -97,12 +97,6 @@ export enum FeatureFlag {
      */
     CodyUnifiedPrompts = 'cody-unified-prompts',
     CodyDeepSeekChat = 'cody-deepseek-chat',
-
-    /**
-     * For internal use only. New Prompts UI and logic is behind this feature flag
-     * will be removed as soon as commands will be deprecated.
-     */
-    CodyPromptsV2 = 'prompt-creation-v2',
 
     // Enables Anthropic's prompt caching feature on messages for Cody Clients
     CodyPromptCachingOnMessages = 'cody-experimental-prompt-caching-on-messages',

@@ -171,6 +171,13 @@ jobs:
       #    key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
       #    restore-keys: ${{ runner.os }}-pnpm-store-
       - run: pnpm install
+
+      - name: Save cache pnpm store
+        if: steps.restore-pnpm-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ steps.pnpm-cache.outputs.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
       # Run Biome and capture the output. If biome crashes, it still reports a
       # successful CI run (exit code 0) but that will ripple down to errors in
       # the Biome VS Code extension. This ensures that we don't accidentally
