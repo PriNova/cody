@@ -1,4 +1,6 @@
-import { ps } from '@sourcegraph/cody-shared'
+import * as path from 'node:path'
+import { PromptString, ps } from '@sourcegraph/cody-shared'
+import * as vscode from 'vscode'
 
 const COMMIT_INTRO = ps`Review the following git command output to understand the changes you are about to generate a commit message for.`
 
@@ -28,4 +30,33 @@ export const COMMIT_COMMAND_PROMPTS = {
      * The prompt when COMMIT_TEMPLATE is not found.
      */
     noTemplate: COMMMIT_TEMPLATE_NOT_FOUNT,
+}
+
+export async function getCustomCommitTemplate(): Promise<PromptString | undefined> {
+    try {
+        const workspaceFolders = vscode.workspace.workspaceFolders?.[0]
+        if (!workspaceFolders) {
+            return undefined
+        }
+
+        const commitTemplatePath = path.join(
+            workspaceFolders.uri.path,
+            '.cody',
+            'configs',
+            'commit_template.md'
+        )
+
+        const fileUri = vscode.Uri.file(commitTemplatePath)
+        const content = await vscode.workspace.fs.readFile(fileUri)
+        const commitTemplate = Buffer.from(content).toString('utf-8')
+
+        // Return undefined if content is empty or only whitespace
+        if (!commitTemplate.trim()) {
+            return undefined
+        }
+
+        return PromptString.unsafe_fromLLMResponse(commitTemplate)
+    } catch {
+        return undefined
+    }
 }

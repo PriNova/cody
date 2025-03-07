@@ -20,7 +20,7 @@ import * as vscode from 'vscode'
 import { PromptBuilder } from '../../prompt-builder'
 import type { API, GitExtension, InputBox, Repository } from '../../repository/builtinGitExtension'
 import { getContextFilesFromGitApi as getContext } from '../context/git-api'
-import { COMMIT_COMMAND_PROMPTS } from './prompts'
+import { COMMIT_COMMAND_PROMPTS, getCustomCommitTemplate } from './prompts'
 
 export class CodySourceControl implements vscode.Disposable {
     private disposables: vscode.Disposable[] = []
@@ -228,9 +228,9 @@ export class CodySourceControl implements vscode.Disposable {
             throw new Error('Failed to get git output.')
         }
 
-        const templatePrompt = this.commitTemplate
-            ? COMMIT_COMMAND_PROMPTS.template
-            : COMMIT_COMMAND_PROMPTS.noTemplate
+        const templateMessage = await getCustomCommitTemplate()
+        const customTemplate = templateMessage ? templateMessage : COMMIT_COMMAND_PROMPTS.template
+        const templatePrompt = this.commitTemplate ? COMMIT_COMMAND_PROMPTS.noTemplate : customTemplate
         const text = COMMIT_COMMAND_PROMPTS.instruction.replace('{COMMIT_TEMPLATE}', templatePrompt)
         const transcript: ChatMessage[] = [{ speaker: 'human', text }]
 

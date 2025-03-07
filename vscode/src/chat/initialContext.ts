@@ -4,7 +4,6 @@ import {
     ContextItemSource,
     type ContextItemTree,
     type DefaultContext,
-    FeatureFlag,
     REMOTE_REPOSITORY_PROVIDER_URI,
     abortableOperation,
     authStatus,
@@ -16,7 +15,6 @@ import {
     displayPathBasename,
     distinctUntilChanged,
     expandToLineRange,
-    featureFlagProvider,
     fromVSCodeEvent,
     isDotCom,
     isError,
@@ -51,7 +49,7 @@ export function observeDefaultContext({
         getCurrentFileOrSelection({ chatBuilder }).pipe(distinctUntilChanged()),
         getCorpusContextItemsForEditorState().pipe(distinctUntilChanged()),
         getOpenCtxContextItems().pipe(distinctUntilChanged()),
-        featureFlagProvider.evaluatedFeatureFlag(FeatureFlag.NoDefaultRepoChip)
+        Observable.of(false)
     ).pipe(
         debounceTime(50),
         map(
@@ -210,9 +208,8 @@ export function getCorpusContextItemsForEditorState(
     return combineLatest(relevantAuthStatus, remoteReposForAllWorkspaceFolders).pipe(
         abortableOperation(async ([authStatus, remoteReposForAllWorkspaceFolders], signal) => {
             const items: ContextItem[] = []
-
             // Local context is not available to enterprise users
-            if (!authStatus.isEnterpriseUser) {
+            if (!authStatus.isEnterpriseUser && authStatus.isEnterpriseStarterUser) {
                 // TODO(sqs): Support multi-root. Right now, this only supports the 1st workspace root.
                 const workspaceFolder = vscode.workspace.workspaceFolders?.at(0)
 

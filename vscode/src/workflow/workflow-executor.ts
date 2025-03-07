@@ -536,8 +536,6 @@ async function executeLLMNode(
 ): Promise<string> {
     abortSignal?.throwIfAborted()
     const oldTemperature = await chatClient.getTemperature()
-    await chatClient.setTemperature((node as LLMNode).data.temperature)
-
     const inputs = combineParentOutputsByConnectionOrder(node.id, context).map(input =>
         sanitizeForPrompt(input)
     )
@@ -565,6 +563,7 @@ async function executeLLMNode(
         ]
 
         const streamPromise = new Promise<string>((resolve, reject) => {
+            chatClient.setTemperature((node as LLMNode).data.temperature)
             // Use the AsyncGenerator correctly
             chatClient
                 .chat(
@@ -580,6 +579,7 @@ async function executeLLMNode(
                     abortSignal
                 )
                 .then(async stream => {
+                    chatClient.setTemperature(oldTemperature)
                     const accumulated = new StringBuilder()
                     //let chunksProcessed = 0
                     try {
@@ -605,7 +605,6 @@ async function executeLLMNode(
                 })
                 .catch(reject)
         })
-        await chatClient.setTemperature(oldTemperature)
         return await Promise.race([streamPromise, timeout])
     } catch (error) {
         await chatClient.setTemperature(oldTemperature)

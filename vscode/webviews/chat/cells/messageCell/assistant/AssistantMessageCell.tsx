@@ -19,6 +19,7 @@ import isEqual from 'lodash/isEqual'
 import { type FunctionComponent, type RefObject, memo, useMemo } from 'react'
 import type { ApiPostMessage, UserAccountInfo } from '../../../../Chat'
 import { chatModelIconComponent } from '../../../../components/ChatModelIcon'
+import { CheckCodeBlockIcon } from '../../../../icons/CodeBlockActionIcons'
 import { useOmniBox } from '../../../../utils/useOmniBox'
 import {
     ChatMessageContent,
@@ -175,11 +176,23 @@ export const AssistantMessageCell: FunctionComponent<{
                                         <button
                                             type="button"
                                             className="tw-flex tw-items-center tw-gap-2 tw-text-sm tw-text-muted-foreground hover:tw-text-foreground"
-                                            onClick={() => {
+                                            onClick={event => {
+                                                const button = event.currentTarget
+                                                const originalContent = button.innerHTML
+
+                                                // Change to check icon when clicked
+                                                button.innerHTML = CheckCodeBlockIcon
+
+                                                // Copy text to clipboard
                                                 navigator.clipboard.writeText(
                                                     message.text?.toString() || ''
                                                 )
                                                 copyButtonOnSubmit?.(message.text?.toString() || '')
+
+                                                // Reset after 5 seconds
+                                                setTimeout(() => {
+                                                    button.innerHTML = originalContent
+                                                }, 5000)
                                             }}
                                             title="Copy message to clipboard"
                                         >

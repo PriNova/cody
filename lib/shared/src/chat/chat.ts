@@ -87,7 +87,7 @@ export class ChatClient {
             messages = messages.concat([{ speaker: 'assistant' }])
         }
 
-        DEFAULT_CHAT_COMPLETION_PARAMETERS.temperature = this.temperature
+        DEFAULT_CHAT_COMPLETION_PARAMETERS.temperature = await this.getTemperature()
         const completionParams = {
             ...DEFAULT_CHAT_COMPLETION_PARAMETERS,
             ...params,
