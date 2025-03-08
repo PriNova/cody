@@ -4,6 +4,8 @@ import { writeToCodyJSON } from '../commands/utils/config-file'
 import { migrateWorkflowData } from './workflow-migration'
 
 export const WORKFLOW_VERSION = '1.1.0'
+const CODY_NODES_DIR = '.sourcegraph/nodes'
+const CODY_WORKFLOWS_DIR = '.sourcegraph/workflows'
 
 /**
  * Handles the workflow saving process by displaying a save dialog to the user, allowing them to select a location to save the workflow file.
@@ -14,12 +16,7 @@ export const WORKFLOW_VERSION = '1.1.0'
 export async function handleWorkflowSave(data: any): Promise<void> {
     const workspaceRootFsPath = vscode.workspace.workspaceFolders?.[0]?.uri?.path
     const defaultFilePath = workspaceRootFsPath
-        ? vscode.Uri.joinPath(
-              vscode.Uri.file(workspaceRootFsPath),
-              '.cody',
-              'workflows',
-              'workflow.json'
-          )
+        ? vscode.Uri.joinPath(vscode.Uri.file(workspaceRootFsPath), CODY_WORKFLOWS_DIR)
         : vscode.Uri.file('workflow.json')
     const result = await vscode.window.showSaveDialog({
         defaultUri: defaultFilePath,
@@ -46,12 +43,7 @@ export async function handleWorkflowSave(data: any): Promise<void> {
 export async function handleWorkflowLoad(): Promise<any> {
     const workspaceRootFsPath = vscode.workspace.workspaceFolders?.[0]?.uri?.path
     const defaultFilePath = workspaceRootFsPath
-        ? vscode.Uri.joinPath(
-              vscode.Uri.file(workspaceRootFsPath),
-              '.cody',
-              'workflows',
-              'workflow.json'
-          )
+        ? vscode.Uri.joinPath(vscode.Uri.file(workspaceRootFsPath), CODY_WORKFLOWS_DIR)
         : vscode.Uri.file('workflow.json')
 
     const result = await vscode.window.showOpenDialog({
@@ -78,8 +70,6 @@ export async function handleWorkflowLoad(): Promise<any> {
     return []
 }
 
-const CODY_NODES_DIR = '.cody/nodes'
-
 /**
  * Retrieves an array of custom workflow nodes from the `.cody/nodes` directory in the current workspace.
  *
@@ -104,7 +94,7 @@ export async function getCustomNodes(): Promise<WorkflowNodes[]> {
             await vscode.workspace.fs.createDirectory(nodesDirUri)
         } catch (e: any) {
             if (e.code !== 'FileExists') {
-                console.warn('Directory .cody/nodes does not exist.')
+                console.warn(`Directory ${CODY_NODES_DIR} does not exist.`)
                 return []
             }
         }

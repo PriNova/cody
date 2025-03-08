@@ -41,8 +41,8 @@ export async function getCustomCommitTemplate(): Promise<PromptString | undefine
 
         const commitTemplatePath = path.join(
             workspaceFolders.uri.path,
-            '.cody',
-            'configs',
+            '.sourcegraph',
+            'prompts',
             'commit_template.md'
         )
 

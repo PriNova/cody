@@ -49,15 +49,15 @@ export class DefaultPrompter {
      */
     public async getCustomSystemInstruction(): Promise<PromptString | undefined> {
         try {
-            const workspaceFolders = vscode.workspace.workspaceFolders
+            const workspaceFolders = vscode.workspace.workspaceFolders?.[0]
             if (!workspaceFolders) {
                 return undefined
             }
 
             const systemInstructionPath = path.join(
-                workspaceFolders[0].uri.path,
-                '.cody',
-                'configs',
+                workspaceFolders.uri.path,
+                '.sourcegraph',
+                'prompts',
                 'system.md'
             )
 
