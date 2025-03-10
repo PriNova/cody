@@ -76,15 +76,22 @@ export function registerWorkflowCommands(
                                 })
                             break
                         }
-                        case 'save_workflow':
-                            await handleWorkflowSave(message.data)
+                        case 'save_workflow': {
+                            const filename = await handleWorkflowSave(message.data)
+                            if (filename) {
+                                panel.title = `Workflow: ${filename}`
+                            }
                             break
+                        }
                         case 'load_workflow': {
-                            const loadedData = await handleWorkflowLoad()
-                            if (loadedData) {
+                            const result = await handleWorkflowLoad()
+                            if (result) {
+                                if (result.filename) {
+                                    panel.title = `Workflow: ${result.filename}`
+                                }
                                 await panel.webview.postMessage({
                                     type: 'workflow_loaded',
-                                    data: loadedData,
+                                    data: result.data,
                                 } as ExtensionToWorkflow)
                             }
                             break

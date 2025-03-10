@@ -209,7 +209,7 @@ export function getCorpusContextItemsForEditorState(
         abortableOperation(async ([authStatus, remoteReposForAllWorkspaceFolders], signal) => {
             const items: ContextItem[] = []
             // Local context is not available to enterprise users
-            if (!authStatus.isEnterpriseUser && authStatus.isEnterpriseStarterUser) {
+            if (!authStatus.isEnterpriseUser) {
                 // TODO(sqs): Support multi-root. Right now, this only supports the 1st workspace root.
                 const workspaceFolder = vscode.workspace.workspaceFolders?.at(0)
 

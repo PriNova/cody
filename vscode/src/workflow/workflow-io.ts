@@ -13,10 +13,13 @@ const CODY_WORKFLOWS_DIR = '.sourcegraph/workflows'
  * @param data - The workflow data to be saved.
  * @returns A Promise that resolves when the workflow file has been successfully saved, or rejects if an error occurs.
  */
-export async function handleWorkflowSave(data: any): Promise<void> {
+export async function handleWorkflowSave(data: any): Promise<string | undefined> {
     const workspaceRootFsPath = vscode.workspace.workspaceFolders?.[0]?.uri?.path
     const defaultFilePath = workspaceRootFsPath
-        ? vscode.Uri.joinPath(vscode.Uri.file(workspaceRootFsPath), CODY_WORKFLOWS_DIR)
+        ? vscode.Uri.joinPath(
+              vscode.Uri.file(workspaceRootFsPath),
+              CODY_WORKFLOWS_DIR + '/workflow.json'
+          )
         : vscode.Uri.file('workflow.json')
     const result = await vscode.window.showSaveDialog({
         defaultUri: defaultFilePath,
@@ -29,10 +32,16 @@ export async function handleWorkflowSave(data: any): Promise<void> {
         try {
             await writeToCodyJSON(result, { ...data, version: WORKFLOW_VERSION })
             void vscode.window.showInformationMessage('Workflow saved successfully!')
+            // Return the filename for panel title update
+            return result.path
+                .split('/')
+                .pop()
+                ?.replace(/\.json$/, '')
         } catch (error) {
             void vscode.window.showErrorMessage(`Failed to save workflow: ${error}`)
         }
     }
+    return undefined
 }
 
 /**
@@ -61,7 +70,13 @@ export async function handleWorkflowLoad(): Promise<any> {
             const rawData = JSON.parse(content.toString())
             const data = migrateWorkflowData(rawData)
             void vscode.window.showInformationMessage('Workflow loaded successfully!')
-            return data
+            // Extract the filename without extension
+            const filename = result[0].path
+                .split('/')
+                .pop()
+                ?.replace(/\.json$/, '')
+
+            return { data, filename }
         } catch (error) {
             void vscode.window.showErrorMessage(`Failed to load workflow: ${error}`)
             return []
