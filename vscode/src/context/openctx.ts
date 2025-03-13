@@ -13,11 +13,10 @@ import {
     clientCapabilities,
     combineLatest,
     createDisposables,
-    debounceTime,
     distinctUntilChanged,
     featureFlagProvider,
     graphqlClient,
-    isDotCom,
+    //isDotCom,
     isError,
     isRulesEnabled,
     logError,
@@ -62,27 +61,11 @@ export function observeOpenCtxController(
             })),
             distinctUntilChanged()
         ),
-        authStatus.pipe(
-            distinctUntilChanged(),
-            debounceTime(0),
-            switchMap(auth =>
-                auth.authenticated
-                    ? promiseFactoryToObservable(signal =>
-                          graphqlClient.isValidSiteVersion(
-                              {
-                                  minimumVersion: '5.7.0',
-                              },
-                              signal
-                          )
-                      )
-                    : Observable.of(false)
-            )
-        ),
         promiseFactoryToObservable(
             async () => createOpenCtxController ?? (await import('@openctx/vscode-lib')).createController
         )
     ).pipe(
-        map(([{ experimentalNoodle }, isValidSiteVersion, createController]) => {
+        map(([{ experimentalNoodle }, createController]) => {
             try {
                 // Enable fetching of openctx configuration from Sourcegraph instance
                 const mergeConfiguration = experimentalNoodle
@@ -100,7 +83,15 @@ export function observeOpenCtxController(
                     secrets: context.secrets,
                     outputChannel: openctxOutputChannel!,
                     features: clientCapabilities().isVSCode ? { annotations: true } : {},
-                    providers: getCodyWebOpenCtxProviders(),
+                    providers: clientCapabilities().isCodyWeb
+                        ? getCodyWebOpenCtxProviders()
+                        : getOpenCtxProviders(
+                              authStatus,
+                              ClientConfigSingleton.getInstance().changes.pipe(
+                                  skipPendingOperation(),
+                                  distinctUntilChanged()
+                              )
+                          ),
                     mergeConfiguration,
                 })
                 return controller
@@ -117,21 +108,36 @@ export function observeOpenCtxController(
 let openctxOutputChannel: vscode.OutputChannel | undefined
 
 export function getOpenCtxProviders(
-    authStatusChanges: Observable<Pick<AuthStatus, 'endpoint'>>,
-    clientConfigChanges: Observable<CodyClientConfig | undefined>,
-    isValidSiteVersion: boolean
+    authStatusChanges: Observable<Pick<AuthStatus, 'endpoint' | 'authenticated'>>,
+    clientConfigChanges: Observable<CodyClientConfig | undefined>
 ): Observable<ImportedProviderConfiguration[]> {
     return combineLatest(
         resolvedConfig.pipe(pluck('configuration'), distinctUntilChanged()),
         clientConfigChanges,
         authStatusChanges,
-        featureFlagProvider.evaluatedFeatureFlag(FeatureFlag.GitMentionProvider)
+        featureFlagProvider.evaluatedFeatureFlag(FeatureFlag.GitMentionProvider),
+        authStatusChanges.pipe(
+            map(auth => auth.authenticated),
+            switchMap(authenticated =>
+                authenticated
+                    ? promiseFactoryToObservable(signal =>
+                          graphqlClient.isValidSiteVersion(
+                              {
+                                  minimumVersion: '5.7.0',
+                              },
+                              signal
+                          )
+                      )
+                    : Observable.of(false)
+            )
+        )
     ).map(
-        ([config, clientConfig, authStatus, gitMentionProvider]: [
+        ([config, clientConfig, authStatus, gitMentionProvider, isValidSiteVersion]: [
             ClientConfiguration,
             CodyClientConfig | undefined,
             Pick<AuthStatus, 'endpoint'>,
             boolean | undefined,
+            boolean,
         ]) => {
             const providers: ImportedProviderConfiguration[] = [
                 {
@@ -149,28 +155,26 @@ export function getOpenCtxProviders(
                 })
             }
 
-            if (!isDotCom(authStatus)) {
-                // Remote repository and remote files should be available for non-dotcom users.
+            // Remote repository and remote files should be available for non-dotcom users.
+            providers.push({
+                settings: true,
+                provider: RemoteRepositorySearch,
+                providerUri: RemoteRepositorySearch.providerUri,
+            })
+
+            if (isValidSiteVersion) {
                 providers.push({
                     settings: true,
-                    provider: RemoteRepositorySearch,
-                    providerUri: RemoteRepositorySearch.providerUri,
-                })
-
-                if (isValidSiteVersion) {
-                    providers.push({
-                        settings: true,
-                        provider: RemoteDirectoryProvider,
-                        providerUri: RemoteDirectoryProvider.providerUri,
-                    })
-                }
-
-                providers.push({
-                    settings: true,
-                    provider: RemoteFileProvider,
-                    providerUri: RemoteFileProvider.providerUri,
+                    provider: RemoteDirectoryProvider,
+                    providerUri: RemoteDirectoryProvider.providerUri,
                 })
             }
+
+            providers.push({
+                settings: true,
+                provider: RemoteFileProvider,
+                providerUri: RemoteFileProvider.providerUri,
+            })
 
             if (config.experimentalNoodle) {
                 providers.push({
@@ -180,13 +184,11 @@ export function getOpenCtxProviders(
                 })
             }
 
-            if (gitMentionProvider) {
-                providers.push({
-                    settings: true,
-                    provider: gitMentionsProvider,
-                    providerUri: GIT_OPENCTX_PROVIDER_URI,
-                })
-            }
+            providers.push({
+                settings: true,
+                provider: gitMentionsProvider,
+                providerUri: GIT_OPENCTX_PROVIDER_URI,
+            })
 
             if (clientConfig?.omniBoxEnabled) {
                 providers.push({
@@ -210,7 +212,7 @@ function getCodyWebOpenCtxProviders(): Observable<ImportedProviderConfiguration[
             {
                 settings: true,
                 providerUri: RemoteRepositorySearch.providerUri,
-                provider: createRemoteRepositoryProvider('Repositories'),
+                provider: createRemoteRepositoryProvider('Repository search'),
             },
             {
                 settings: true,
