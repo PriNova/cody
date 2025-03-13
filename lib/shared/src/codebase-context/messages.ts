@@ -143,6 +143,7 @@ export type ContextItem =
     | ContextItemCurrentDirectory
     | ContextItemCurrentOpenTabs
     | ContextItemMedia
+    | ContextItemWorkflows
 
 /**
  * Context items to show by default in the chat input, or as suggestions in the chat UI.
@@ -267,6 +268,11 @@ export type SymbolKind = 'class' | 'function' | 'method'
 
 /** {@link ContextItem} with the `content` field set to the content. */
 export type ContextItemWithContent = ContextItem & { content: string }
+
+export interface ContextItemWorkflows extends ContextItemCommon {
+    type: 'workflows'
+    name: string
+}
 
 /**
  * A system chat message that adds a context item to the conversation.

@@ -16,11 +16,13 @@ import {
     displayPathBasename,
     displayPathDirname,
 } from '@sourcegraph/cody-shared'
+import { WORKFLOW_PROVIDER } from '@sourcegraph/cody-shared/src/mentions/api'
 import { clsx } from 'clsx'
 import {
     ArrowRightIcon,
     BookCheckIcon,
     BoxIcon,
+    Cog,
     DatabaseIcon,
     ExternalLinkIcon,
     FileIcon,
@@ -184,6 +186,7 @@ export const iconForProvider: Record<
     [REMOTE_DIRECTORY_PROVIDER_URI]: FolderGitIcon,
     [WEB_PROVIDER_URI]: LinkIcon,
     [RULES_PROVIDER_URI]: BookCheckIcon,
+    [WORKFLOW_PROVIDER.id]: Cog,
 }
 
 const iconForItem: Record<

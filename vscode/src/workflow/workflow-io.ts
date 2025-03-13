@@ -4,8 +4,8 @@ import { writeToCodyJSON } from '../commands/utils/config-file'
 import { migrateWorkflowData } from './workflow-migration'
 
 export const WORKFLOW_VERSION = '1.1.0'
-const CODY_NODES_DIR = '.sourcegraph/nodes'
-const CODY_WORKFLOWS_DIR = '.sourcegraph/workflows'
+export const CODY_NODES_DIR = '.sourcegraph/nodes'
+export const CODY_WORKFLOWS_DIR = '.sourcegraph/workflows'
 
 /**
  * Handles the workflow saving process by displaying a save dialog to the user, allowing them to select a location to save the workflow file.

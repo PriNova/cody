@@ -16,6 +16,7 @@ import type {
     ContextItemSource,
     ContextItemSymbol,
     ContextItemTree,
+    ContextItemWorkflows,
 } from '../codebase-context/messages'
 import {
     displayLineRange,
@@ -51,6 +52,7 @@ export type SerializedContextItem = {
     | Omit<ContextItemCurrentDirectory, 'uri' | 'content' | 'source'>
     | Omit<ContextItemCurrentOpenTabs, 'uri' | 'content' | 'source'>
     | Omit<ContextItemMedia, 'uri' | 'content' | 'source'>
+    | Omit<ContextItemWorkflows, 'uri' | 'content' | 'source'>
 )
 
 export type SerializedTemplateInput = {
@@ -338,6 +340,8 @@ export function contextItemMentionNodeDisplayText(contextItem: SerializedContext
 
         case 'current-open-tabs':
             return 'currently open tabs'
+        case 'workflows':
+            return contextItem.name
     }
 
     // @ts-ignore

@@ -141,7 +141,13 @@ export const HumanMessageEditor: FunctionComponent<{
                 setTokenAdded(0)
                 return
             }
-            setTokenAdded(items.reduce((acc, item) => acc + (item.size ? item.size : 0), 0))
+            setTokenAdded(
+                items.reduce(
+                    (acc, item) =>
+                        acc + (!item.isTooLarge && !item.isIgnored && item.size ? item.size : 0),
+                    0
+                )
+            )
         })
         return unregister
     }, [])

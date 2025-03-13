@@ -51,13 +51,21 @@ export const SYMBOL_CONTEXT_MENTION_PROVIDER: ContextMentionProviderMetadata & {
     emptyLabel: 'No symbols found',
 }
 
+export const WORKFLOW_PROVIDER: ContextMentionProviderMetadata & { id: 'workflows' } = {
+    id: 'workflows',
+    title: 'Workflows',
+    queryLabel: 'Enter a name for your workflow...',
+    emptyLabel: 'No workflows found',
+}
+
 export function mentionProvidersMetadata(options?: {
     disableProviders: ContextMentionProviderID[]
 }): Observable<ContextMentionProviderMetadata[]> {
     return openCtxMentionProviders().map(providers =>
-        [...[FILE_CONTEXT_MENTION_PROVIDER, SYMBOL_CONTEXT_MENTION_PROVIDER], ...providers].filter(
-            provider => !options?.disableProviders.includes(provider.id)
-        )
+        [
+            ...[FILE_CONTEXT_MENTION_PROVIDER, SYMBOL_CONTEXT_MENTION_PROVIDER, WORKFLOW_PROVIDER],
+            ...providers,
+        ].filter(provider => !options?.disableProviders.includes(provider.id))
     )
 }
 

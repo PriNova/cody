@@ -24,6 +24,7 @@ import {
     switchMapReplayOperation,
     telemetryEvents,
 } from '@sourcegraph/cody-shared'
+import { WORKFLOW_PROVIDER } from '@sourcegraph/cody-shared/src/mentions/api'
 import { LRUCache } from 'lru-cache'
 import { Observable, map } from 'observable-fns'
 import * as vscode from 'vscode'
@@ -36,6 +37,7 @@ import {
 } from '../../editor/utils/editor-context'
 import { repoNameResolver } from '../../repository/repo-name-resolver'
 import { ChatBuilder } from '../chat-view/ChatBuilder'
+import { getWorkflowForMention } from './getWorkflowForMention'
 
 /**
  * This state is used to keep track of telemetry events that have already fired
@@ -150,6 +152,10 @@ export async function getChatContextItemsForMention(
             }
 
             return files
+        }
+
+        case WORKFLOW_PROVIDER.id: {
+            return getWorkflowForMention(mentionQuery.text)
         }
 
         default: {

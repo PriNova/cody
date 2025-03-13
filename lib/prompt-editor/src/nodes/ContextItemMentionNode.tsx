@@ -9,6 +9,7 @@ import {
     contextItemMentionNodeDisplayText,
     serializeContextItem,
 } from '@sourcegraph/cody-shared'
+import { WORKFLOW_PROVIDER } from '@sourcegraph/cody-shared/src/mentions/api'
 import {
     $applyNodeReplacement,
     type DOMConversionMap,
@@ -157,11 +158,13 @@ function iconForContextItem(contextItem: SerializedContextItem): React.Component
             ? FILE_CONTEXT_MENTION_PROVIDER.id
             : contextItem.type === 'symbol'
               ? SYMBOL_CONTEXT_MENTION_PROVIDER.id
-              : contextItem.type === 'repository' || contextItem.type === 'tree'
-                ? REMOTE_REPOSITORY_PROVIDER_URI
-                : contextItem.type === 'openctx'
-                  ? contextItem.providerUri
-                  : 'unknown'
+              : contextItem.type === 'workflows' // Our new type
+                ? WORKFLOW_PROVIDER.id
+                : contextItem.type === 'repository' || contextItem.type === 'tree'
+                  ? REMOTE_REPOSITORY_PROVIDER_URI
+                  : contextItem.type === 'openctx'
+                    ? contextItem.providerUri
+                    : 'unknown'
     return iconForProvider[providerUri] ?? AtSignIcon
 }
 

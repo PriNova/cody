@@ -143,10 +143,11 @@ export const Transcript: FC<TranscriptProps> = props => {
                 // Calculate context file tokens
                 const contextTokens = await Promise.all(
                     messages.flatMap(msg =>
-                        (msg.contextFiles || []).map(item => counter.encode(item.content || '').length)
+                        (msg.contextFiles || [])
+                            .filter(item => !item.isTooLarge && !item.isIgnored)
+                            .map(item => counter.encode(item.content || '').length)
                     )
                 )
-
                 const total = [...messageTokens, ...contextTokens].reduce((a, b) => a + b, 0)
                 setTranscriptTokens(total)
             }, 300),
