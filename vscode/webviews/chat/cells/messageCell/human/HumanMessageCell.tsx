@@ -6,18 +6,12 @@ import {
     serializedPromptEditorStateFromChatMessage,
 } from '@sourcegraph/cody-shared'
 import type { PromptEditorRefAPI } from '@sourcegraph/prompt-editor'
+import clsx from 'clsx'
 import isEqual from 'lodash/isEqual'
-import { ColumnsIcon } from 'lucide-react'
 import { type FC, memo, useMemo, useRef, useState } from 'react'
 import type { UserAccountInfo } from '../../../../Chat'
 import { BaseMessageCell } from '../BaseMessageCell'
 import { HumanMessageEditor } from './editor/HumanMessageEditor'
-
-import clsx from 'clsx'
-import { Tooltip, TooltipContent, TooltipTrigger } from '../../../../components/shadcn/ui/tooltip'
-import { getVSCodeAPI } from '../../../../utils/VSCodeApi'
-import { useConfig } from '../../../../utils/useConfig'
-
 interface HumanMessageCellProps {
     message: ChatMessage
     models: Model[]
@@ -150,11 +144,6 @@ const HumanMessageCellContent = memo<HumanMessageCellContent>(props => {
 
     return (
         <BaseMessageCell
-            cellAction={
-                <div className="tw-flex tw-gap-2 tw-items-center tw-justify-end">
-                    {isFirstMessage && <OpenInNewEditorAction />}
-                </div>
-            }
             content={
                 <div
                     onDragEnter={handleDragEnter}
@@ -202,35 +191,3 @@ const HumanMessageCellContent = memo<HumanMessageCellContent>(props => {
         />
     )
 }, isEqual)
-
-const OpenInNewEditorAction = () => {
-    const {
-        config: { multipleWebviewsEnabled, webviewType },
-    } = useConfig()
-
-    if (!multipleWebviewsEnabled || webviewType !== 'sidebar') {
-        return null
-    }
-
-    return (
-        <Tooltip>
-            <TooltipTrigger asChild>
-                <button
-                    type="button"
-                    onClick={() => {
-                        getVSCodeAPI().postMessage({
-                            command: 'command',
-                            id: 'cody.chat.moveToEditor',
-                        })
-                    }}
-                    className="tw-flex tw-gap-3 tw-items-center tw-leading-none tw-transition"
-                    aria-label="Open in Editor"
-                    title="Open in Editor"
-                >
-                    <ColumnsIcon size={16} strokeWidth={1.25} className="tw-w-8 tw-h-8" />
-                </button>
-            </TooltipTrigger>
-            <TooltipContent>Open in Editor</TooltipContent>
-        </Tooltip>
-    )
-}

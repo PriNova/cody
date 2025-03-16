@@ -19,7 +19,6 @@ import isEqual from 'lodash/isEqual'
 import { type FunctionComponent, type RefObject, memo, useMemo } from 'react'
 import type { ApiPostMessage, UserAccountInfo } from '../../../../Chat'
 import { chatModelIconComponent } from '../../../../components/ChatModelIcon'
-import { CheckCodeBlockIcon } from '../../../../icons/CodeBlockActionIcons'
 import { useOmniBox } from '../../../../utils/useOmniBox'
 import {
     ChatMessageContent,
@@ -27,10 +26,8 @@ import {
 } from '../../../ChatMessageContent/ChatMessageContent'
 import { ErrorItem, RequestErrorItem } from '../../../ErrorItem'
 import { type Interaction, editHumanMessage } from '../../../Transcript'
-import { CopyIcon } from '../../../components/CopyIcon'
 import { LoadingDots } from '../../../components/LoadingDots'
 import { BaseMessageCell, MESSAGE_CELL_AVATAR_SIZE } from '../BaseMessageCell'
-import { ContextFocusActions } from './ContextFocusActions'
 import { SearchResults } from './SearchResults'
 import { SubMessageCell } from './SubMessageCell'
 
@@ -53,6 +50,9 @@ export const AssistantMessageCell: FunctionComponent<{
     smartApplyEnabled?: boolean
     smartApply?: CodeBlockActionsProps['smartApply']
 
+    isThoughtProcessOpened?: boolean
+    setThoughtProcessOpened?: (open: boolean) => void
+
     postMessage?: ApiPostMessage
     guardrails?: Guardrails
     onSelectedFiltersUpdate: (filters: NLSSearchDynamicFilter[]) => void
@@ -73,6 +73,8 @@ export const AssistantMessageCell: FunctionComponent<{
         smartApplyEnabled,
         onSelectedFiltersUpdate,
         isLastSentInteraction: isLastInteraction,
+        isThoughtProcessOpened,
+        setThoughtProcessOpened,
     }) => {
         const displayMarkdown = useMemo(
             () => (message.text ? reformatBotMessageForChat(message.text).toString() : ''),
@@ -121,13 +123,13 @@ export const AssistantMessageCell: FunctionComponent<{
                                 />
                             )
                         ) : null}
-                        {omniboxEnabled && !isLoading && message.search && (
+                        {omniboxEnabled && !isLoading && message.search ? (
                             <SearchResults
                                 message={message as ChatMessageWithSearch}
                                 onSelectedFiltersUpdate={onSelectedFiltersUpdate}
                                 enableContextSelection={isLastInteraction}
                             />
-                        )}
+                        ) : null}
                         {!isSearchIntent && displayMarkdown ? (
                             <ChatMessageContent
                                 displayMarkdown={displayMarkdown}
@@ -138,6 +140,8 @@ export const AssistantMessageCell: FunctionComponent<{
                                 humanMessage={humanMessage}
                                 smartApplyEnabled={smartApplyEnabled}
                                 smartApply={smartApply}
+                                isThoughtProcessOpened={!!isThoughtProcessOpened}
+                                setThoughtProcessOpened={setThoughtProcessOpened}
                             />
                         ) : (
                             isLoading &&
@@ -162,52 +166,13 @@ export const AssistantMessageCell: FunctionComponent<{
                     </>
                 }
                 footer={
-                    chatEnabled &&
-                    humanMessage && (
+                    isAborted ? (
                         <div className="tw-py-3 tw-flex tw-flex-col tw-gap-2">
-                            {isAborted && (
-                                <div className="tw-text-sm tw-text-muted-foreground tw-mt-4">
-                                    Output stream stopped
-                                </div>
-                            )}
-                            <div className="tw-flex tw-items-center tw-divide-x tw-transition tw-divide-muted tw-opacity-65 hover:tw-opacity-100">
-                                {!isLoading && (!message.error || isAborted) && !isSearchIntent && (
-                                    <div className="tw-flex tw-items-center">
-                                        <button
-                                            type="button"
-                                            className="tw-flex tw-items-center tw-gap-2 tw-text-sm tw-text-muted-foreground hover:tw-text-foreground"
-                                            onClick={event => {
-                                                const button = event.currentTarget
-                                                const originalContent = button.innerHTML
-
-                                                // Change to check icon when clicked
-                                                button.innerHTML = CheckCodeBlockIcon
-
-                                                // Copy text to clipboard
-                                                navigator.clipboard.writeText(
-                                                    message.text?.toString() || ''
-                                                )
-                                                copyButtonOnSubmit?.(message.text?.toString() || '')
-
-                                                // Reset after 5 seconds
-                                                setTimeout(() => {
-                                                    button.innerHTML = originalContent
-                                                }, 5000)
-                                            }}
-                                            title="Copy message to clipboard"
-                                        >
-                                            <CopyIcon />
-                                        </button>
-                                        <ContextFocusActions
-                                            humanMessage={humanMessage}
-                                            longResponseTime={hasLongerResponseTime}
-                                            className="tw-pl-5"
-                                        />
-                                    </div>
-                                )}
+                            <div className="tw-text-sm tw-text-muted-foreground tw-mt-4">
+                                Output stream stopped
                             </div>
                         </div>
-                    )
+                    ) : null
                 }
             />
         )

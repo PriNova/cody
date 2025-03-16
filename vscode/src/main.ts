@@ -61,7 +61,6 @@ import { CodyToolProvider } from './chat/agentic/CodyToolProvider'
 import { ChatsController, CodyChatEditorViewType } from './chat/chat-view/ChatsController'
 import { ContextRetriever } from './chat/chat-view/ContextRetriever'
 import { SourcegraphRemoteFileProvider } from './chat/chat-view/sourcegraphRemoteFile'
-import { initializeEditToolHistory } from './chat/chat-view/tools/edit-history'
 import {
     ACCOUNT_LIMITS_INFO_URL,
     ACCOUNT_UPGRADE_URL,
@@ -239,7 +238,7 @@ const register = async (
     disposables.push(manageDisplayPathEnvInfoForExtension())
 
     // Initialize singletons
-    await initializeSingletons(context, platform, disposables)
+    await initializeSingletons(platform, disposables)
 
     setOpenCtxControllerObservable(observeOpenCtxController(context, platform.createOpenCtxController))
 
@@ -335,7 +334,6 @@ const register = async (
 }
 
 async function initializeSingletons(
-    context: vscode.ExtensionContext,
     platform: PlatformContext,
     disposables: vscode.Disposable[]
 ): Promise<void> {
@@ -346,7 +344,6 @@ async function initializeSingletons(
     if (platform.otherInitialization) {
         disposables.push(platform.otherInitialization())
     }
-    initializeEditToolHistory(context)
 }
 
 // Registers listeners to trigger parsing of visible documents

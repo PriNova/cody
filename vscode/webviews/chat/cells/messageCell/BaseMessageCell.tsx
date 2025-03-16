@@ -17,7 +17,7 @@ export const BaseMessageCell: FunctionComponent<{
         header={
             <>
                 {speakerIcon} <span className="tw-mt-[-1px] tw-font-semibold">{speakerTitle}</span>
-                <div className="tw-ml-auto">{cellAction}</div>
+                {cellAction && <div className="tw-ml-auto">{cellAction}</div>}
             </>
         }
         containerClassName={className}
