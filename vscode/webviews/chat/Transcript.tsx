@@ -65,6 +65,9 @@ interface TranscriptProps {
     insertButtonOnSubmit?: CodeBlockActionsProps['insertButtonOnSubmit']
     smartApply?: CodeBlockActionsProps['smartApply']
     smartApplyEnabled?: boolean
+
+    manuallySelectedIntent: ChatMessage['intent']
+    setManuallySelectedIntent: (intent: ChatMessage['intent']) => void
     isGoogleSearchEnabled: boolean
     setIsGoogleSearchEnabled: (enabled: boolean) => void
 }
@@ -84,6 +87,8 @@ export const Transcript: FC<TranscriptProps> = props => {
         insertButtonOnSubmit,
         smartApply,
         smartApplyEnabled,
+        manuallySelectedIntent,
+        setManuallySelectedIntent,
         isGoogleSearchEnabled,
         setIsGoogleSearchEnabled,
     } = props
@@ -197,6 +202,8 @@ export const Transcript: FC<TranscriptProps> = props => {
                         smartApplyEnabled={smartApplyEnabled}
                         editorRef={i === interactions.length - 1 ? lastHumanEditorRef : undefined}
                         onAddToFollowupChat={onAddToFollowupChat}
+                        manuallySelectedIntent={manuallySelectedIntent}
+                        setManuallySelectedIntent={setManuallySelectedIntent}
                         transcriptTokens={transcriptTokens}
                         isGoogleSearchEnabled={isGoogleSearchEnabled}
                         setIsGoogleSearchEnabled={setIsGoogleSearchEnabled}
@@ -285,6 +292,8 @@ interface TranscriptInteractionProps
         filePath: string
         fileURL: string
     }) => void
+    manuallySelectedIntent: ChatMessage['intent']
+    setManuallySelectedIntent: (intent: ChatMessage['intent']) => void
     transcriptTokens?: number
     isGoogleSearchEnabled: boolean
     setIsGoogleSearchEnabled: (enabled: boolean) => void
@@ -307,14 +316,12 @@ const TranscriptInteraction: FC<TranscriptInteractionProps> = memo(props => {
         smartApply,
         smartApplyEnabled,
         editorRef: parentEditorRef,
+        manuallySelectedIntent,
+        setManuallySelectedIntent,
         transcriptTokens,
         isGoogleSearchEnabled,
         setIsGoogleSearchEnabled,
     } = props
-    // Start the intent value as the human message's intent, but allow it to be manually set.
-    const [manuallySelectedIntent, setManuallySelectedIntent] = useState<ChatMessage['intent']>(
-        humanMessage.intent
-    )
 
     const { activeChatContext, setActiveChatContext } = props
     const humanEditorRef = useRef<PromptEditorRefAPI | null>(null)
@@ -576,7 +583,12 @@ const TranscriptInteraction: FC<TranscriptInteractionProps> = memo(props => {
         [humanMessage]
     )
 
-    const toolContentParts = humanMessage?.content?.filter(c => c.type === 'function')
+    const toolContentParts = useMemo(() => {
+        if (humanMessage?.index === 0 || !humanMessage?.content) {
+            return undefined
+        }
+        return humanMessage?.content?.filter(c => c.type === 'function')
+    }, [humanMessage?.index, humanMessage?.content])
 
     return (
         <>
@@ -634,7 +646,8 @@ const TranscriptInteraction: FC<TranscriptInteractionProps> = memo(props => {
                 isContextLoading &&
                 assistantMessage?.isLoading && <ApprovalCell vscodeAPI={vscodeAPI} />}
 
-            {!usingToolCody &&
+            {!toolContentParts &&
+                !usingToolCody &&
                 !(humanMessage.agent && isContextLoading) &&
                 (humanMessage.contextFiles || assistantMessage || isContextLoading) &&
                 !isSearchIntent && (

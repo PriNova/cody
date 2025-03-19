@@ -42,6 +42,8 @@ const meta: Meta<typeof Transcript> = {
         chatEnabled: true,
         models: FIXTURE_MODELS,
         setActiveChatContext: () => {},
+        manuallySelectedIntent: null,
+        setManuallySelectedIntent: () => {},
         isGoogleSearchEnabled: false,
         setIsGoogleSearchEnabled: () => {},
     } satisfies ComponentProps<typeof Transcript>,

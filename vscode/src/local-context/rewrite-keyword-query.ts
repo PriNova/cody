@@ -8,6 +8,8 @@ import {
 } from '@sourcegraph/cody-shared'
 import { outputChannelLogger } from '../output-channel-logger'
 
+const LEGACY_API_VERSION = 1
+
 /**
  * Rewrite the query, using the fast completions model to pull out keywords.
  *
@@ -33,7 +35,7 @@ async function doRewrite(
     query: PromptString,
     signal?: AbortSignal
 ): Promise<string> {
-    const preamble = getSimplePreamble(undefined, 0, 'Default')
+    const preamble = getSimplePreamble(undefined, LEGACY_API_VERSION, 'Default')
     const stream = completionsClient.stream(
         {
             messages: [
@@ -55,7 +57,7 @@ async function doRewrite(
             topK: 1,
             fast: true,
         },
-        { apiVersion: 1 },
+        { apiVersion: LEGACY_API_VERSION }, // Use legacy API version for now
         signal
     )
 
@@ -88,7 +90,7 @@ export async function extractKeywords(
     query: PromptString,
     signal: AbortSignal
 ): Promise<string[]> {
-    const preamble = getSimplePreamble(undefined, 0, 'Default')
+    const preamble = getSimplePreamble(undefined, LEGACY_API_VERSION, 'Default')
     const stream = completionsClient.stream(
         {
             messages: [
@@ -103,7 +105,7 @@ export async function extractKeywords(
             topK: 1,
             fast: true,
         },
-        { apiVersion: 1 },
+        { apiVersion: LEGACY_API_VERSION }, // Use legacy API version for now
         signal
     )
 
