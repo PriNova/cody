@@ -19,6 +19,7 @@ import isEqual from 'lodash/isEqual'
 import { type FunctionComponent, type RefObject, memo, useMemo } from 'react'
 import type { ApiPostMessage, UserAccountInfo } from '../../../../Chat'
 import { chatModelIconComponent } from '../../../../components/ChatModelIcon'
+import { CheckCodeBlockIcon } from '../../../../icons/CodeBlockActionIcons'
 import { useOmniBox } from '../../../../utils/useOmniBox'
 import {
     ChatMessageContent,
@@ -26,6 +27,7 @@ import {
 } from '../../../ChatMessageContent/ChatMessageContent'
 import { ErrorItem, RequestErrorItem } from '../../../ErrorItem'
 import { type Interaction, editHumanMessage } from '../../../Transcript'
+import { CopyIcon } from '../../../components/CopyIcon'
 import { LoadingDots } from '../../../components/LoadingDots'
 import { BaseMessageCell, MESSAGE_CELL_AVATAR_SIZE } from '../BaseMessageCell'
 import { SearchResults } from './SearchResults'
@@ -166,13 +168,45 @@ export const AssistantMessageCell: FunctionComponent<{
                     </>
                 }
                 footer={
-                    isAborted ? (
-                        <div className="tw-py-3 tw-flex tw-flex-col tw-gap-2">
-                            <div className="tw-text-sm tw-text-muted-foreground tw-mt-4">
-                                Output stream stopped
+                    <div className="tw-py-3 tw-flex tw-flex-col tw-gap-2">
+                        {isAborted && (
+                            <div className="tw-py-3 tw-flex tw-flex-col tw-gap-2">
+                                <div className="tw-text-sm tw-text-muted-foreground tw-mt-4">
+                                    Output stream stopped
+                                </div>
                             </div>
+                        )}
+                        <div className="tw-flex tw-items-center tw-divide-x tw-transition tw-divide-muted tw-opacity-65 hover:tw-opacity-100">
+                            {!isLoading && (!message.error || isAborted) && !isSearchIntent && (
+                                <div className="tw-flex tw-items-center">
+                                    <button
+                                        type="button"
+                                        className="tw-flex tw-items-center tw-gap-2 tw-text-sm tw-text-muted-foreground hover:tw-text-foreground"
+                                        onClick={event => {
+                                            const button = event.currentTarget
+                                            const originalContent = button.innerHTML
+
+                                            // Change to check icon when clicked
+                                            button.innerHTML = CheckCodeBlockIcon
+
+                                            // Copy text to clipboard
+                                            navigator.clipboard.writeText(message.text?.toString() || '')
+                                            copyButtonOnSubmit?.(message.text?.toString() || '')
+
+                                            // Reset after 5 seconds
+                                            setTimeout(() => {
+                                                button.innerHTML = originalContent
+                                            }, 5000)
+                                        }}
+                                        title="Copy message to clipboard"
+                                    >
+                                        Copy message to clipboard
+                                        <CopyIcon />
+                                    </button>
+                                </div>
+                            )}
                         </div>
-                    ) : null
+                    </div>
                 }
             />
         )

@@ -34,11 +34,11 @@ export function ruleAppliesToFile(
 
     const language_filters = rule.language_filters
     if (language_filters) {
-        // Use string matching instead of regex matching so 'C' does not match 'C++', 'CSS', 'CSharp', etc.
-        // Use case-insensitive matching so 'Go' matches 'go'
-        const anyMatch = file.languages.some(language =>
-            stringMatch(language_filters, language, { caseInsensitive: true })
-        )
+        // Add more detailed logging here
+        const anyMatch = file.languages.some(language => {
+            const matches = stringMatch(language_filters, language, { caseInsensitive: true })
+            return matches
+        })
         if (!anyMatch) {
             return false
         }
@@ -53,7 +53,6 @@ export function ruleAppliesToFile(
     // All filters matched, so the file applies to the rule
     return true
 }
-
 function regExpMatch(filters: PatternFilters, value: string): boolean {
     if (filters.include && !filters.include.some(pattern => new RegExp(pattern).test(value))) {
         return false

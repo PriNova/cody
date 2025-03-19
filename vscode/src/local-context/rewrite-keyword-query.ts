@@ -49,14 +49,13 @@ async function doRewrite(
  ONLY return the keyword search. Question: <userQuery>${query}</userQuery>
 `,
                 },
-                { speaker: 'assistant' },
             ],
             maxTokensToSample: 400,
             temperature: 0,
             topK: 1,
             fast: true,
         },
-        { apiVersion: 0 }, // Use legacy API version for now
+        { apiVersion: 1 },
         signal
     )
 
@@ -98,14 +97,13 @@ export async function extractKeywords(
                     speaker: 'human',
                     text: ps`You are helping the user search over a codebase. List terms that could be found literally in code snippets or file names relevant to answering the user's query. Limit your results to terms that are in the user's query. Present your results in a *single* XML list in the following format: <keywords><keyword>a single keyword</keyword></keywords>. Here is the user query: <userQuery>${query}</userQuery>`,
                 },
-                { speaker: 'assistant' },
             ],
             maxTokensToSample: 400,
             temperature: 0,
             topK: 1,
             fast: true,
         },
-        { apiVersion: 0 }, // Use legacy API version for now
+        { apiVersion: 1 },
         signal
     )
 

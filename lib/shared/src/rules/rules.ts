@@ -127,13 +127,23 @@ export function isRuleFilename(file: string | URI): boolean {
 }
 
 /**
- * Return the search path (`.sourcegraph/rules` dir) for a given URI, without ascending the
- * directory tree. Only searches the specific provided path.
+ * Return all search paths (possible `.sourcegraph/` dirs) for a given URI, stopping ascending the
+ * directory tree at {@link root}.
  */
 export function ruleSearchPaths(uri: URI, root: URI): URI[] {
     const pathFuncs = pathFunctionsForURI(uri)
-    // Use the current URI path directly rather than its parent directory
-    return [uri.with({ path: pathFuncs.resolve(uri.path, '.sourcegraph/rules') })]
+    const searchPaths: URI[] = []
+    let current = uri
+    while (true) {
+        if (pathFuncs.relative(current.path, root.path) === '') {
+            break
+        }
+        current = current.with({ path: pathFuncs.dirname(current.path) })
+        searchPaths.push(current.with({ path: pathFuncs.resolve(current.path) }))
+    }
+    const rulePath = pathFuncs.resolve(root.path, '.sourcegraph/rules')
+    searchPaths.push(current.with({ path: rulePath }))
+    return searchPaths
 }
 
 export function formatRuleForPrompt(rule: Rule): PromptString {
