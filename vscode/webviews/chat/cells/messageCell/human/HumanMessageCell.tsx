@@ -38,9 +38,14 @@ interface HumanMessageCellProps {
     transcriptTokens?: number
     isGoogleSearchEnabled: boolean
     setIsGoogleSearchEnabled: (enabled: boolean) => void
+    onTokenCountChange?: (count: number) => void
 }
 
-export const HumanMessageCell: FC<HumanMessageCellProps> = ({ message, ...otherProps }) => {
+export const HumanMessageCell: FC<HumanMessageCellProps> = ({
+    message,
+    onTokenCountChange,
+    ...otherProps
+}) => {
     const messageJSON = JSON.stringify(message)
     const initialEditorState = useMemo(
         () => serializedPromptEditorStateFromChatMessage(JSON.parse(messageJSON)),
@@ -54,6 +59,7 @@ export const HumanMessageCell: FC<HumanMessageCellProps> = ({ message, ...otherP
             initialEditorState={initialEditorState}
             imageFile={imageFile}
             setImageFile={setImageFile}
+            onTokenCountChange={onTokenCountChange}
         />
     )
 }
@@ -64,6 +70,7 @@ type HumanMessageCellContent = {
     setImageFile: (file: File | undefined) => void
     isGoogleSearchEnabled: boolean
     setIsGoogleSearchEnabled: (enabled: boolean) => void
+    onTokenCountChange?: (count: number) => void
 } & Omit<HumanMessageCellProps, 'message'>
 
 const HumanMessageCellContent = memo<HumanMessageCellContent>(props => {
@@ -88,10 +95,10 @@ const HumanMessageCellContent = memo<HumanMessageCellContent>(props => {
         intent,
         manuallySelectIntent,
         imageFile,
-        transcriptTokens,
         isGoogleSearchEnabled,
         setIsGoogleSearchEnabled,
         setImageFile,
+        onTokenCountChange,
     } = props
     const [isDragging, setIsDragging] = useState(false)
     const dragCounter = useRef(0)
@@ -181,9 +188,9 @@ const HumanMessageCellContent = memo<HumanMessageCellContent>(props => {
                         manuallySelectIntent={manuallySelectIntent}
                         imageFile={imageFile}
                         setImageFile={setImageFile}
-                        transcriptTokens={transcriptTokens}
                         isGoogleSearchEnabled={isGoogleSearchEnabled}
                         setIsGoogleSearchEnabled={setIsGoogleSearchEnabled}
+                        onTokenCountChange={onTokenCountChange}
                     />
                 </div>
             }

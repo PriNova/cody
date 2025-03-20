@@ -82,11 +82,11 @@ export const HumanMessageEditor: FunctionComponent<{
 
     intent?: ChatMessage['intent']
     manuallySelectIntent: (intent: ChatMessage['intent']) => void
-    transcriptTokens?: number
     imageFile?: File
     setImageFile: (file: File | undefined) => void
     isGoogleSearchEnabled: boolean
     setIsGoogleSearchEnabled: (enabled: boolean) => void
+    onTokenCountChange?: (count: number) => void
 }> = ({
     models,
     userInfo,
@@ -107,11 +107,11 @@ export const HumanMessageEditor: FunctionComponent<{
     onEditorFocusChange: parentOnEditorFocusChange,
     intent,
     manuallySelectIntent,
-    transcriptTokens,
     imageFile,
     setImageFile,
     isGoogleSearchEnabled,
     setIsGoogleSearchEnabled,
+    onTokenCountChange,
 }) => {
     const telemetryRecorder = useTelemetryRecorder()
 
@@ -124,61 +124,71 @@ export const HumanMessageEditor: FunctionComponent<{
             ? textContentFromSerializedLexicalNode(initialEditorState.lexicalEditorState.root) === ''
             : true
     )
+    // Keep the state variables
     const [tokenCount, setTokenCount] = useState<number>(0)
     const [tokenAdded, setTokenAdded] = useState<number>(0)
 
+    // Create a single function to update token counts and notify parent
+    const updateTokenCounts = useCallback(
+        (textTokens: number, contextTokens: number) => {
+            setTokenCount(textTokens)
+            setTokenAdded(contextTokens)
+            onTokenCountChange?.(textTokens + contextTokens)
+        },
+        [onTokenCountChange]
+    )
+
+    // Simplified token counter utility
+    const tokenCounter = useMemo(async () => await getTokenCounterUtils(), [])
+
+    // Create a single debounced function for text tokens
+    const debouncedCountText = useMemo(
+        () =>
+            debounce(async (text: string, contextTokens: number) => {
+                const counter = await tokenCounter
+                const count = counter.encode(text).length
+                updateTokenCounts(count, contextTokens)
+            }, 300),
+        [tokenCounter, updateTokenCounts]
+    )
+
+    // Single effect to handle context item token counting
     useEffect(() => {
         const editor = editorRef.current
         if (!editor) {
             return
         }
-        // Listen for changes to ContextItemMentionNode to update the token count.
-        // This updates the token count when a mention is added or removed.
-        const unregister = editor.registerMutationListener(ContextItemMentionNode, (node: any) => {
+
+        // Calculate context tokens and update state
+        const calculateContextTokens = () => {
             const value = editor.getSerializedValue()
             const items = value.contextItems
             if (!items?.length) {
-                setTokenAdded(0)
+                // Only update context tokens to 0, keep the existing text tokens
+                updateTokenCounts(tokenCount, 0)
                 return
             }
-            setTokenAdded(
-                items.reduce(
-                    (acc, item) =>
-                        acc + (!item.isTooLarge && !item.isIgnored && item.size ? item.size : 0),
-                    0
-                )
+
+            const contextTokens = items.reduce(
+                (acc, item) => acc + (!item.isTooLarge && !item.isIgnored && item.size ? item.size : 0),
+                0
             )
-        })
-        return unregister
-    }, [])
 
-    // Move token counter outside callback for stability
-    const tokenCounter = useMemo(async () => await getTokenCounterUtils(), [])
-
-    // Create stable debounced function outside main callback
-    const debouncedCount = useMemo(
-        () =>
-            debounce(async (text: string) => {
-                const counter = await tokenCounter
-                //const tokenCount = counter.encode(text).length
-                setTokenCount(counter.encode(text).length)
-            }, 300), // Reduced debounce time for better responsiveness
-        [tokenCounter]
-    )
-
-    // Replace the current onChange implementation with:
-    const onEditorChange = useCallback(
-        async (value: SerializedPromptEditorValue): Promise<void> => {
-            onChange?.(value)
-            setIsEmptyEditorValue(!value?.text?.trim())
-
-            // Get pure text without @-mentions
+            // Get text without context mentions
             const pureText = inputTextWithoutContextChipsFromPromptEditorState(value.editorState)
+            debouncedCountText(pureText, contextTokens)
+        }
 
-            await debouncedCount(pureText)
-        },
-        [onChange, debouncedCount]
-    )
+        // Initial calculation
+        calculateContextTokens()
+
+        // Set up listener for context item changes
+        const unregister = editor.registerMutationListener(ContextItemMentionNode, () => {
+            calculateContextTokens()
+        })
+
+        return unregister
+    }, [debouncedCountText, tokenCount, updateTokenCounts])
 
     const submitState: SubmitButtonState = isPendingPriorResponse
         ? 'waitingResponseComplete'
@@ -502,9 +512,6 @@ export const HumanMessageEditor: FunctionComponent<{
 
     const Editor = experimentalPromptEditorEnabled ? PromptEditorV2 : PromptEditor
 
-    const totalContextWindow =
-        (currentChatModel?.contextWindow?.context?.user || 0) +
-        (currentChatModel?.contextWindow?.input || 0)
     const onMediaUpload = useCallback(
         (media: ContextItemMedia) => {
             // Add the media context item as a mention chip in the editor.
@@ -515,6 +522,47 @@ export const HumanMessageEditor: FunctionComponent<{
         },
         [focused]
     )
+
+    // Simplified editor change handler
+    const onEditorChange = useCallback(
+        async (value: SerializedPromptEditorValue): Promise<void> => {
+            onChange?.(value)
+            setIsEmptyEditorValue(!value?.text?.trim())
+
+            // Get pure text without @-mentions
+            const pureText = inputTextWithoutContextChipsFromPromptEditorState(value.editorState)
+
+            // Calculate context tokens
+            const contextTokens = value.contextItems.reduce(
+                (acc, item) => acc + (!item.isTooLarge && !item.isIgnored && item.size ? item.size : 0),
+                0
+            )
+
+            // Update token counts
+            debouncedCountText(pureText, contextTokens)
+        },
+        [onChange, debouncedCountText]
+    )
+
+    // Calculate tokens on mount for initial editor state
+    useEffect(() => {
+        if (initialEditorState && onTokenCountChange) {
+            const calculateInitialTokens = async () => {
+                const counter = await tokenCounter
+                const text = inputTextWithoutContextChipsFromPromptEditorState(initialEditorState)
+                const textTokens = counter.encode(text).length
+
+                // For initial context tokens, we need to wait for the editor to be initialized
+                // and then get the context items from there
+                updateTokenCounts(textTokens, tokenAdded) // Initially set context tokens to 0
+
+                // The context tokens will be updated when the editor is initialized and
+                // the context items are added via the useEffect above
+            }
+
+            calculateInitialTokens()
+        }
+    }, [initialEditorState, tokenCounter, updateTokenCounts, onTokenCountChange, tokenAdded])
 
     return (
         // biome-ignore lint/a11y/useKeyWithClickEvents: only relevant to click areas
@@ -562,9 +610,6 @@ export const HumanMessageEditor: FunctionComponent<{
                     hidden={!focused && isSent}
                     className={styles.toolbar}
                     intent={intent}
-                    tokenCount={tokenCount + tokenAdded}
-                    contextWindow={totalContextWindow}
-                    transcriptTokens={transcriptTokens}
                     isLastInteraction={isLastInteraction}
                     imageFile={imageFile}
                     setImageFile={setImageFile}

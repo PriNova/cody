@@ -75,7 +75,7 @@ export const ScrollDown: FC<ScrollDownProps> = props => {
                 variant="outline"
                 size="sm"
                 onClick={onClick}
-                className="tw-rounded-full tw-py-3 tw-my-4 tw hover:tw-bg-primary-hover"
+                className="tw-rounded-full tw-py-3 tw-my-4 tw hover:tw-bg-primary-hover tw-fixed tw-right-4 tw-bottom-16 tw-bg-background tw-rounded-full tw-p-2 tw-shadow-md tw-z-10"
             >
                 <ArrowDownIcon size={16} /> Skip to end
             </Button>

@@ -19,7 +19,6 @@ import { useClientConfig } from '../../../../../../utils/useClientConfig'
 //import { MediaUploadButton } from './MediaUploadButton'
 import { ModeSelectorField } from './ModeSelectorButton'
 import { SubmitButton, type SubmitButtonState } from './SubmitButton'
-import { TokenDisplay } from './TokenDisplay'
 import { UploadImageButton } from './UploadImageButton'
 
 /**
@@ -44,9 +43,6 @@ export const Toolbar: FunctionComponent<{
 
     intent?: ChatMessage['intent']
     manuallySelectIntent: (intent: ChatMessage['intent']) => void
-    tokenCount?: number
-    contextWindow?: number
-    transcriptTokens?: number
     isLastInteraction?: boolean
     imageFile?: File
     setImageFile: (file: File | undefined) => void
@@ -69,9 +65,6 @@ export const Toolbar: FunctionComponent<{
     models,
     intent,
     manuallySelectIntent,
-    tokenCount,
-    contextWindow,
-    transcriptTokens,
     isLastInteraction,
     imageFile,
     setImageFile,
@@ -167,16 +160,6 @@ export const Toolbar: FunctionComponent<{
                     />
                 )} */}
                 <PromptSelectFieldToolbarItem focusEditor={focusEditor} className="tw-ml-1 tw-mr-1" />
-                {tokenCount !== undefined &&
-                    contextWindow &&
-                    transcriptTokens !== undefined &&
-                    isLastInteraction && (
-                        <TokenDisplay
-                            current={tokenCount}
-                            total={transcriptTokens}
-                            limit={contextWindow}
-                        />
-                    )}
             </div>
             <div className="tw-flex tw-items-center tw-gap-2">
                 {models[0]?.clientSideConfig?.options?.googleSearch && (

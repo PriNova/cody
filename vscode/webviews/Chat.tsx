@@ -6,6 +6,7 @@ import {
     type AuthenticatedAuthStatus,
     type ChatMessage,
     CodyIDE,
+    FAST_CHAT_INPUT_TOKEN_BUDGET,
     type Guardrails,
     type Model,
     type PromptString,
@@ -16,6 +17,7 @@ import { Transcript, focusLastHumanMessageEditor } from './chat/Transcript'
 import { WelcomeMessage } from './chat/components/WelcomeMessage'
 import { WelcomeNotice } from './chat/components/WelcomeNotice'
 import { ScrollDown } from './components/ScrollDown'
+import { TokenCounterFooter } from './components/TokenCounterFooter'
 import { useLocalStorage } from './components/hooks'
 import type { View } from './tabs'
 import type { VSCodeWrapper } from './utils/VSCodeApi'
@@ -212,47 +214,92 @@ export const Chat: React.FunctionComponent<React.PropsWithChildren<ChatboxProps>
 
     const [isGoogleSearchEnabled, setIsGoogleSearchEnabled] = useState(false)
 
+    const [tokenCounts, setTokenCounts] = useState<{ currentTokens: number; transcriptTokens: number }>({
+        currentTokens: 0,
+        transcriptTokens: 0,
+    })
+
+    // Get the context window size from the current model
+    const contextWindowSize = useMemo(() => {
+        const currentModel = models?.[0]
+        return (
+            (currentModel?.contextWindow?.context?.user || 0) +
+                (currentModel?.contextWindow?.input || 0) || FAST_CHAT_INPUT_TOKEN_BUDGET
+        )
+    }, [models])
+
+    const handleTokenCountsChange = useCallback(
+        (counts: { currentTokens: number; transcriptTokens: number }) => {
+            setTokenCounts(counts)
+        },
+        []
+    )
+
+    useEffect(() => {
+        if (transcript.length > 0) {
+            // This will indirectly trigger token calculation in Transcript component
+            // by causing it to re-render with the new transcript
+            const timer = setTimeout(() => {
+                // Force a re-render of the Transcript component
+                setTokenCounts(current => ({ ...current }))
+            }, 100)
+
+            return () => clearTimeout(timer)
+        }
+        return undefined
+    }, [transcript])
+
     return (
-        <>
+        <div className="tw-relative tw-flex tw-flex-col tw-h-full">
             {!chatEnabled && (
                 <div className={styles.chatDisabled}>
                     Cody chat is disabled by your Sourcegraph site administrator
                 </div>
             )}
-            <Transcript
-                activeChatContext={activeChatContext}
-                setActiveChatContext={setActiveChatContext}
-                transcript={transcript}
-                models={models}
-                messageInProgress={messageInProgress}
-                copyButtonOnSubmit={copyButtonOnSubmit}
-                insertButtonOnSubmit={insertButtonOnSubmit}
-                smartApply={smartApply}
-                userInfo={userInfo}
-                chatEnabled={chatEnabled}
-                postMessage={postMessage}
-                guardrails={guardrails}
-                smartApplyEnabled={smartApplyEnabled}
-                manuallySelectedIntent={lastManuallySelectedIntent}
-                setManuallySelectedIntent={setLastManuallySelectedIntent}
-                isGoogleSearchEnabled={isGoogleSearchEnabled}
-                setIsGoogleSearchEnabled={setIsGoogleSearchEnabled}
-            />
-            {transcript.length === 0 && showWelcomeMessage && (
-                <>
-                    <WelcomeMessage IDE={userInfo.IDE} setView={setView} />
-                    {isWorkspacesUpgradeCtaEnabled && userInfo.IDE !== CodyIDE.Web && (
-                        <div className="tw-absolute tw-bottom-0 tw-left-1/2 tw-transform tw--translate-x-1/2 tw-w-[95%] tw-z-1 tw-mb-4 tw-max-h-1/2">
-                            <WelcomeNotice />
-                        </div>
-                    )}
-                </>
-            )}
+            <div className="tw-flex-grow tw-overflow-auto">
+                <Transcript
+                    activeChatContext={activeChatContext}
+                    setActiveChatContext={setActiveChatContext}
+                    transcript={transcript}
+                    models={models}
+                    messageInProgress={messageInProgress}
+                    copyButtonOnSubmit={copyButtonOnSubmit}
+                    insertButtonOnSubmit={insertButtonOnSubmit}
+                    smartApply={smartApply}
+                    userInfo={userInfo}
+                    chatEnabled={chatEnabled}
+                    postMessage={postMessage}
+                    guardrails={guardrails}
+                    smartApplyEnabled={smartApplyEnabled}
+                    manuallySelectedIntent={lastManuallySelectedIntent}
+                    setManuallySelectedIntent={setLastManuallySelectedIntent}
+                    isGoogleSearchEnabled={isGoogleSearchEnabled}
+                    setIsGoogleSearchEnabled={setIsGoogleSearchEnabled}
+                    onTokenCountsChange={handleTokenCountsChange}
+                />
+                {transcript.length === 0 && showWelcomeMessage && (
+                    <>
+                        <WelcomeMessage IDE={userInfo.IDE} setView={setView} />
+                        {isWorkspacesUpgradeCtaEnabled && userInfo.IDE !== CodyIDE.Web && (
+                            <div className="tw-absolute tw-bottom-0 tw-left-1/2 tw-transform tw--translate-x-1/2 tw-w-[95%] tw-z-1 tw-mb-4 tw-max-h-1/2">
+                                <WelcomeNotice />
+                            </div>
+                        )}
+                    </>
+                )}
+                {scrollableParent && (
+                    <ScrollDown scrollableParent={scrollableParent} onClick={handleScrollDownClick} />
+                )}
+            </div>
 
-            {scrollableParent && (
-                <ScrollDown scrollableParent={scrollableParent} onClick={handleScrollDownClick} />
-            )}
-        </>
+            {/* Add the token counter footer */}
+            <TokenCounterFooter
+                key={`token-footer-${tokenCounts.currentTokens}-${tokenCounts.transcriptTokens}`}
+                currentTokens={tokenCounts.currentTokens}
+                transcriptTokens={tokenCounts.transcriptTokens}
+                contextWindow={contextWindowSize}
+            />
+        </div>
     )
 }
 

@@ -131,7 +131,12 @@ export const CodyPanel: FunctionComponent<CodyPanelProps> = ({
                     />
                 )}
                 {errorMessages && <ErrorBanner errors={errorMessages} setErrors={setErrorMessages} />}
-                <TabContainer value={view} ref={tabContainerRef} data-scrollable>
+                <TabContainer
+                    value={view}
+                    ref={tabContainerRef}
+                    data-scrollable
+                    className="tw-overflow-auto tw-relative"
+                >
                     {view === View.Chat && (
                         <>
                             <Chat

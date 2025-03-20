@@ -70,6 +70,7 @@ interface TranscriptProps {
     setManuallySelectedIntent: (intent: ChatMessage['intent']) => void
     isGoogleSearchEnabled: boolean
     setIsGoogleSearchEnabled: (enabled: boolean) => void
+    onTokenCountsChange?: (counts: { currentTokens: number; transcriptTokens: number }) => void
 }
 
 export const Transcript: FC<TranscriptProps> = props => {
@@ -91,6 +92,7 @@ export const Transcript: FC<TranscriptProps> = props => {
         setManuallySelectedIntent,
         isGoogleSearchEnabled,
         setIsGoogleSearchEnabled,
+        onTokenCountsChange,
     } = props
 
     const interactions = useMemo(
@@ -133,47 +135,104 @@ export const Transcript: FC<TranscriptProps> = props => {
         []
     )
 
-    const [transcriptTokens, setTranscriptTokens] = useState<number>()
+    const [currentInputTokens, setCurrentInputTokens] = useState<number>(0)
+    const [transcriptTokens, setTranscriptTokens] = useState<number>(0)
     const tokenCounter = useMemo(async () => await getTokenCounterUtils(), [])
 
+    // Add this near the beginning of the Transcript component, after the state declarations
+    const currentInputTokensRef = useRef<number>(currentInputTokens)
+
+    // Add this effect to keep the ref updated
+    useEffect(() => {
+        currentInputTokensRef.current = currentInputTokens
+    }, [currentInputTokens])
+
     // Create stable debounced calculation function
-    const debouncedCalculate = useMemo(
-        () =>
-            debounce(async (messages: ChatMessage[]) => {
-                const counter = await tokenCounter
+    const debouncedCalculate = useCallback(
+        debounce(async (messages: ChatMessage[]) => {
+            const counter = await tokenCounter
 
-                // Calculate history tokens from previous messages
-                const messageTokens = await Promise.all(
-                    messages.map(msg => counter.encode(msg.text?.toString() || '').length)
-                )
+            // Calculate history tokens from previous messages
+            const messageTokens = await Promise.all(
+                messages.map(msg => counter.encode(msg.text?.toString() || '').length)
+            )
 
-                // Calculate context file tokens
-                const contextTokens = await Promise.all(
-                    messages.flatMap(msg =>
-                        (msg.contextFiles || [])
-                            .filter(item => !item.isTooLarge && !item.isIgnored)
-                            .map(item => counter.encode(item.content || '').length)
-                    )
+            // Calculate context file tokens
+            const contextTokens = await Promise.all(
+                messages.flatMap(msg =>
+                    (msg.contextFiles || [])
+                        .filter(item => !item.isTooLarge && !item.isIgnored)
+                        .map(item => counter.encode(item.content || '').length)
                 )
-                const total = [...messageTokens, ...contextTokens].reduce((a, b) => a + b, 0)
-                setTranscriptTokens(total)
-            }, 300),
-        [tokenCounter]
+            )
+            const total = [...messageTokens, ...contextTokens].reduce((a, b) => a + b, 0)
+            setTranscriptTokens(total)
+
+            // Notify parent component of token counts using the ref for current value
+            onTokenCountsChange?.({
+                currentTokens: currentInputTokensRef.current,
+                transcriptTokens: total,
+            })
+        }, 300),
+        []
+    )
+
+    // Add a function to update current input tokens
+    const updateCurrentInputTokens = useCallback(
+        (tokens: number) => {
+            setCurrentInputTokens(tokens)
+            // Use the latest transcript tokens from state, not from closure
+            onTokenCountsChange?.({
+                currentTokens: tokens,
+                transcriptTokens,
+            })
+        },
+        [onTokenCountsChange, transcriptTokens]
     )
 
     // Replace the existing transcript token calculation in TranscriptInteraction
     useEffect(() => {
+        // Trigger calculation when transcript changes
         debouncedCalculate(transcript)
 
+        // Proper cleanup to cancel any pending debounced calls
         return () => {
             debouncedCalculate.cancel()
         }
     }, [transcript, debouncedCalculate])
 
+    useEffect(() => {
+        // Find the last human message with context files
+        const lastHumanWithContext = [...transcript]
+            .reverse()
+            .find(msg => msg.speaker === 'human' && msg.contextFiles?.length)
+
+        if (lastHumanWithContext?.contextFiles?.length) {
+            // Force an immediate token calculation for this message's context
+            const calculateInitialContextTokens = async () => {
+                const counter = await tokenCounter
+                const contextTokenCount = await Promise.all(
+                    lastHumanWithContext.contextFiles
+                        ?.filter(item => !item.isTooLarge && !item.isIgnored)
+                        .map(item => counter.encode(item.content || '').length) || []
+                )
+
+                const totalContextTokens = contextTokenCount.reduce((a, b) => a + b, 0)
+                // Update current input tokens if this is the last message
+                const messageIndex = transcript.findIndex(msg => msg === lastHumanWithContext)
+                if (messageIndex === transcript.length - 1) {
+                    updateCurrentInputTokens(totalContextTokens)
+                }
+            }
+            calculateInitialContextTokens()
+        }
+    }, [transcript, tokenCounter, updateCurrentInputTokens])
+
     return (
         <div
             className={clsx(' tw-px-8 tw-py-4 tw-flex tw-flex-col tw-gap-4', {
                 'tw-flex-grow': transcript.length > 0,
+                'tw-pb-16': true,
             })}
         >
             <LastEditorContext.Provider value={lastHumanEditorRef}>
@@ -204,7 +263,9 @@ export const Transcript: FC<TranscriptProps> = props => {
                         onAddToFollowupChat={onAddToFollowupChat}
                         manuallySelectedIntent={manuallySelectedIntent}
                         setManuallySelectedIntent={setManuallySelectedIntent}
-                        transcriptTokens={transcriptTokens}
+                        onCurrentTokensChange={
+                            i === interactions.length - 1 ? updateCurrentInputTokens : undefined
+                        }
                         isGoogleSearchEnabled={isGoogleSearchEnabled}
                         setIsGoogleSearchEnabled={setIsGoogleSearchEnabled}
                     />
@@ -213,7 +274,6 @@ export const Transcript: FC<TranscriptProps> = props => {
         </div>
     )
 }
-
 /** A human-assistant message-and-response pair. */
 export interface Interaction {
     /** The human message, either sent or not. */
@@ -294,9 +354,9 @@ interface TranscriptInteractionProps
     }) => void
     manuallySelectedIntent: ChatMessage['intent']
     setManuallySelectedIntent: (intent: ChatMessage['intent']) => void
-    transcriptTokens?: number
     isGoogleSearchEnabled: boolean
     setIsGoogleSearchEnabled: (enabled: boolean) => void
+    onCurrentTokensChange?: (tokens: number) => void
 }
 
 const TranscriptInteraction: FC<TranscriptInteractionProps> = memo(props => {
@@ -318,9 +378,9 @@ const TranscriptInteraction: FC<TranscriptInteractionProps> = memo(props => {
         editorRef: parentEditorRef,
         manuallySelectedIntent,
         setManuallySelectedIntent,
-        transcriptTokens,
         isGoogleSearchEnabled,
         setIsGoogleSearchEnabled,
+        onCurrentTokensChange,
     } = props
 
     const { activeChatContext, setActiveChatContext } = props
@@ -599,6 +659,13 @@ const TranscriptInteraction: FC<TranscriptInteractionProps> = memo(props => {
         return assistantMessage?.contextFiles?.filter(f => f.type === 'tool-state')
     }, [isAgenticMode, assistantMessage?.contextFiles, humanMessage?.index])
 
+    const handleTokenCountChange = useCallback(
+        (count: number) => {
+            onCurrentTokensChange?.(count)
+        },
+        [onCurrentTokensChange]
+    )
+
     return (
         <>
             {/* Shows tool contents instead of editor if any */}
@@ -621,9 +688,9 @@ const TranscriptInteraction: FC<TranscriptInteractionProps> = memo(props => {
                     className={!isFirstInteraction && isLastInteraction ? 'tw-mt-auto' : ''}
                     intent={manuallySelectedIntent}
                     manuallySelectIntent={setManuallySelectedIntent}
-                    transcriptTokens={transcriptTokens}
                     isGoogleSearchEnabled={isGoogleSearchEnabled}
                     setIsGoogleSearchEnabled={setIsGoogleSearchEnabled}
+                    onTokenCountChange={handleTokenCountChange}
                 />
             )}
             {!isAgenticMode && omniboxEnabled && assistantMessage?.didYouMeanQuery && (
