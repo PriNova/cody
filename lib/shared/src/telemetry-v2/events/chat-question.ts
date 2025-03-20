@@ -212,6 +212,7 @@ function publicContextSummary(globalPrefix: string, context: ContextItem[]) {
         'current-repository': cloneDeep(defaultByTypeCount),
         'current-directory': cloneDeep(defaultByTypeCount),
         'current-open-tabs': cloneDeep(defaultByTypeCount),
+        'tool-state': cloneDeep(defaultByTypeCount),
         workflows: cloneDeep(defaultByTypeCount),
     }
     const byOpenctxProvider = {
@@ -360,6 +361,7 @@ const defaultBySourceCount: BySourceCount = {
         'current-directory': undefined,
         'current-open-tabs': undefined,
         media: undefined,
+        'tool-state': undefined,
         workflows: undefined,
     },
 }

@@ -15,6 +15,7 @@ import type {
     ContextItemRepository,
     ContextItemSource,
     ContextItemSymbol,
+    ContextItemToolState,
     ContextItemTree,
     ContextItemWorkflows,
 } from '../codebase-context/messages'
@@ -52,6 +53,7 @@ export type SerializedContextItem = {
     | Omit<ContextItemCurrentDirectory, 'uri' | 'content' | 'source'>
     | Omit<ContextItemCurrentOpenTabs, 'uri' | 'content' | 'source'>
     | Omit<ContextItemMedia, 'uri' | 'content' | 'source'>
+    | Omit<ContextItemToolState, 'uri' | 'content' | 'source'>
     | Omit<ContextItemWorkflows, 'uri' | 'content' | 'source'>
 )
 
