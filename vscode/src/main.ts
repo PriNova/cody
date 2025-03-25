@@ -10,10 +10,10 @@ import {
     DOTCOM_URL,
     type DefaultCodyCommands,
     FeatureFlag,
-    type Guardrails,
     NEVER,
     PromptString,
     type ResolvedConfiguration,
+    type SourcegraphGuardrailsClient,
     authStatus,
     catchError,
     clientCapabilities,
@@ -93,6 +93,7 @@ import { manageDisplayPathEnvInfoForExtension } from './editor/displayPathEnvInf
 import { VSCodeEditor } from './editor/vscode-editor'
 import type { PlatformContext } from './extension.common'
 import { configureExternalServices } from './external-services'
+import { isRunningInsideAgent } from './jsonrpc/isRunningInsideAgent'
 import { FixupController } from './non-stop/FixupController'
 import { CodyProExpirationNotifications } from './notifications/cody-pro-expiration'
 import { showSetupNotification } from './notifications/setup-notification'
@@ -483,7 +484,7 @@ async function registerCodyCommands({
     disposables.push(
         subscriptionDisposable(
             featureFlagProvider
-                .evaluatedFeatureFlag(FeatureFlag.CodyUnifiedPrompts)
+                .evaluateFeatureFlag(FeatureFlag.CodyUnifiedPrompts)
                 .pipe(
                     createDisposables(codyUnifiedPromptsFlag => {
                         // Commands that are available only if unified prompts feature is enabled.
@@ -722,16 +723,24 @@ function registerAutoEdits({
     disposables: vscode.Disposable[]
     context: vscode.ExtensionContext
 }): void {
+    const { autoedit } = clientCapabilities()
+    const autoeditDisabledForClient =
+        isRunningInsideAgent() && (autoedit === undefined || autoedit === 'none')
+    if (autoeditDisabledForClient) {
+        // Do not attempt to register autoedits for clients that have not opted in to use autoedit.
+        return
+    }
+
     disposables.push(
         autoeditDebugStore,
         subscriptionDisposable(
             combineLatest(
                 resolvedConfig,
                 authStatus,
-                featureFlagProvider.evaluatedFeatureFlag(
+                featureFlagProvider.evaluateFeatureFlag(
                     FeatureFlag.CodyAutoEditExperimentEnabledFeatureFlag
                 ),
-                featureFlagProvider.evaluatedFeatureFlag(FeatureFlag.CodyAutoEditInlineRendering)
+                featureFlagProvider.evaluateFeatureFlag(FeatureFlag.CodyAutoEditInlineRendering)
             )
                 .pipe(
                     distinctUntilChanged((a, b) => {
@@ -778,6 +787,16 @@ function registerAutocomplete(
     statusBar: CodyStatusBar,
     disposables: vscode.Disposable[]
 ): void {
+    const autoeditEnabledForClient =
+        isRunningInsideAgent() && clientCapabilities().autoedit === 'enabled'
+    if (autoeditEnabledForClient) {
+        // autoedit is a replacement for autocomplete for clients.
+        // We should not register both if the client has opted in for auto-edit.
+        // TODO: Eventually these should be consolidated so clients to not need to decide between
+        // autocomplete and autoedit.
+        return
+    }
+
     //@ts-ignore
     let statusBarLoader: undefined | (() => void) = statusBar.addLoader({
         title: 'Completion Provider is starting',
@@ -832,7 +851,7 @@ interface RegisterChatOptions {
     context: vscode.ExtensionContext
     platform: PlatformContext
     chatClient: ChatClient
-    guardrails: Guardrails
+    guardrails: SourcegraphGuardrailsClient
     editor: VSCodeEditor
     contextRetriever: ContextRetriever
 }

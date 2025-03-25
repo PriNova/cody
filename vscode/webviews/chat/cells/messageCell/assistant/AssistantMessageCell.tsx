@@ -49,14 +49,13 @@ export const AssistantMessageCell: FunctionComponent<{
     copyButtonOnSubmit?: CodeBlockActionsProps['copyButtonOnSubmit']
     insertButtonOnSubmit?: CodeBlockActionsProps['insertButtonOnSubmit']
 
-    smartApplyEnabled?: boolean
     smartApply?: CodeBlockActionsProps['smartApply']
 
     isThoughtProcessOpened?: boolean
     setThoughtProcessOpened?: (open: boolean) => void
 
     postMessage?: ApiPostMessage
-    guardrails?: Guardrails
+    guardrails: Guardrails
     onSelectedFiltersUpdate: (filters: NLSSearchDynamicFilter[]) => void
     isLastSentInteraction: boolean
 }> = memo(
@@ -72,7 +71,6 @@ export const AssistantMessageCell: FunctionComponent<{
         postMessage,
         guardrails,
         smartApply,
-        smartApplyEnabled,
         onSelectedFiltersUpdate,
         isLastSentInteraction: isLastInteraction,
         isThoughtProcessOpened,
@@ -140,7 +138,6 @@ export const AssistantMessageCell: FunctionComponent<{
                                 insertButtonOnSubmit={insertButtonOnSubmit}
                                 guardrails={guardrails}
                                 humanMessage={humanMessage}
-                                smartApplyEnabled={smartApplyEnabled}
                                 smartApply={smartApply}
                                 isThoughtProcessOpened={!!isThoughtProcessOpened}
                                 setThoughtProcessOpened={setThoughtProcessOpened}
@@ -162,8 +159,12 @@ export const AssistantMessageCell: FunctionComponent<{
                         {message.subMessages?.length &&
                             message.subMessages.length > 0 &&
                             message.subMessages.map((piece, i) => (
-                                // biome-ignore lint/suspicious/noArrayIndexKey:
-                                <SubMessageCell key={`piece-${i}`} piece={piece} />
+                                <SubMessageCell
+                                    // biome-ignore lint/suspicious/noArrayIndexKey:
+                                    key={`piece-${i}`}
+                                    piece={piece}
+                                    guardrails={guardrails}
+                                />
                             ))}
                     </>
                 }
@@ -187,7 +188,7 @@ export const AssistantMessageCell: FunctionComponent<{
                                             const originalContent = button.innerHTML
 
                                             // Change to check icon when clicked
-                                            button.innerHTML = CheckCodeBlockIcon
+                                            button.innerHTML = JSON.stringify(CheckCodeBlockIcon)
 
                                             // Copy text to clipboard
                                             navigator.clipboard.writeText(message.text?.toString() || '')
