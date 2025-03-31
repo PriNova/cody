@@ -28,7 +28,6 @@ import {
 import { ErrorItem, RequestErrorItem } from '../../../ErrorItem'
 import { type Interaction, editHumanMessage } from '../../../Transcript'
 import { CopyIcon } from '../../../components/CopyIcon'
-import { LoadingDots } from '../../../components/LoadingDots'
 import { BaseMessageCell, MESSAGE_CELL_AVATAR_SIZE } from '../BaseMessageCell'
 import { SearchResults } from './SearchResults'
 import { SubMessageCell } from './SubMessageCell'
@@ -152,7 +151,6 @@ export const AssistantMessageCell: FunctionComponent<{
                                             to "think". Recommended for complex reasoning & coding tasks.
                                         </p>
                                     )}
-                                    <LoadingDots />
                                 </div>
                             )
                         )}

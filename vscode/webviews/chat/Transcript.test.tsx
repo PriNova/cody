@@ -390,7 +390,9 @@ function expectCells(expectedCells: CellMatcher[], containerElement?: HTMLElemen
                     cell
                 expect(textElement.innerText.trim()).toBe(expectedCell.message)
             } else if ('loading' in expectedCell.message) {
-                expect(cell.querySelector('[role="status"]')).toHaveAttribute('aria-busy')
+                const statusElement = cell.querySelector('[role="status"]')
+                // This has been moved to the Transcript level.
+                expect(statusElement).toBeNull()
             }
             if (expectedCell.canSubmit !== undefined) {
                 const submitButton = cell.querySelector('button[type="submit"]')
@@ -410,7 +412,9 @@ function expectCells(expectedCells: CellMatcher[], containerElement?: HTMLElemen
                         : `${expectedCell.context.files} items`
                 )
             } else if (expectedCell.context.loading) {
-                expect(cell.querySelector('[role="status"]')).toHaveAttribute('aria-busy')
+                const statusElement = cell.querySelector('[role="status"]')
+                // This has been moved to the Transcript level.
+                expect(statusElement).toBeNull()
             }
         } else {
             throw new Error('unknown cell')
@@ -422,7 +426,13 @@ describe('transcriptToInteractionPairs', () => {
     test('empty transcript', () => {
         expect(transcriptToInteractionPairs([], null, null)).toEqual<Interaction[]>([
             {
-                humanMessage: { index: 0, speaker: 'human', isUnsentFollowup: true, intent: null },
+                humanMessage: {
+                    index: 0,
+                    speaker: 'human',
+                    isUnsentFollowup: true,
+                    intent: undefined,
+                    manuallySelectedIntent: null,
+                },
                 assistantMessage: null,
             },
         ])
@@ -472,7 +482,13 @@ describe('transcriptToInteractionPairs', () => {
                 },
             },
             {
-                humanMessage: { index: 4, speaker: 'human', isUnsentFollowup: true, intent: null },
+                humanMessage: {
+                    index: 4,
+                    speaker: 'human',
+                    isUnsentFollowup: true,
+                    intent: null,
+                    manuallySelectedIntent: null,
+                },
                 assistantMessage: null,
             },
         ])
@@ -505,7 +521,13 @@ describe('transcriptToInteractionPairs', () => {
                 },
             },
             {
-                humanMessage: { index: 2, speaker: 'human', isUnsentFollowup: true, intent: null },
+                humanMessage: {
+                    index: 2,
+                    speaker: 'human',
+                    isUnsentFollowup: true,
+                    intent: null,
+                    manuallySelectedIntent: null,
+                },
                 assistantMessage: null,
             },
         ])

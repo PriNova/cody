@@ -86,11 +86,8 @@ class GuardrailsCache {
         if (cachedResult) {
             return cachedResult
         }
-        if (!cache?.attributionRequests.has(code)) {
-            // Kick off a request so we are not lying that there is a request
-            // in flight.
-            this.searchAttribution(guardrails, code).then(updateStatus)
-        }
+        // Kick off a request, or join a request in flight.
+        this.searchAttribution(guardrails, code).then(updateStatus)
         return {
             status: GuardrailsCheckStatus.Checking,
         }
@@ -215,6 +212,8 @@ export const GuardrailsApplicator: React.FC<GuardrailsApplicatorProps> = ({
                     .join(', ')}…`
             case GuardrailsCheckStatus.Error:
                 return `Guardrails API error: ${guardrailsResult.error?.message || 'Unknown error'}`
+            case GuardrailsCheckStatus.Skipped:
+                return 'Guardrails check skipped'
             default:
                 return 'Guardrails status unknown'
         }
@@ -232,14 +231,18 @@ export const GuardrailsApplicator: React.FC<GuardrailsApplicatorProps> = ({
     }
 
     const statusDisplay = (
-        <>
-            <GuardrailsStatus status={guardrailsResult.status} filename={fileName} tooltip={tooltip} />
+        <GuardrailsStatus
+            status={guardrailsResult.status}
+            filename={fileName}
+            tooltip={tooltip}
+            className={styles.metadataContainer}
+        >
             {guardrailsResult.status === GuardrailsCheckStatus.Error && (
                 <button
                     className={styles.button}
                     type="button"
                     onClick={handleRetry}
-                    title="Retry guardrails check"
+                    title="Retry Guardrails check"
                 >
                     <div className={styles.iconContainer}>
                         <RefreshCwIcon size={14} />
@@ -247,7 +250,7 @@ export const GuardrailsApplicator: React.FC<GuardrailsApplicatorProps> = ({
                     <span className="tw-hidden xs:tw-block">Retry</span>
                 </button>
             )}
-        </>
+        </GuardrailsStatus>
     )
 
     // Render function that provides check status and UI state to children
