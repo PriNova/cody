@@ -4,11 +4,12 @@ import {
     type ChatMessage,
     type ContextItemMedia,
     type Model,
+    ModelTag,
     //ModelTag,
     isMacOS,
 } from '@sourcegraph/cody-shared'
 import clsx from 'clsx'
-import { type FunctionComponent, useCallback, useEffect, useRef } from 'react'
+import { type FunctionComponent, useCallback, useEffect, useMemo, useRef } from 'react'
 import type { UserAccountInfo } from '../../../../../../Chat'
 import { ModelSelectField } from '../../../../../../components/modelSelectField/ModelSelectField'
 import { PromptSelectField } from '../../../../../../components/promptSelectField/PromptSelectField'
@@ -230,6 +231,17 @@ const ModelSelectFieldToolbarItem: FunctionComponent<{
 }> = ({ userInfo, focusEditor, className, models, extensionAPI, modelSelectorRef, intent }) => {
     const clientConfig = useClientConfig()
     const serverSentModelsEnabled = !!clientConfig?.modelsAPIEnabled
+
+    const agenticModel = useMemo(() => models.find(m => m.tags.includes(ModelTag.Default)), [models])
+
+    // If in agentic mode, ensure the agentic model is selected
+    useEffect(() => {
+        if (intent === 'agentic' && agenticModel && models[0]?.id !== agenticModel.id) {
+            extensionAPI.setChatModel(agenticModel.id).subscribe({
+                error: error => console.error('Failed to set chat model:', error),
+            })
+        }
+    }, [intent, agenticModel, models, extensionAPI.setChatModel])
 
     const onModelSelect = useCallback(
         (model: Model) => {
