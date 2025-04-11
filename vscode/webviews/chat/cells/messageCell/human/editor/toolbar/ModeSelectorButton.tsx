@@ -45,7 +45,14 @@ export const ModeSelectorField: React.FunctionComponent<{
     _intent: ChatMessage['intent']
     className?: string
     manuallySelectIntent: (intent?: ChatMessage['intent']) => void
-}> = ({ isDotComUser, className, _intent = 'chat', omniBoxEnabled, manuallySelectIntent }) => {
+}> = ({
+    isDotComUser,
+    isCodyProUser,
+    className,
+    _intent = 'chat',
+    omniBoxEnabled,
+    manuallySelectIntent,
+}) => {
     const {
         clientCapabilities: { edit },
         config,
@@ -69,7 +76,9 @@ export const ModeSelectorField: React.FunctionComponent<{
                 icon: Search,
                 intent: 'search',
                 hidden: !omniBoxEnabled,
-                disabled: isDotComUser,
+                // Bug fix: Search intent should only be available for non-Pro and non-Free users
+                // Previously it was incorrectly allowing Free users to access search
+                disabled: isDotComUser || isCodyProUser,
                 value: IntentEnum.Search,
             },
             {
@@ -101,7 +110,7 @@ export const ModeSelectorField: React.FunctionComponent<{
                 value: IntentEnum.Insert,
             },
         ].filter(option => !option.hidden) as IntentOption[]
-    }, [edit, config?.experimentalAgenticChatEnabled, isDotComUser, omniBoxEnabled])
+    }, [edit, config?.experimentalAgenticChatEnabled, isDotComUser, isCodyProUser, omniBoxEnabled])
 
     // Get available (non-disabled) options
     const availableOptions = useMemo(

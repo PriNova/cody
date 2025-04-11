@@ -191,7 +191,7 @@ export const ModelSelectField: React.FunctionComponent<{
                             <div className="tw-flex tw-items-start tw-gap-2 tw-bg-muted tw-px-2 tw-py-0.5 tw-rounded">
                                 <AlertTriangleIcon className="tw-w-[16px] tw-h-[16px] tw-mt-[2px]" />
                                 <span className="tw-leading-4 tw-font-semibold">
-                                    Only Claude 3.7 Sonnet is currently available in Agent Mode
+                                    Only Gemini BYOK models are currently available in Agent Mode
                                 </span>
                             </div>
                         </div>
@@ -313,8 +313,13 @@ function modelAvailability(
         return 'needs-cody-pro'
     }
     // For agentic mode, only allow models with the AgenticCompatible tag (Claude 3.7 Sonnet)
-    if (intent === 'agentic' && !model.tags.includes(ModelTag.Default)) {
-        return 'not-selectable-on-enterprise'
+    if (intent === 'agentic') {
+        const isBYOKWithRPM =
+            model.tags.includes(ModelTag.BYOK) && model.clientSideConfig?.options?.RPM !== undefined
+
+        if (!model.tags.includes(ModelTag.Default) && !isBYOKWithRPM) {
+            return 'not-selectable-on-enterprise'
+        }
     }
     return 'available'
 }
@@ -452,7 +457,12 @@ const ModelUIGroup: Record<string, string> = {
 }
 
 const getModelDropDownUIGroup = (model: Model): string => {
-    if ([DeepCodyAgentID, ToolCodyModelName].some(id => model.id.includes(id)))
+    if (
+        [DeepCodyAgentID, ToolCodyModelName].some(id => model.id.includes(id)) ||
+        (model.tags.includes(ModelTag.BYOK) &&
+            model.clientSideConfig?.options &&
+            'RPM' in model.clientSideConfig.options)
+    )
         return ModelUIGroup.Agents
     if (model.tags.includes(ModelTag.Power)) return ModelUIGroup.Power
     if (model.tags.includes(ModelTag.Balanced)) return ModelUIGroup.Balanced
@@ -466,6 +476,7 @@ const optionByGroup = (
     options: SelectListOption[]
 ): { group: string; options: SelectListOption[] }[] => {
     const groupOrder = [
+        ModelUIGroup.Agents,
         ModelUIGroup.Power,
         ModelUIGroup.Balanced,
         ModelUIGroup.Speed,

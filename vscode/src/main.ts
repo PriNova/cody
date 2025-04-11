@@ -1,6 +1,6 @@
 import _ from 'lodash'
 import { isEqual } from 'lodash'
-import { filter, map } from 'observable-fns'
+import { Observable, filter, map } from 'observable-fns'
 import * as vscode from 'vscode'
 
 import {
@@ -329,8 +329,7 @@ const register = async (
     let mcpManager: MCPManager | undefined
     disposables.push(
         subscriptionDisposable(
-            featureFlagProvider
-                .evaluateFeatureFlag(FeatureFlag.NextAgenticChatInternal)
+            Observable.of(true)
                 .pipe(distinctUntilChanged())
                 .subscribe(async isEnabled => {
                     if (isEnabled) {

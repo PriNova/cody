@@ -1,10 +1,8 @@
 import {
-    FeatureFlag,
     type MessagePart,
     UIToolStatus,
     combineLatest,
     distinctUntilChanged,
-    featureFlagProvider,
     logDebug,
     startWith,
 } from '@sourcegraph/cody-shared'
@@ -13,7 +11,7 @@ import {
     type ContextItemToolState,
 } from '@sourcegraph/cody-shared/src/codebase-context/messages'
 import type { McpServer } from '@sourcegraph/cody-shared/src/llm-providers/mcp/types'
-import { type Observable, Subject, map } from 'observable-fns'
+import { Observable, Subject, map } from 'observable-fns'
 import * as vscode from 'vscode'
 import { URI } from 'vscode-uri'
 import { z } from 'zod'
@@ -113,7 +111,7 @@ export class MCPManager {
     private static changeNotifications = new Subject<void>()
     private static toolsChangeNotifications = new Subject<void>()
     public static observable: Observable<McpServer[]> = combineLatest(
-        featureFlagProvider.evaluateFeatureFlag(FeatureFlag.NextAgenticChatInternal),
+        Observable.of(true),
         this.changeNotifications.pipe(startWith(undefined)),
         this.toolsChangeNotifications.pipe(startWith(undefined))
     ).pipe(

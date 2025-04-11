@@ -232,16 +232,25 @@ const ModelSelectFieldToolbarItem: FunctionComponent<{
     const clientConfig = useClientConfig()
     const serverSentModelsEnabled = !!clientConfig?.modelsAPIEnabled
 
-    const agenticModel = useMemo(() => models.find(m => m.tags.includes(ModelTag.Default)), [models])
+    const agenticModel = useMemo(
+        () =>
+            models.find(
+                m =>
+                    m.tags.includes(ModelTag.BYOK) &&
+                    m.clientSideConfig?.options &&
+                    'RPM' in m.clientSideConfig.options
+            ),
+        [models]
+    )
 
     // If in agentic mode, ensure the agentic model is selected
     useEffect(() => {
-        if (intent === 'agentic' && agenticModel && models[0]?.id !== agenticModel.id) {
+        if (intent === 'agentic' && agenticModel /*&& models[0]?.id !== agenticModel.id*/) {
             extensionAPI.setChatModel(agenticModel.id).subscribe({
                 error: error => console.error('Failed to set chat model:', error),
             })
         }
-    }, [intent, agenticModel, models, extensionAPI.setChatModel])
+    }, [intent, agenticModel, /*models,*/ extensionAPI.setChatModel])
 
     const onModelSelect = useCallback(
         (model: Model) => {

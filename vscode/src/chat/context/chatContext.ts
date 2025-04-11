@@ -25,6 +25,7 @@ import {
     switchMapReplayOperation,
     telemetryEvents,
 } from '@sourcegraph/cody-shared'
+import { RULES_PROVIDER_URI } from '@sourcegraph/cody-shared/src/context/openctx/api'
 import { WORKFLOW_PROVIDER } from '@sourcegraph/cody-shared/src/mentions/api'
 import { LRUCache } from 'lru-cache'
 import { Observable, map } from 'observable-fns'
@@ -145,10 +146,19 @@ export async function getChatContextItemsForMention(
         }
 
         default: {
+            // Create a default context with workspace folders when there's no active editor
+            // This ensures rules are available in the mention menu
+            const context = await firstResultFromOperation(activeEditorContextForOpenCtxMentions)
+
+            // For rules provider, we want autoInclude to be false to show individual rules
+            // For other providers, we want autoInclude to be true
+            const autoInclude = mentionQuery.provider !== RULES_PROVIDER_URI
+
             const items = await currentOpenCtxController().mentions(
                 {
                     query: mentionQuery.text,
-                    ...(await firstResultFromOperation(activeEditorContextForOpenCtxMentions)),
+                    ...context,
+                    autoInclude,
                 },
                 // get mention items for the selected provider only.
                 { providerUri: mentionQuery.provider }

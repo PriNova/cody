@@ -20,7 +20,7 @@ export const RunTerminalCommandSchema = z.object({
         .describe('The command to run in the root of the users project. Must be shell escaped.'),
     danger: z
         .boolean()
-        .default(false)
+        //.default(false)
         .optional()
         .describe('Whether the command is dangerous. If true, user will be asked to confirm.'),
 })

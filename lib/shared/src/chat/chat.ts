@@ -54,6 +54,7 @@ export class ChatClient {
         interactionId?: string
     ): Promise<AsyncGenerator<CompletionGeneratorValue>> {
         // Replace internal models used for wrapper models with the actual model ID.
+
         if (params.model?.includes('deep-cody')) {
             const sonnetModel = modelsService.getAllModelsWithSubstring('sonnet')[0]
             params.model = sonnetModel.id
@@ -80,7 +81,7 @@ export class ChatClient {
         })
 
         // Sanitize messages before sending them to the completions API.
-        messages = sanitizeMessages(messages)
+        //messages = sanitizeMessages(messages)
 
         // Older models or API versions look for prepended assistant messages.
         if (requestParams.apiVersion === 0 && messages.at(-1)?.speaker === 'human') {

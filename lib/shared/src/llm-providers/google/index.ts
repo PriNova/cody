@@ -1,7 +1,10 @@
+export interface Part {
+    text: string
+}
 export interface GeminiCompletionResponse {
     candidates: {
         content: {
-            parts: { text: string; thought?: boolean }[]
+            parts: (Part | FunctionCall | FunctionResponse)[]
             role: string
         }
         finishReason: string
@@ -12,6 +15,24 @@ export interface GeminiCompletionResponse {
             probability: string
         }[]
     }[]
+}
+
+export interface FunctionCall {
+    type: 'functionCall'
+    functionCall?: {
+        id?: string
+        name: string
+        args?: any
+    }
+}
+
+export interface FunctionResponse {
+    type: 'functionResponse'
+    functionResponse: {
+        id?: string
+        name: string
+        response: any
+    }
 }
 
 export interface ImageData {
@@ -26,11 +47,8 @@ export interface InlineDataPart {
         data: string
     }
 }
-export interface Part {
-    text: string
-}
 
 export interface GeminiChatMessage {
     role: string
-    parts: (Part | InlineDataPart)[]
+    parts: (Part | InlineDataPart | FunctionCall | FunctionResponse)[]
 }

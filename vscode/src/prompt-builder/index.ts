@@ -37,8 +37,8 @@ const ASSISTANT_MESSAGE = { speaker: 'assistant', text: ps`Ok.` } as Message
  * - the reverse of reverseMessages
  */
 export class PromptBuilder {
-    private prefixMessages: Message[] = []
-    private reverseMessages: Message[] = []
+    public prefixMessages: Message[] = []
+    public reverseMessages: Message[] = []
 
     /**
      * A list of context items that are used to build context messages.
@@ -86,7 +86,7 @@ export class PromptBuilder {
      * Create context messages for each context item, where
      * assistant messages come first because the transcript is in reversed order.
      */
-    private buildContextMessages(): Message[] {
+    public buildContextMessages(): Message[] {
         const contextMessages: Message[] = []
         // NOTE: Remove tool-state context items from the list of context items,
         // as we are turning them into part of chat messages.

@@ -97,6 +97,12 @@ export function createRuleService(
                                       fileInfos.set(uri.toString(), fileInfo(uri))
                                   }
                                   function ruleAppliesToFiles(rule: Rule, files: URI[]): boolean {
+                                      // If no files are provided, return all rules
+                                      // This handles the case when no editors are open but we still want to see rules
+                                      if (files.length === 0) {
+                                          return true
+                                      }
+
                                       return files.some(file => {
                                           // All files should be in `fileInfos`, but be defensive in case a {@link
                                           // RuleProvider} returns a file in `appliesToFiles` that it shouldn't
@@ -107,9 +113,13 @@ export function createRuleService(
                                   }
 
                                   return rules
-                                      .filter(({ rule, appliesToFiles }) =>
-                                          ruleAppliesToFiles(rule, appliesToFiles)
-                                      )
+                                      .filter(({ rule, appliesToFiles }) => {
+                                          // When there are no files (no editor open), include all rules
+                                          if (appliesToFiles.length === 0) {
+                                              return true
+                                          }
+                                          return ruleAppliesToFiles(rule, appliesToFiles)
+                                      })
                                       .map(({ rule }) => rule)
                               })
                           )

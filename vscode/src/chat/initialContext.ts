@@ -295,9 +295,27 @@ function getOpenCtxContextItems(): Observable<ContextItem[] | typeof pendingOper
                         return Observable.of([])
                     }
 
-                    return activeTextEditor.pipe(
+                    // Create an observable that emits the active editor context,
+                    // or a default context if no editor is active
+                    const contextObservable = activeTextEditor.pipe(
                         debounceTime(50),
-                        switchMap(() => activeEditorContextForOpenCtxMentions),
+                        map(editor => {
+                            // If an editor is active, use its context
+                            if (editor) {
+                                return activeEditorContextForOpenCtxMentions
+                            }
+
+                            // If no editor is active, create a default context with workspace folders
+                            // This ensures rules are shown even when no file is open
+                            return Observable.of({
+                                uri: undefined,
+                                codebase: undefined,
+                            })
+                        }),
+                        switchMap(observable => observable)
+                    )
+
+                    return contextObservable.pipe(
                         switchMap(activeEditorContext => {
                             if (activeEditorContext === pendingOperation) {
                                 return Observable.of(pendingOperation)

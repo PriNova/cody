@@ -1,4 +1,4 @@
-import type { GeminiChatMessage, GeminiCompletionResponse } from '.'
+import type { FunctionCall, GeminiChatMessage, GeminiCompletionResponse, Part } from '.'
 import type { ChatNetworkClientParams } from '..'
 import {
     type Model,
@@ -11,7 +11,7 @@ import {
 } from '../..'
 import { onAbort } from '../../common/abortController'
 import { CompletionStopReason } from '../../inferenceClient/misc'
-import type { CompletionResponse } from '../../sourcegraph-api/completions/types'
+import type { CompletionResponse, ToolCallContentPart } from '../../sourcegraph-api/completions/types'
 import { constructGeminiChatMessages, isGeminiThinkingModel } from './utils'
 
 /**
@@ -60,7 +60,7 @@ export async function googleChatClient({
 
     const messages = await constructGeminiChatMessages(params.messages)
     let system_instruction: { parts: { text: string }[] } | undefined
-    if (params.messages.length >= 3) {
+    if (params.messages.length >= 2) {
         const firstMessage = params.messages[0]
         system_instruction = {
             parts: [
@@ -86,13 +86,21 @@ export async function googleChatClient({
     const hasSearch =
         (model as Model).clientSideConfig?.options?.googleSearch && params.isGoogleSearchEnabled
     const tools = hasSearch ? [{ google_search: {} }] : []
+
     const configs = isGeminiThinkModel ? { thinkingConfig: { includeThoughts: true } } : {}
 
     const body = {
         contents: messages,
         ...(system_instruction ? { system_instruction } : {}),
-        tools,
+        tools: [...tools, ...(params.tools ?? [])],
         generationConfig: configs,
+        toolConfig: params.tools
+            ? {
+                  functionCallingConfig: {
+                      mode: 'auto',
+                  },
+              }
+            : {},
     }
 
     // Sends the completion parameters and callbacks to the API.
@@ -127,9 +135,8 @@ export async function googleChatClient({
                     }
                     logDebug(
                         'googleChatClient',
-                        `HTTP ${response.status} Error: ${response.statusText}${
-                            body ? ` — body: ${JSON.stringify(body)}` : ''
-                        }`
+                        `HTTP ${response.status} Error: ${response.statusText} — body: `,
+                        JSON.stringify(body, null, 2)
                     )
                     throw new Error(`HTTP ${response.status} Error: ${response.statusText}`)
                 }
@@ -148,33 +155,27 @@ export async function googleChatClient({
                     buffer += jsonString
                     try {
                         const parsed = JSON.parse(buffer) as GeminiCompletionResponse
-                        const streamText = parsed.candidates?.[0]?.content?.parts
-                        if (streamText) {
-                            if (isGeminiThinkModel) {
-                                const prefixes = ['<think7345>', '</think7345>\n\n']
-                                for (const part of parsed.candidates[0].content.parts) {
-                                    if (part) {
-                                        let prefix = ''
-                                        if (part.thought && !responseText.includes(prefixes[0])) {
-                                            prefix = prefixes[0]
-                                        } else if (
-                                            !part.thought &&
-                                            !responseText.includes(prefixes[1])
-                                        ) {
-                                            prefix = prefixes[1]
-                                        }
-
-                                        const text = part.text
-                                        const formattedText = prefix ? `${prefix}${text}` : text
-                                        responseText += formattedText
-                                        cb.onChange(responseText)
-                                    }
-                                }
-                            } else {
-                                const streamText = parsed.candidates?.[0]?.content?.parts[0]?.text
-                                if (streamText) {
+                        const streamParts = parsed.candidates?.[0]?.content?.parts
+                        if (streamParts) {
+                            for (const part of streamParts) {
+                                if ((part as Part).text) {
+                                    //console.log('streamParts has text')
+                                    const streamText = (part as Part).text
                                     responseText += streamText
                                     cb.onChange(responseText)
+                                }
+                                if ((part as FunctionCall).functionCall) {
+                                    //console.log('streamParts has functionCall')
+                                    const streamFunctionCall = (part as FunctionCall).functionCall
+                                    const functionCall = {
+                                        type: 'tool_call',
+                                        tool_call: {
+                                            id: (params as any).tools.id,
+                                            name: streamFunctionCall?.name,
+                                            arguments: streamFunctionCall?.args,
+                                        },
+                                    }
+                                    cb.onChange(responseText, [functionCall as ToolCallContentPart])
                                 }
                             }
                         }

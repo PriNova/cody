@@ -712,7 +712,7 @@ const TranscriptInteraction: FC<TranscriptInteractionProps> = memo(props => {
             />
             {!isAgenticMode && (
                 <>
-                    {omniboxEnabled && assistantMessage?.didYouMeanQuery && (
+                    {omniboxEnabled && assistantMessage?.didYouMeanQuery && !userInfo.isCodyProUser && (
                         <DidYouMeanNotice
                             query={assistantMessage?.didYouMeanQuery}
                             disabled={!!assistantMessage?.isLoading}

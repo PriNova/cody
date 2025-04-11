@@ -268,8 +268,22 @@ export const Chat: React.FunctionComponent<React.PropsWithChildren<ChatboxProps>
                     chatEnabled={chatEnabled}
                     postMessage={postMessage}
                     guardrails={guardrails}
-                    manuallySelectedIntent={lastManuallySelectedIntent}
-                    setManuallySelectedIntent={setLastManuallySelectedIntent}
+                    manuallySelectedIntent={
+                        // Only allow 'search' intent for non-Pro and non-Free users
+                        // The bug is that search intent was available for Pro and Free users
+                        lastManuallySelectedIntent === 'search' &&
+                        (userInfo.isCodyProUser || userInfo.isDotComUser)
+                            ? 'chat'
+                            : lastManuallySelectedIntent
+                    }
+                    setManuallySelectedIntent={intent => {
+                        // Prevent setting 'search' intent for Pro and Free users
+                        if (intent === 'search' && (userInfo.isCodyProUser || userInfo.isDotComUser)) {
+                            setLastManuallySelectedIntent('chat')
+                        } else {
+                            setLastManuallySelectedIntent(intent)
+                        }
+                    }}
                     isGoogleSearchEnabled={isGoogleSearchEnabled}
                     setIsGoogleSearchEnabled={setIsGoogleSearchEnabled}
                     onTokenCountsChange={handleTokenCountsChange}

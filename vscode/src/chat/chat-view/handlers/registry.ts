@@ -6,6 +6,7 @@ import { AgenticHandler } from './AgenticHandler'
 import { ChatHandler } from './ChatHandler'
 import { DeepCodyHandler } from './DeepCodyHandler'
 import { EditHandler } from './EditHandler'
+import { GeminiAgenticHandler } from './GeminiAgenticHandler'
 import { SearchHandler } from './SearchHandler'
 import { ExperimentalToolHandler } from './ToolHandler'
 import type { AgentHandler, AgentTools } from './interfaces'
@@ -46,7 +47,12 @@ export function getAgent(model: string, intent: ChatMessage['intent'], tools: Ag
 
     // Special case for agentic intent
     if (intent === 'agentic') {
-        return new AgenticHandler(contextRetriever, editor, chatClient)
+        if (model.includes('sonnet')) {
+            return new AgenticHandler(contextRetriever, editor, chatClient)
+        }
+        if (model.includes('gemini')) {
+            return new GeminiAgenticHandler(contextRetriever, editor, chatClient, model)
+        }
     }
 
     // Return appropriate handler or fallback to chat handler

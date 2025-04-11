@@ -4,12 +4,14 @@ import {
     type ContextItem,
     type Message,
     type MessagePart,
+    type Model,
     PromptString,
     type ToolCallContentPart,
     type ToolResultContentPart,
     UIToolStatus,
     isDefined,
     logDebug,
+    modelsService,
     telemetryRecorder,
 } from '@sourcegraph/cody-shared'
 import type { ContextItemToolState } from '@sourcegraph/cody-shared/src/codebase-context/messages'
@@ -25,11 +27,6 @@ import { ChatHandler } from './ChatHandler'
 import type { AgentHandler, AgentHandlerDelegate, AgentRequest } from './interfaces'
 import { buildAgentPrompt } from './prompts'
 
-enum AGENT_MODELS {
-    ExtendedThinking = 'anthropic::2024-10-22::claude-3-7-sonnet-extended-thinking',
-    Base = 'anthropic::2024-10-22::claude-3-7-sonnet-latest',
-}
-
 interface ToolResult {
     output: ContextItemToolState
     tool_result: ToolResultContentPart
@@ -39,17 +36,23 @@ interface ToolResult {
  * Base AgenticHandler class that manages tool execution state
  * and implements the core agentic conversation loop when Agent Mode is enabled.
  */
-export class AgenticHandler extends ChatHandler implements AgentHandler {
+export class GeminiAgenticHandler extends ChatHandler implements AgentHandler {
     public static readonly id = 'agentic-chat'
     protected readonly SYSTEM_PROMPT: PromptString
     protected readonly MAX_TURN = 50
 
+    private maxRequestsPerMinute = 10 // 10 requests per minute
+    private delayBetweenRequests = 6000 // 6000ms
+    private lastRequestTime = 0
+
     protected tools: AgentTool[] = []
+    //protected model: Model = undefined
 
     constructor(
         contextRetriever: Pick<ContextRetriever, 'retrieveContext' | 'computeDidYouMean'>,
         editor: ChatControllerOptions['editor'],
-        protected readonly chatClient: ChatControllerOptions['chatClient']
+        protected readonly chatClient: ChatControllerOptions['chatClient'],
+        protected readonly agentModel: string
     ) {
         super(contextRetriever, editor, chatClient)
         this.SYSTEM_PROMPT = PromptString.unsafe_fromUserQuery(buildAgentPrompt())
@@ -58,6 +61,10 @@ export class AgenticHandler extends ChatHandler implements AgentHandler {
     public async handle(req: AgentRequest, delegate: AgentHandlerDelegate): Promise<void> {
         const { requestID, chatBuilder, inputText, editorState, span, recorder, signal, mentions } = req
         const sessionID = chatBuilder.sessionID
+
+        const model = modelsService.getModelByID(this.agentModel) as Model
+        this.maxRequestsPerMinute = model.clientSideConfig?.options?.RPM || 10
+        this.delayBetweenRequests = (60 * 1000) / this.maxRequestsPerMinute
 
         // Includes initial context mentioned by user
         const contextResult = await this.computeContext(
@@ -91,6 +98,26 @@ export class AgenticHandler extends ChatHandler implements AgentHandler {
     }
 
     /**
+     * Enforces a delay between consecutive requests to prevent rate limiting.
+     * Calculates the time since the last request and waits if necessary to maintain
+     * the specified minimum delay between requests.
+     */
+    private async enforceRequestSpacing(): Promise<void> {
+        const now = Date.now()
+
+        if (this.lastRequestTime !== 0) {
+            const timeSinceLastRequest = now - this.lastRequestTime
+
+            if (timeSinceLastRequest < this.delayBetweenRequests) {
+                const waitTime = this.delayBetweenRequests - timeSinceLastRequest
+                await new Promise(resolve => setTimeout(resolve, waitTime))
+            }
+        }
+
+        this.lastRequestTime = Date.now()
+    }
+
+    /**
      * Run the main conversation loop, processing LLM responses and executing tools
      */
     protected async runConversationLoop(
@@ -112,8 +139,6 @@ export class AgenticHandler extends ChatHandler implements AgentHandler {
 
         // Main conversation loop
         while (turnCount < this.MAX_TURN && !loopController.signal?.aborted) {
-            const model = turnCount === 0 ? AGENT_MODELS.ExtendedThinking : AGENT_MODELS.Base
-
             try {
                 // Get LLM response
                 const { botResponse, toolCalls } = await this.requestLLM(
@@ -122,13 +147,13 @@ export class AgenticHandler extends ChatHandler implements AgentHandler {
                     recorder,
                     span,
                     signal,
-                    model,
+                    this.agentModel,
                     contextItems
                 )
 
                 // No tool calls means we're done
                 if (!toolCalls?.size) {
-                    chatBuilder.addBotMessage(botResponse, model)
+                    chatBuilder.addBotMessage(botResponse, this.agentModel)
                     logDebug('AgenticHandler', 'No tool calls, ending conversation')
                     break
                 }
@@ -137,7 +162,7 @@ export class AgenticHandler extends ChatHandler implements AgentHandler {
                 const content = Array.from(toolCalls.values())
                 delegate.postMessageInProgress(botResponse)
 
-                const results = await this.executeTools(content, model).catch(() => {
+                const results = await this.executeTools(content, this.agentModel).catch(() => {
                     logDebug('AgenticHandler', 'Error executing tools')
                     return []
                 })
@@ -146,10 +171,11 @@ export class AgenticHandler extends ChatHandler implements AgentHandler {
                 const toolOutputs = results?.map(result => result.output).filter(isDefined)
 
                 botResponse.contextFiles = toolOutputs
+                botResponse.content = content
 
                 delegate.postMessageInProgress(botResponse)
 
-                chatBuilder.addBotMessage(botResponse, model)
+                chatBuilder.addBotMessage(botResponse, this.agentModel)
 
                 // Add a human message to hold tool results
                 chatBuilder.addHumanMessage({
@@ -184,6 +210,9 @@ export class AgenticHandler extends ChatHandler implements AgentHandler {
         model: string,
         contextItems: ContextItem[]
     ): Promise<{ botResponse: ChatMessage; toolCalls: Map<string, ToolCallContentPart> }> {
+        // Fixed spacing enforcement between requests
+        await this.enforceRequestSpacing()
+
         // Create prompt
         const prompter = new AgenticChatPrompter(this.SYSTEM_PROMPT)
         const prompt = await prompter.makePrompt(chatBuilder, contextItems)
@@ -193,27 +222,31 @@ export class AgenticHandler extends ChatHandler implements AgentHandler {
 
         // No longer recording chat question executed telemetry in agentic handlers
         // This is now only done when user submits a query
-        logDebug('AgenticHandler', 'Prompt created', { verbose: fixedPrompt })
         // Prepare API call parameters
         const params = {
             maxTokensToSample: 8000,
             messages: JSON.stringify(fixedPrompt),
-            // Ensure unique tool names by using a Map keyed by tool name
-            tools: Array.from(
-                new Map(
-                    this.tools.map(tool => [
-                        tool.spec.name,
-                        {
-                            type: 'function',
-                            function: {
-                                name: tool.spec.name,
-                                description: tool.spec.description,
-                                parameters: tool.spec.input_schema,
-                            },
-                        },
-                    ])
-                ).values()
-            ),
+            // Format tools according to Gemini function calling specification
+            tools: [
+                {
+                    functionDeclarations: Array.from(
+                        new Map(
+                            this.tools.map(tool => [
+                                tool.spec.name,
+                                {
+                                    name: tool.spec.name,
+                                    description: tool.spec.description,
+                                    parameters: {
+                                        type: 'object',
+                                        properties: tool.spec.input_schema.properties || {},
+                                        required: tool.spec.input_schema.required || [],
+                                    },
+                                },
+                            ])
+                        ).values()
+                    ),
+                },
+            ],
             stream: true,
             model,
         }
@@ -511,7 +544,16 @@ class AgenticChatPrompter {
         if (historyItems.length) {
             await builder.tryAddContext('history', transformItems(historyItems))
         }
-        return builder.build()
+
+        // Get the raw messages without sanitization
+        const prefixMessages = builder.prefixMessages
+        const reverseMessages = builder.reverseMessages
+        if (builder.contextItems.length > 0) {
+            const contextMessages = builder.buildContextMessages()
+            reverseMessages.push(...contextMessages)
+        }
+        const chatMessages = [...reverseMessages].reverse()
+        return prefixMessages.concat(chatMessages)
     }
 }
 function transformItems(items: ContextItem[]): ContextItem[] {

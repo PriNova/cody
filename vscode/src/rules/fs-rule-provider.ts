@@ -47,6 +47,11 @@ const workspaceFoldersChanges: Observable<unknown> = defer(() =>
 export function createFileSystemRuleProvider(): RuleProvider {
     return {
         candidateRulesForPaths(files: URI[]): Observable<CandidateRule[]> {
+            // If no files are provided, use all workspace folders as search starting points
+            if (files.length === 0 && vscode.workspace.workspaceFolders?.length) {
+                files = vscode.workspace.workspaceFolders.map(folder => folder.uri)
+            }
+
             const searchPathsForFiles = new Map<
                 string /* searchPath */,
                 URI[] /* applies to resources */
@@ -67,6 +72,12 @@ export function createFileSystemRuleProvider(): RuleProvider {
                             appliesToResources.push(uri)
                             searchPathsForFiles.set(searchPath.toString(), appliesToResources)
                         }
+                    }
+
+                    const root = vscode.workspace.workspaceFolders?.[0]?.uri
+                    if (root) {
+                        const searchPaths = ruleSearchPaths(root, root)
+                        searchPathsForFiles.set(root.toString(), searchPaths)
                     }
 
                     const results = await Promise.all(

@@ -11,7 +11,7 @@ interface CompletionEvent extends CompletionResponse {
     content?: CompletionContentData[] | undefined | null
 }
 
-export type CompletionContentData = TextContentPart | ToolCallContentPart
+export type CompletionContentData = TextContentPart | ToolCallContentPart | GeminiToolCallContentPart
 
 // Tool calls returned by the LLM
 export interface CompletionFunctionCallsData {
@@ -63,6 +63,8 @@ export type MessagePart =
     | { type: 'image_url'; image_url: { url: string } } // natively supported by LLM
     | ToolCallContentPart // Assistant-only
     | ToolResultContentPart // Human-only
+    | GeminiToolCallContentPart
+    | GeminiToolResultContentPart // Gemini Human-only
 
 export interface TextContentPart {
     type: 'text'
@@ -92,6 +94,24 @@ export interface ToolResultContentPart {
     }
 }
 
+export interface GeminiToolCallContentPart {
+    type: 'functionCall'
+    functionCall: {
+        id: string
+        name: string
+        args?: string
+    }
+}
+
+export interface GeminiToolResultContentPart {
+    type: 'functionResponse'
+    functionResponse: {
+        id: string
+        name: string
+        response: any
+    }
+}
+
 export interface CompletionUsage {
     completion_tokens: number | null
     prompt_tokens: number | null
@@ -108,7 +128,7 @@ export interface CompletionResponse {
     completion: string
     thinking?: string
     stopReason?: string
-    tools?: ToolCallContentPart[]
+    tools?: ToolCallContentPart[] | GeminiToolCallContentPart[]
 }
 
 export interface CompletionParameters {
@@ -135,6 +155,7 @@ export interface CompletionParameters {
     // https://docs.fireworks.ai/guides/predicted-outputs#using-predicted-outputs
     rewriteSpeculation?: boolean
     adaptiveSpeculation?: boolean
+    tools?: any[]
 }
 
 export interface SerializedCompletionParameters extends Omit<CompletionParameters, 'messages'> {

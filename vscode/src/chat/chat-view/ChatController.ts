@@ -50,7 +50,6 @@ import {
     isDotCom,
     isError,
     isRateLimitError,
-    isS2,
     logError,
     modelsService,
     pendingOperation,
@@ -605,9 +604,9 @@ export class ChatController implements vscode.Disposable, vscode.WebviewViewProv
             firstValueFrom(
                 featureFlagProvider.evaluateFeatureFlag(FeatureFlag.CodyExperimentalPromptEditor)
             ),
-            firstValueFrom(featureFlagProvider.evaluateFeatureFlag(FeatureFlag.NextAgenticChatInternal)),
+            true,
         ])
-        const experimentalAgenticChatEnabled = internalAgenticChatEnabled && isS2(auth.serverEndpoint)
+        const experimentalAgenticChatEnabled = internalAgenticChatEnabled //&& isS2(auth.serverEndpoint)
         const sidebarViewOnly = this.extensionClient.capabilities?.webviewNativeConfig?.view === 'single'
         const isEditorViewType = this.webviewPanelOrView?.viewType === 'cody.editorPanel'
         const webviewType = isEditorViewType && !sidebarViewOnly ? 'editor' : 'sidebar'
@@ -1786,21 +1785,19 @@ export class ChatController implements vscode.Disposable, vscode.WebviewViewProv
                         ),
                     // Existing tools endpoint - update to include MCP tools
                     mcpSettings: () => {
-                        return featureFlagProvider
-                            .evaluateFeatureFlag(FeatureFlag.NextAgenticChatInternal)
-                            .pipe(
-                                // Simplify the flow with map and distinctUntilChanged
-                                distinctUntilChanged(),
-                                startWith(null),
-                                // When disabled, return an empty array
-                                switchMap(experimentalAgentMode => {
-                                    if (!experimentalAgentMode) {
-                                        return Observable.of([] as McpServer[])
-                                    }
-                                    // When enabled, get servers from the manager
-                                    return MCPManager.observable
-                                })
-                            )
+                        return Observable.of(true).pipe(
+                            // Simplify the flow with map and distinctUntilChanged
+                            distinctUntilChanged(),
+                            startWith(null),
+                            // When disabled, return an empty array
+                            switchMap(experimentalAgentMode => {
+                                if (!experimentalAgentMode) {
+                                    return Observable.of([] as McpServer[])
+                                }
+                                // When enabled, get servers from the manager
+                                return MCPManager.observable
+                            })
+                        )
                     },
                 }
             )
