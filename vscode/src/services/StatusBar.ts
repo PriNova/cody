@@ -95,7 +95,7 @@ export class CodyStatusBar implements vscode.Disposable {
         this.errors.changes,
         this.loaders.changes,
         this.ignoreStatus,
-        featureFlagProvider.evaluateFeatureFlag(FeatureFlag.CodyAutoEditExperimentEnabledFeatureFlag),
+        featureFlagProvider.evaluatedFeatureFlag(FeatureFlag.CodyAutoEditExperimentEnabledFeatureFlag),
         promiseFactoryToObservable(async () => await currentUserProductSubscription())
     ).pipe(
         map((combined): StatusBarState | undefined => {
@@ -781,7 +781,7 @@ interface StatusBarLoader {
 
 enum CodyStatusBarSuggestionModeLabels {
     Autocomplete = 'Autocomplete',
-    AutoEdit = 'Auto-edit (Beta)',
+    AutoEdit = 'Auto-edit',
     Disabled = 'Disabled',
 }
 

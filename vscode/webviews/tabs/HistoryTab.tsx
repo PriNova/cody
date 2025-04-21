@@ -16,11 +16,11 @@ import type {
     LightweightChatTranscript,
 } from '@sourcegraph/cody-shared/src/chat/transcript'
 import type { WebviewType } from '../../src/chat/protocol'
-import { getRelativeChatPeriod } from '../../src/common/time-date'
 import { LoadingDots } from '../chat/components/LoadingDots'
 import { CollapsiblePanel } from '../components/CollapsiblePanel'
 import { Button } from '../components/shadcn/ui/button'
-import { Input } from '../components/shadcn/ui/input'
+import { Command, CommandInput, CommandItem, CommandList } from '../components/shadcn/ui/command'
+import { useUserHistory } from '../components/useUserHistory'
 import { getVSCodeAPI } from '../utils/VSCodeApi'
 // Import the CSS module
 import styles from './HistoryTab.module.css'
@@ -40,13 +40,19 @@ interface HistoryTabProps {
     onSearchQueryChange: (query: string) => void
 }
 
-export const HistoryTab: React.FC<HistoryTabProps> = props => {
+export const HistoryTab: React.FC<HistoryTabProps> = ({
+    IDE,
+    webviewType,
+    multipleWebviewsEnabled,
+    setView,
+    extensionAPI,
+}) => {
     const userHistory = useUserHistory()
     const chats = useMemo(() => (userHistory ? Object.values(userHistory) : userHistory), [userHistory])
 
     return (
-        <div className="tw-px-8 tw-pt-6 tw-pb-12 tw-overflow-y-scroll">
-            {chats === undefined ? (
+        <div className="tw-flex tw-overflow-hidden tw-h-full tw-w-full">
+            {!chats ? (
                 <LoadingDots />
             ) : chats === null ? (
                 <p>History is not available.</p>
@@ -328,12 +334,70 @@ export const HistoryTabWithData: React.FC<HistoryTabWithDataProps> = ({
                     )}
                 </div>
             )}
-        </div>
+            <CommandList>
+                <CommandInput
+                    value={searchText}
+                    onValueChange={setSearchText}
+                    placeholder="Search..."
+                    autoFocus={true}
+                    className="tw-m-[0.5rem] !tw-p-[0.5rem] tw-rounded tw-bg-input-background tw-text-input-foreground focus:tw-shadow-[0_0_0_0.125rem_var(--vscode-focusBorder)]"
+                    disabled={chats.length === 0}
+                />
+            </CommandList>
+            <CommandList className="tw-flex-1 tw-overflow-y-auto tw-m-2">
+                {displayedChats.map((chat: LightweightChatTranscript) => {
+                    const id = chat.lastInteractionTimestamp
+                    const chatTitle = chat.chatTitle
+                    const lastMessage = chat.firstHumanMessageText
+                    // Show the last interaction timestamp in a human-readable format
+                    const timestamp = new Date(chat.lastInteractionTimestamp)
+                        .toLocaleString()
+                        .replace('T', ', ')
+                        .replace('Z', '')
+
+                    return (
+                        <CommandItem
+                            key={id}
+                            className={`tw-text-left tw-truncate tw-w-full tw-rounded-md tw-text-sm ${styles.historyItem} tw-overflow-hidden tw-text-sidebar-foreground tw-align-baseline`}
+                            onSelect={() =>
+                                vscodeAPI.postMessage({
+                                    command: 'restoreHistory',
+                                    chatID: id,
+                                })
+                            }
+                        >
+                            <div className="tw-truncate tw-w-full tw-flex tw-flex-col tw-gap-2">
+                                <div>{chatTitle || lastMessage}</div>
+                                <div className="tw-text-left tw-text-muted-foreground">{timestamp}</div>
+                            </div>
+                            <Button
+                                variant="outline"
+                                title="Delete chat history"
+                                aria-label="delete-history-button"
+                                className={styles.deleteButton}
+                                onClick={e => onDeleteButtonClick(e, id)}
+                                onKeyDown={e => onDeleteButtonClick(e, id)}
+                            >
+                                <TrashIcon className="tw-w-8 tw-h-8" size={16} strokeWidth="1.25" />
+                            </Button>
+                        </CommandItem>
+                    )
+                })}
+                {hasMoreItems && (
+                    <div ref={loadingRef} className="tw-flex tw-justify-center tw-items-center tw-py-4">
+                        {isLoading ? (
+                            <LoadingDots />
+                        ) : (
+                            <span className="tw-text-sm tw-text-muted-foreground">Scroll for more</span>
+                        )}
+                    </div>
+                )}
+            </CommandList>
+        </Command>
     )
 }
 
-// useUserHistory hook remains the same
 function useUserHistory(): LightweightChatHistory | null | undefined {
-    const { userHistory } = useExtensionAPI()
+    const userHistory = useExtensionAPI().userHistory
     return useObservable(useMemo(() => userHistory(), [userHistory])).value
 }

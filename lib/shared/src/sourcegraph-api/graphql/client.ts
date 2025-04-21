@@ -43,7 +43,6 @@ import {
     CURRENT_USER_INFO_QUERY,
     CURRENT_USER_ROLE_QUERY,
     DELETE_ACCESS_TOKEN_MUTATION,
-    EVALUATE_FEATURE_FLAGS_QUERY,
     EVALUATE_FEATURE_FLAG_QUERY,
     FILE_CONTENTS_QUERY,
     FILE_MATCH_SEARCH_QUERY,
@@ -614,16 +613,12 @@ interface EvaluatedFeatureFlag {
     value: boolean
 }
 
-interface EvaluateFeatureFlagResponse {
-    evaluateFeatureFlag: boolean
-}
-
 interface EvaluatedFeatureFlagsResponse {
     evaluatedFeatureFlags: EvaluatedFeatureFlag[]
 }
 
-interface EvaluateFeatureFlagsResponse {
-    evaluateFeatureFlags: EvaluatedFeatureFlag[]
+interface EvaluateFeatureFlagResponse {
+    evaluateFeatureFlag: boolean
 }
 
 interface ViewerSettingsResponse {
@@ -713,7 +708,7 @@ export class SourcegraphGraphQLAPIClient {
     private readonly siteVersionCache: GraphQLResultCache<string>
 
     public static withGlobalConfig(): SourcegraphGraphQLAPIClient {
-        return new SourcegraphGraphQLAPIClient(resolvedConfig)
+        return new SourcegraphGraphQLAPIClient(resolvedConfig.pipe(distinctUntilChanged()))
     }
 
     /**
@@ -1556,27 +1551,6 @@ export class SourcegraphGraphQLAPIClient {
         ).then(response => {
             return extractDataOrError(response, data =>
                 data.evaluatedFeatureFlags.reduce((acc: Record<string, boolean>, { name, value }) => {
-                    acc[name] = value
-                    return acc
-                }, {})
-            )
-        })
-    }
-
-    public async evaluateFeatureFlags(
-        flagNames: string[],
-        signal?: AbortSignal
-    ): Promise<Record<string, boolean> | Error> {
-        const names = flagNames.filter(name => name !== 'test-flag-do-not-use')
-        return this.fetchSourcegraphAPI<APIResponse<EvaluateFeatureFlagsResponse>>(
-            EVALUATE_FEATURE_FLAGS_QUERY,
-            {
-                flagNames: names,
-            },
-            signal
-        ).then(response => {
-            return extractDataOrError(response, data =>
-                data.evaluateFeatureFlags.reduce((acc: Record<string, boolean>, { name, value }) => {
                     acc[name] = value
                     return acc
                 }, {})

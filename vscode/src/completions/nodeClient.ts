@@ -10,6 +10,7 @@ import {
     type CompletionParameters,
     type CompletionRequestParameters,
     type CompletionResponse,
+    FeatureFlag,
     NeedsAuthChallengeError,
     NetworkError,
     RateLimitError,
@@ -18,10 +19,12 @@ import {
     addClientInfoParams,
     addCodyClientIdentificationHeaders,
     currentResolvedConfig,
+    featureFlagProvider,
     getActiveTraceAndSpanId,
     getSerializedParams,
     getTraceparentHeaders,
     globalAgentRef,
+    handleRateLimitError,
     isCustomAuthChallengeResponse,
     isError,
     logDebug,
@@ -132,7 +135,7 @@ export class SourcegraphNodeCompletionsClient extends SourcegraphCompletionsClie
                     //
                     // If the request failed with a rate limit error, wraps the
                     // error in RateLimitError.
-                    function handleError(e: Error): void {
+                    async function handleError(e: Error): Promise<void> {
                         log?.onError(e.message, e)
 
                         if (statusCode === 429) {
@@ -147,6 +150,7 @@ export class SourcegraphNodeCompletionsClient extends SourcegraphCompletionsClie
                                 ? getHeader(res.headers['x-ratelimit-limit'])
                                 : undefined
 
+                            // Get feature flag value synchronously
                             const error = new RateLimitError(
                                 'chat messages and commands',
                                 e.message,
@@ -154,6 +158,17 @@ export class SourcegraphNodeCompletionsClient extends SourcegraphCompletionsClie
                                 limit ? Number.parseInt(limit, 10) : undefined,
                                 retryAfter
                             )
+
+                            // Check feature flag and handle rate limit error if enabled
+                            featureFlagProvider
+                                .evaluatedFeatureFlag(FeatureFlag.FallbackToFlash)
+                                .subscribe(fallbackToFlash => {
+                                    if (fallbackToFlash) {
+                                        handleRateLimitError(error)
+                                    }
+                                })
+
+                            // Call error callback with rate limit error
                             onErrorOnce(error, statusCode)
                         } else {
                             onErrorOnce(e, statusCode)
@@ -340,6 +355,28 @@ export class SourcegraphNodeCompletionsClient extends SourcegraphCompletionsClie
                     body: JSON.stringify(serializedParams),
                     signal,
                 })
+                featureFlagProvider
+                    .evaluatedFeatureFlag(FeatureFlag.FallbackToFlash)
+                    .subscribe(async (fallbackToFlash: boolean) => {
+                        if (fallbackToFlash) {
+                            if (response.status === 429) {
+                                const upgradeIsAvailable =
+                                    response.headers.get('x-is-cody-pro-user') === 'false' &&
+                                    typeof response.headers.get('x-is-cody-pro-user') !== 'undefined'
+                                const retryAfter = response.headers.get('retry-after')
+                                const limit = response.headers.get('x-ratelimit-limit')
+                                const error = new RateLimitError(
+                                    'chat messages and commands',
+                                    await response.text(),
+                                    upgradeIsAvailable,
+                                    limit ? Number.parseInt(limit, 10) : undefined,
+                                    retryAfter
+                                )
+                                handleRateLimitError(error)
+                                throw error
+                            }
+                        }
+                    })
                 if (!response.ok) {
                     const errorMessage = await response.text()
                     throw new NetworkError(

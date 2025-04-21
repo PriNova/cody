@@ -42,7 +42,7 @@ vi.mock('../services/LocalStorageProvider')
 vi.mock('../experimentation/FeatureFlagProvider')
 
 // Returns true for all feature flags enabled during synctests.
-vi.spyOn(featureFlagProvider, 'evaluateFeatureFlag').mockReturnValue(Observable.of(true))
+vi.spyOn(featureFlagProvider, 'evaluatedFeatureFlag').mockReturnValue(Observable.of(true))
 
 mockClientCapabilities(CLIENT_CAPABILITIES_FIXTURE)
 
@@ -101,11 +101,12 @@ describe('server sent models', async () => {
             chat: serverOpus.modelRef,
             fastChat: serverTitan.modelRef,
             codeCompletion: serverClaude.modelRef,
+            unlimitedChat: serverOpus.modelRef,
         },
     }
 
     const mockFetchServerSideModels = vi.fn(() => Promise.resolve(SERVER_MODELS))
-    vi.mocked(featureFlagProvider).evaluateFeatureFlag.mockReturnValue(Observable.of(false))
+    vi.mocked(featureFlagProvider).evaluatedFeatureFlag.mockReturnValue(Observable.of(false))
 
     const result = await firstValueFrom(
         syncModels({
@@ -221,6 +222,7 @@ describe('syncModels', () => {
             expect(values).toStrictEqual<typeof values>([
                 pendingOperation,
                 {
+                    isRateLimited: false,
                     localModels: [],
                     primaryModels: [modelFixture('foo')],
                     preferences: {
@@ -239,6 +241,7 @@ describe('syncModels', () => {
             configOverwritesSubject.next({ chatModel: 'bar' })
             await vi.advanceTimersByTimeAsync(0)
             const result0: ModelsData = {
+                isRateLimited: false,
                 localModels: [],
                 primaryModels: [modelFixture('bar')],
                 preferences: {
@@ -268,6 +271,7 @@ describe('syncModels', () => {
                         chat: 'qux::a::a',
                         fastChat: 'qux::a::a',
                         codeCompletion: 'qux::a::a',
+                        unlimitedChat: 'qux::a::a',
                     },
                     providers: [],
                     revision: '',
@@ -295,6 +299,7 @@ describe('syncModels', () => {
             clearValues()
             await vi.advanceTimersByTimeAsync(1)
             const result1: ModelsData = {
+                isRateLimited: false,
                 localModels: [],
                 primaryModels: [createModelFromServerModel(quxModel, false)],
                 preferences: {
@@ -332,6 +337,7 @@ describe('syncModels', () => {
                         chat: 'zzz::a::a',
                         fastChat: 'zzz::a::a',
                         codeCompletion: 'zzz::a::a',
+                        unlimitedChat: 'zzz::a::a',
                     },
                     providers: [],
                     revision: '',
@@ -360,6 +366,7 @@ describe('syncModels', () => {
             await vi.advanceTimersByTimeAsync(1)
             expect(values).toStrictEqual<typeof values>([
                 {
+                    isRateLimited: false,
                     localModels: [],
                     primaryModels: [createModelFromServerModel(zzzModel, false)],
                     preferences: {
@@ -416,11 +423,12 @@ describe('syncModels', () => {
                 chat: serverSonnet.modelRef,
                 fastChat: serverSonnet.modelRef,
                 codeCompletion: serverSonnet.modelRef,
+                unlimitedChat: serverSonnet.modelRef,
             },
         }
 
         const mockFetchServerSideModels = vi.fn(() => Promise.resolve(SERVER_MODELS))
-        vi.mocked(featureFlagProvider).evaluateFeatureFlag.mockReturnValue(Observable.of(true))
+        vi.mocked(featureFlagProvider).evaluatedFeatureFlag.mockReturnValue(Observable.of(true))
 
         const result = await firstValueFrom(
             syncModels({
@@ -489,6 +497,7 @@ describe('syncModels', () => {
                 chat: serverSonnet.modelRef,
                 fastChat: serverSonnet.modelRef,
                 codeCompletion: serverSonnet.modelRef,
+                unlimitedChat: serverSonnet.modelRef,
             },
         }
         const mockFetchServerSideModels = vi.fn(() => Promise.resolve(SERVER_MODELS))
@@ -496,16 +505,16 @@ describe('syncModels', () => {
         async function getModelResult(featureFlagEnabled: boolean, userCanUpgrade: boolean) {
             // set the feature flag
             if (featureFlagEnabled) {
-                vi.spyOn(featureFlagProvider, 'evaluateFeatureFlag').mockImplementation(
-                    (flag: FeatureFlag) =>
-                        flag === FeatureFlag.CodyChatDefaultToClaude35Haiku
+                vi.spyOn(featureFlagProvider, 'evaluatedFeatureFlag').mockImplementation(
+                    (flagName: FeatureFlag, _forceRefresh?: boolean) =>
+                        flagName === FeatureFlag.CodyChatDefaultToClaude35Haiku
                             ? Observable.of(featureFlagEnabled)
                             : Observable.of(false)
                 )
             } else {
-                vi.spyOn(featureFlagProvider, 'evaluateFeatureFlag').mockImplementation(
-                    (flag: FeatureFlag) =>
-                        flag === FeatureFlag.CodyChatDefaultToClaude35Haiku
+                vi.spyOn(featureFlagProvider, 'evaluatedFeatureFlag').mockImplementation(
+                    (flagName: FeatureFlag, _forceRefresh?: boolean) =>
+                        flagName === FeatureFlag.CodyChatDefaultToClaude35Haiku
                             ? Observable.of(featureFlagEnabled)
                             : Observable.of(true)
                 )

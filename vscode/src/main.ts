@@ -1,5 +1,4 @@
-import _ from 'lodash'
-import { isEqual } from 'lodash'
+import _, { isEqual } from 'lodash'
 import { Observable, filter, map } from 'observable-fns'
 import * as vscode from 'vscode'
 
@@ -519,7 +518,7 @@ async function registerCodyCommands({
     disposables.push(
         subscriptionDisposable(
             featureFlagProvider
-                .evaluateFeatureFlag(FeatureFlag.CodyUnifiedPrompts)
+                .evaluatedFeatureFlag(FeatureFlag.CodyUnifiedPrompts)
                 .pipe(
                     createDisposables(codyUnifiedPromptsFlag => {
                         // Commands that are available only if unified prompts feature is enabled.
@@ -773,11 +772,12 @@ function registerAutoEdits({
             combineLatest(
                 resolvedConfig,
                 authStatus,
-                featureFlagProvider.evaluateFeatureFlag(
+                featureFlagProvider.evaluatedFeatureFlag(
                     FeatureFlag.CodyAutoEditExperimentEnabledFeatureFlag
                 ),
-                featureFlagProvider.evaluateFeatureFlag(FeatureFlag.CodyAutoEditInlineRendering),
-                featureFlagProvider.evaluateFeatureFlag(
+                featureFlagProvider.evaluatedFeatureFlag(FeatureFlag.CodyAutoEditInlineRendering),
+                featureFlagProvider.evaluatedFeatureFlag(FeatureFlag.CodyAutoEditHotStreak),
+                featureFlagProvider.evaluatedFeatureFlag(
                     FeatureFlag.CodyAutoEditUseWebSocketForFireworksConnections
                 )
             )
@@ -795,6 +795,7 @@ function registerAutoEdits({
                             authStatus,
                             autoeditFeatureFlagEnabled,
                             autoeditInlineRenderingEnabled,
+                            autoeditHotStreakEnabled,
                             autoeditUseWebSocketEnabled,
                         ]) => {
                             return createAutoEditsProvider({
@@ -803,6 +804,7 @@ function registerAutoEdits({
                                 chatClient,
                                 autoeditFeatureFlagEnabled,
                                 autoeditInlineRenderingEnabled,
+                                autoeditHotStreakEnabled,
                                 autoeditUseWebSocketEnabled,
                                 fixupController,
                                 statusBar,

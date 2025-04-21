@@ -12,10 +12,9 @@ import {
     mockResolvedConfig,
     modelsService,
     ps,
-    useFakeTokenCounterUtils,
 } from '@sourcegraph/cody-shared'
 import { Observable } from 'observable-fns'
-import { beforeAll, beforeEach, describe, expect, it, test, vi } from 'vitest'
+import { beforeEach, describe, expect, it, test, vi } from 'vitest'
 import { Uri } from 'vscode'
 import { URI } from 'vscode-uri'
 import * as featureFlagProviderModule from '../../../../lib/shared/src/experimentation/FeatureFlagProvider'
@@ -28,10 +27,6 @@ import { ChatController, type ChatControllerOptions } from './ChatController'
 import { manipulateWebviewHTML } from './ChatController'
 
 describe('ChatController', () => {
-    beforeAll(() => {
-        useFakeTokenCounterUtils()
-    })
-
     const mockChatClient = {
         chat: vi.fn(),
     } satisfies ChatControllerOptions['chatClient']
@@ -47,7 +42,7 @@ describe('ChatController', () => {
     }
     const mockGuardrails: SourcegraphGuardrailsClient = {} as any
 
-    vi.spyOn(featureFlagProviderModule.featureFlagProvider, 'evaluateFeatureFlag').mockReturnValue(
+    vi.spyOn(featureFlagProviderModule.featureFlagProvider, 'evaluatedFeatureFlag').mockReturnValue(
         Observable.of(true)
     )
 
@@ -145,7 +140,7 @@ describe('ChatController', () => {
         expect(addBotMessageSpy).not.toHaveBeenCalled()
     })
 
-    test('verifies interactionId is passed through chat requests', { timeout: 3000 }, async () => {
+    test('verifies interactionId is passed through chat requests', { timeout: 5000 }, async () => {
         const mockRequestID = '0'
         mockContextRetriever.retrieveContext.mockResolvedValue([])
 

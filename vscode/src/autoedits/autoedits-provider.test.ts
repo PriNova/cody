@@ -23,6 +23,8 @@ import {
 } from '@sourcegraph/cody-shared'
 
 import { mockLocalStorage } from '../services/LocalStorageProvider'
+import { AutoeditStopReason } from './adapters/base'
+import type { getDefaultModelResponse } from './adapters/model-response/default'
 import {
     type AutoeditRequestID,
     autoeditAnalyticsLogger,
@@ -125,7 +127,7 @@ describe('AutoeditsProvider', () => {
               "category": "billable",
               "product": "cody",
             },
-            "interactionID": "stable-id-for-tests-2",
+            "interactionID": "stable-id-for-tests-3",
             "metadata": {
               "acceptReason": 1,
               "contextSummary.duration": 0,
@@ -164,7 +166,7 @@ describe('AutoeditsProvider', () => {
               },
               "decorationStats": undefined,
               "gatewayLatency": undefined,
-              "id": "stable-id-for-tests-2",
+              "id": "stable-id-for-tests-3",
               "inlineCompletionStats": {
                 "charCount": 2,
                 "lineCount": 2,
@@ -188,7 +190,7 @@ describe('AutoeditsProvider', () => {
               "category": "core",
               "product": "cody",
             },
-            "interactionID": "stable-id-for-tests-2",
+            "interactionID": "stable-id-for-tests-3",
             "metadata": {
               "acceptReason": 1,
               "contextSummary.duration": 0,
@@ -227,7 +229,7 @@ describe('AutoeditsProvider', () => {
               },
               "decorationStats": undefined,
               "gatewayLatency": undefined,
-              "id": "stable-id-for-tests-2",
+              "id": "stable-id-for-tests-3",
               "inlineCompletionStats": {
                 "charCount": 2,
                 "lineCount": 2,
@@ -265,7 +267,7 @@ describe('AutoeditsProvider', () => {
               "category": "billable",
               "product": "cody",
             },
-            "interactionID": "stable-id-for-tests-2",
+            "interactionID": "stable-id-for-tests-3",
             "metadata": {
               "contextSummary.duration": 0,
               "contextSummary.prefixChars": 10,
@@ -297,7 +299,7 @@ describe('AutoeditsProvider', () => {
               },
               "decorationStats": undefined,
               "gatewayLatency": undefined,
-              "id": "stable-id-for-tests-2",
+              "id": "stable-id-for-tests-3",
               "inlineCompletionStats": {
                 "charCount": 2,
                 "lineCount": 2,
@@ -501,18 +503,20 @@ describe('AutoeditsProvider', () => {
         it('does not wait before calling getPrediction first time', async () => {
             let getModelResponseCalledAt: number | undefined
             const prediction = 'const x = 1\n'
-            const customGetModelResponse = async () => {
+            const customGetModelResponse: typeof getDefaultModelResponse = async function* () {
                 // Record the current fake timer time when getModelResponse is called
                 getModelResponseCalledAt = Date.now()
-                return {
+                yield {
                     type: 'success',
+                    stopReason: AutoeditStopReason.RequestFinished,
+                    prediction,
                     responseBody: {
                         choices: [{ text: prediction }],
                     },
                     requestUrl: 'test-url.com/completions',
                     requestHeaders: {},
                     responseHeaders: {},
-                } as const
+                }
             }
 
             const startTime = Date.now()
@@ -523,7 +527,7 @@ describe('AutoeditsProvider', () => {
             })
 
             // Run all timers to get the result
-            await vi.advanceTimersByTimeAsync(10000)
+            await vi.advanceTimersByTimeAsync(1000)
             const result = await promiseResult
 
             expect(result?.inlineCompletionItems[0].insertText).toBe('const x = 1')
@@ -538,20 +542,25 @@ describe('AutoeditsProvider', () => {
                 { prediction: 'const x = 12345\n', getModelResponseCalledAt: -1 },
             ]
 
-            const customGetModelResponse = (call: (typeof calls)[number]) => async () => {
-                // Record the current fake timer time when getModelResponse is called
-                call.getModelResponseCalledAt = performance.now()
-                await vi.advanceTimersByTimeAsync(50)
-                return {
-                    type: 'success',
-                    responseBody: {
-                        choices: [{ text: call.prediction }],
-                    },
-                    requestUrl: 'test-url.com/completions',
-                    requestHeaders: {},
-                    responseHeaders: {},
-                } as const
-            }
+            const customGetModelResponse = (
+                call: (typeof calls)[number]
+            ): typeof getDefaultModelResponse =>
+                async function* () {
+                    // Record the current fake timer time when getModelResponse is called
+                    call.getModelResponseCalledAt = performance.now()
+                    await vi.advanceTimersByTimeAsync(50)
+                    yield {
+                        type: 'success',
+                        stopReason: AutoeditStopReason.RequestFinished,
+                        prediction: call.prediction,
+                        responseBody: {
+                            choices: [{ text: call.prediction }],
+                        },
+                        requestUrl: 'test-url.com/completions',
+                        requestHeaders: {},
+                        responseHeaders: {},
+                    }
+                }
 
             const { promiseResult: promiseResult1, provider } = await autoeditResultFor(
                 'const x = █\n',
@@ -575,9 +584,7 @@ describe('AutoeditsProvider', () => {
             })
 
             // Run all timers to get the result
-            await vi.advanceTimersByTimeAsync(10000)
-            const result1 = await promiseResult1
-            const result2 = await promiseResult2
+            const [result1, result2] = await Promise.all([promiseResult1, promiseResult2])
 
             // The first call is aborted because the second call is triggered before the
             // `customGetModelResponse` function has returned.
@@ -605,20 +612,25 @@ describe('AutoeditsProvider', () => {
                 { prediction: 'const x = 123\nconst y = 12345\n', getModelResponseCalledAt: -1 },
             ]
 
-            const customGetModelResponse = (call: (typeof calls)[number]) => async () => {
-                // Record the current fake timer time when getModelResponse is called
-                call.getModelResponseCalledAt = performance.now()
-                await vi.advanceTimersByTimeAsync(0)
-                return {
-                    type: 'success',
-                    responseBody: {
-                        choices: [{ text: call.prediction }],
-                    },
-                    requestUrl: 'test-url.com/completions',
-                    requestHeaders: {},
-                    responseHeaders: {},
-                } as const
-            }
+            const customGetModelResponse = (
+                call: (typeof calls)[number]
+            ): typeof getDefaultModelResponse =>
+                async function* () {
+                    // Record the current fake timer time when getModelResponse is called
+                    call.getModelResponseCalledAt = performance.now()
+                    await vi.advanceTimersByTimeAsync(0)
+                    yield {
+                        type: 'success',
+                        stopReason: AutoeditStopReason.RequestFinished,
+                        prediction: call.prediction,
+                        responseBody: {
+                            choices: [{ text: call.prediction }],
+                        },
+                        requestUrl: 'test-url.com/completions',
+                        requestHeaders: {},
+                        responseHeaders: {},
+                    }
+                }
 
             const { promiseResult: promiseResult1, provider } = await autoeditResultFor(
                 'const x = █\n',
@@ -667,7 +679,7 @@ describe('AutoeditsProvider', () => {
             )
 
             // Run all timers to get the result
-            await vi.advanceTimersByTimeAsync(10000)
+            await vi.advanceTimersByTimeAsync(1000)
             const [result1, result2, result3, result4] = await Promise.all([
                 promiseResult1,
                 promiseResult2,
@@ -696,25 +708,29 @@ describe('AutoeditsProvider', () => {
             const { promiseResult, provider } = await autoeditResultFor('const x = █\n', {
                 prediction: 'const x = 1\n',
                 isAutomaticTimersAdvancementDisabled: true,
-                getModelResponse: async ({ abortSignal }) => {
+                getModelResponse: async function* ({ abortSignal }) {
                     provider.smartThrottleService.lastRequest?.abort()
 
                     if (abortSignal.aborted) {
-                        return {
+                        yield {
                             type: 'aborted',
+                            stopReason: AutoeditStopReason.RequestAborted,
                             requestUrl: 'test-url.com/completions',
                             requestHeaders: {},
                             responseHeaders: {},
-                        } as const
+                        }
+                        return
                     }
 
-                    return {
+                    yield {
                         type: 'success',
+                        stopReason: AutoeditStopReason.RequestFinished,
+                        prediction: 'const x = 1\n',
                         responseBody: { choices: [{ text: 'const x = 1\n' }] },
                         requestUrl: 'test-url.com/completions',
                         requestHeaders: {},
                         responseHeaders: {},
-                    } as const
+                    }
                 },
             })
 

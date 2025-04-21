@@ -13,12 +13,13 @@ import {
 import { getCurrentDocContext } from '../../completions/get-current-doc-context'
 import { documentAndPosition } from '../../completions/test-helpers'
 import * as sentryModule from '../../services/sentry/sentry'
-import type { AutoeditModelOptions } from '../adapters/base'
-import { getCodeToReplaceData } from '../prompt/prompt-utils'
+import { type AutoeditModelOptions, AutoeditStopReason } from '../adapters/base'
+import { getCodeToReplaceData, getCurrentFilePath } from '../prompt/prompt-utils'
 import { getDecorationInfo } from '../renderer/diff-utils'
 
 import { AutoeditAnalyticsLogger } from './analytics-logger'
 import {
+    type AutoeditCacheID,
     type AutoeditRequestID,
     autoeditAcceptReason,
     autoeditDiscardReason,
@@ -45,7 +46,7 @@ describe('AutoeditAnalyticsLogger', () => {
         maxSuffixLength: 1000,
     })
 
-    const codeToReplaceData = getCodeToReplaceData({
+    const codeToReplace = getCodeToReplaceData({
         docContext,
         position,
         document,
@@ -68,15 +69,17 @@ describe('AutoeditAnalyticsLogger', () => {
         userId: 'test-user-id',
         isChatModel: false,
         abortSignal: new AbortController().signal,
+        timeoutMs: 10_000,
     }
 
     function getRequestStartMetadata(): Parameters<AutoeditAnalyticsLogger['createRequest']>[0] {
         return {
             startedAt: performance.now(),
+            filePath: getCurrentFilePath(document).toString(),
             docContext,
             document,
             position,
-            codeToReplaceData,
+            codeToReplaceData: codeToReplace,
             payload: {
                 languageId: 'typescript',
                 model: 'autoedit-model',
@@ -94,6 +97,7 @@ describe('AutoeditAnalyticsLogger', () => {
 
         autoeditLogger.markAsContextLoaded({
             requestId,
+            context: [],
             payload: {
                 contextSummary: {
                     strategy: 'none',
@@ -111,9 +115,14 @@ describe('AutoeditAnalyticsLogger', () => {
 
         autoeditLogger.markAsLoaded({
             requestId,
+            cacheId: uuid.v4() as AutoeditCacheID,
             prompt: modelOptions.prompt,
+            codeToReplaceData: codeToReplace,
+            docContext,
+            editPosition: position,
             modelResponse: {
                 type: 'success',
+                stopReason: AutoeditStopReason.RequestFinished,
                 prediction,
                 requestHeaders: {},
                 requestUrl: modelOptions.url,
@@ -124,6 +133,7 @@ describe('AutoeditAnalyticsLogger', () => {
                 prediction,
                 source: autoeditSource.network,
                 isFuzzyMatch: false,
+                codeToRewrite: 'Code to rewrite',
             },
         })
 
@@ -197,7 +207,7 @@ describe('AutoeditAnalyticsLogger', () => {
               "category": "billable",
               "product": "cody",
             },
-            "interactionID": "stable-id-for-tests-2",
+            "interactionID": "stable-id-for-tests-3",
             "metadata": {
               "acceptReason": 1,
               "contextSummary.duration": 1.234,
@@ -249,7 +259,7 @@ describe('AutoeditAnalyticsLogger', () => {
                 "unchangedLines": 1,
               },
               "gatewayLatency": undefined,
-              "id": "stable-id-for-tests-2",
+              "id": "stable-id-for-tests-3",
               "inlineCompletionStats": undefined,
               "languageId": "typescript",
               "model": "autoedit-model",
@@ -318,7 +328,11 @@ describe('AutoeditAnalyticsLogger', () => {
 
     it.skip('logs `discarded` if the suggestion was not suggested for any reason', () => {
         const requestId = autoeditLogger.createRequest(getRequestStartMetadata())
-        autoeditLogger.markAsContextLoaded({ requestId, payload: { contextSummary: undefined } })
+        autoeditLogger.markAsContextLoaded({
+            requestId,
+            context: [],
+            payload: { contextSummary: undefined },
+        })
         autoeditLogger.markAsDiscarded({
             requestId,
             discardReason: autoeditDiscardReason.emptyPrediction,

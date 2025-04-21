@@ -11,7 +11,7 @@ This is a custom-enhanced fork of Cody with additional features. While built on 
 
 **AI coding agent with the best codebase understanding**
 
-Cody is an AI coding agent that uses the latest LLMs and codebase context to help you understand, write, and fix code faster.
+Cody is an AI coding agent that uses the latest LLMs and codebase context to help you understand, write, and fix code faster. 
 
 [Docs](https://sourcegraph.com/docs/cody) • [cody.dev](https://about.sourcegraph.com/cody?utm_source=github.com&utm_medium=referral)
 

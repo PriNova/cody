@@ -54,6 +54,8 @@ export interface AutoEditsModelConfig {
         | 'cody-gateway'
         | 'sourcegraph'
         | 'inceptionlabs'
+    /** The specific prompt provider to use for auto-edit. This is used to override the default prompt provider from the configuration */
+    promptProvider?: 'long-suggestion-prompt-provider'
     /** The specific model identifier to use for auto-edit */
     model: string
     /** The endpoint URL for the provider's API */
@@ -73,6 +75,10 @@ export interface AutoEditsModelConfig {
      * WebSocket proxy is no longer necessary.
      */
     webSocketEndpoint?: string
+    /**
+     * Timeout for the request in milliseconds.
+     */
+    timeoutMs: number
 }
 
 export interface NetConfiguration {
@@ -237,7 +243,7 @@ export enum CodyAutoSuggestionMode {
     /**
      * The suggestion mode where suggestions come from the Cody AI agent chat API.
      */
-    Autoedit = 'auto-edit (Beta)',
+    Autoedit = 'auto-edit',
     /**
      * Disable Cody suggestions altogether.
      */

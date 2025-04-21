@@ -47,6 +47,8 @@ export const AssistantMessageCell: FunctionComponent<{
 
     copyButtonOnSubmit?: CodeBlockActionsProps['copyButtonOnSubmit']
     insertButtonOnSubmit?: CodeBlockActionsProps['insertButtonOnSubmit']
+    onRegenerate: CodeBlockActionsProps['onRegenerate']
+    regeneratingCodeBlocks: CodeBlockActionsProps['regeneratingCodeBlocks']
 
     smartApply?: CodeBlockActionsProps['smartApply']
 
@@ -63,10 +65,11 @@ export const AssistantMessageCell: FunctionComponent<{
         models,
         humanMessage,
         userInfo,
-        chatEnabled,
         isLoading,
         copyButtonOnSubmit,
         insertButtonOnSubmit,
+        onRegenerate,
+        regeneratingCodeBlocks,
         postMessage,
         guardrails,
         smartApply,
@@ -135,6 +138,8 @@ export const AssistantMessageCell: FunctionComponent<{
                                 isMessageLoading={isLoading}
                                 copyButtonOnSubmit={copyButtonOnSubmit}
                                 insertButtonOnSubmit={insertButtonOnSubmit}
+                                onRegenerate={onRegenerate}
+                                regeneratingCodeBlocks={regeneratingCodeBlocks}
                                 guardrails={guardrails}
                                 humanMessage={humanMessage}
                                 smartApply={smartApply}
@@ -162,6 +167,8 @@ export const AssistantMessageCell: FunctionComponent<{
                                     key={`piece-${i}`}
                                     piece={piece}
                                     guardrails={guardrails}
+                                    onRegenerate={onRegenerate}
+                                    regeneratingCodeBlocks={regeneratingCodeBlocks}
                                 />
                             ))}
                     </>

@@ -100,7 +100,7 @@ export class ChatClient {
                 cacheEnabled,
                 content,
             })),
-        }
+        } as CompletionParameters
 
         return this.config.completions.stream(completionParams, requestParams, abortSignal)
     }
