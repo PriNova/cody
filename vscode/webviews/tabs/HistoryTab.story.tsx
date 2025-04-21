@@ -1,4 +1,4 @@
-import { CodyIDE, type UserLocalHistory } from '@sourcegraph/cody-shared'
+import type { UserLocalHistory } from '@sourcegraph/cody-shared'
 import type { Meta, StoryObj } from '@storybook/react'
 import { VSCodeStandaloneComponent } from '../storybook/VSCodeStoryDecorator'
 import { HistoryTabWithData } from './HistoryTab'
@@ -29,9 +29,13 @@ export const SingleDay: Story = {
         chats: [
             {
                 id: '1',
-                lastInteractionTimestamp: new Date(Date.now() - 86400000).toISOString(),
-                chatTitle: 'React hooks',
-                firstHumanMessageText: 'How do I use React hooks?',
+                interactions: [
+                    {
+                        humanMessage: { speaker: 'human', text: 'How do I use React hooks?' },
+                        assistantMessage: { speaker: 'assistant', text: 'Hello' },
+                    },
+                ],
+                lastInteractionTimestamp: new Date().toISOString(),
             },
         ],
     },
@@ -42,14 +46,22 @@ export const MultiDay: Story = {
         chats: [
             {
                 id: '1',
-                chatTitle: 'React hooks',
-                firstHumanMessageText: 'How do I use React hooks?',
+                interactions: [
+                    {
+                        humanMessage: { speaker: 'human', text: 'How do I use React hooks?' },
+                        assistantMessage: { speaker: 'assistant', text: 'Hello' },
+                    },
+                ],
                 lastInteractionTimestamp: new Date(Date.now() - 86400000).toISOString(), // Yesterday
             },
             {
                 id: '2',
-                chatTitle: 'TypeScript interfaces',
-                firstHumanMessageText: 'Explain TypeScript interfaces',
+                interactions: [
+                    {
+                        humanMessage: { speaker: 'human', text: 'Explain TypeScript interfaces' },
+                        assistantMessage: { speaker: 'assistant', text: 'Hello' },
+                    },
+                ],
                 lastInteractionTimestamp: new Date().toISOString(),
             },
         ],

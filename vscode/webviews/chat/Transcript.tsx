@@ -6,8 +6,8 @@ import {
     type NLSSearchDynamicFilter,
     REMOTE_FILE_PROVIDER_URI,
     type SerializedPromptEditorValue,
+    TokenCounterUtils,
     deserializeContextItem,
-    getTokenCounterUtils,
     isAbortErrorOrSocketHangUp,
     serializedPromptEditorStateFromText,
 } from '@sourcegraph/cody-shared'
@@ -138,7 +138,7 @@ export const Transcript: FC<TranscriptProps> = props => {
 
     const [currentInputTokens, setCurrentInputTokens] = useState<number>(0)
     const [transcriptTokens, setTranscriptTokens] = useState<number>(0)
-    const tokenCounter = useMemo(async () => await getTokenCounterUtils(), [])
+    const tokenCounter = useMemo(async () => TokenCounterUtils, [])
 
     // Add this near the beginning of the Transcript component, after the state declarations
     const currentInputTokensRef = useRef<number>(currentInputTokens)

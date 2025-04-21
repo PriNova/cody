@@ -6,8 +6,8 @@ import {
     ModelTag,
     type SerializedPromptEditorState,
     type SerializedPromptEditorValue,
+    TokenCounterUtils,
     firstValueFrom,
-    getTokenCounterUtils,
     inputTextWithoutContextChipsFromPromptEditorState,
     skipPendingOperation,
     textContentFromSerializedLexicalNode,
@@ -139,7 +139,7 @@ export const HumanMessageEditor: FunctionComponent<{
     )
 
     // Simplified token counter utility
-    const tokenCounter = useMemo(async () => await getTokenCounterUtils(), [])
+    const tokenCounter = useMemo(async () => TokenCounterUtils, [])
 
     // Create a single debounced function for text tokens
     const debouncedCountText = useMemo(
