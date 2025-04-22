@@ -25,13 +25,25 @@ export function ServerDashboard() {
     )
 
     // Add new server
-    const addServer = (newServer: ServerType) => {
-        const server: ServerType = {
-            ...newServer,
-            id: `server-${servers.length + 1}`,
-        }
-        setServers([...servers, server])
-    }
+    const addServer = React.useCallback(
+        (newServer: ServerType) => {
+            const server: ServerType = {
+                ...newServer,
+                id: `server-${servers.length + 1}`,
+            }
+            setServers(prevServers => [...prevServers, server])
+        },
+        [servers]
+    )
+
+    // Update existing server
+    const updateServer = React.useCallback((updatedServer: ServerType) => {
+        setServers(prevServers =>
+            prevServers.map(server => (server.id === updatedServer.id ? updatedServer : server))
+        )
+        // Decide if we want to deselect the server after updating in the dashboard view
+        // setSelectedServer(null); // Uncomment if you want to return to the list view
+    }, [])
 
     return (
         <div
@@ -181,6 +193,7 @@ export function ServerDashboard() {
                         selectedServer={selectedServer}
                         onSelectServer={setSelectedServer}
                         addServers={addServer}
+                        onUpdateServer={updateServer} // Pass the new updateServer function
                     />
                 )}
             </div>

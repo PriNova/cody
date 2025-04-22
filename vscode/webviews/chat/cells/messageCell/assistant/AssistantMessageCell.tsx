@@ -58,6 +58,7 @@ export const AssistantMessageCell: FunctionComponent<{
     postMessage?: ApiPostMessage
     guardrails: Guardrails
     onSelectedFiltersUpdate: (filters: NLSSearchDynamicFilter[]) => void
+    isFirstInteraction: boolean
     isLastSentInteraction: boolean
 }> = memo(
     ({
@@ -75,6 +76,7 @@ export const AssistantMessageCell: FunctionComponent<{
         smartApply,
         onSelectedFiltersUpdate,
         isLastSentInteraction: isLastInteraction,
+        isFirstInteraction,
         isThoughtProcessOpened,
         setThoughtProcessOpened,
     }) => {
@@ -93,23 +95,36 @@ export const AssistantMessageCell: FunctionComponent<{
 
         const isSearchIntent = omniboxEnabled && humanMessage?.intent === 'search'
 
+        // Determine if the speaker info (icon and title) should be shown
+        // Show if intent is NOT agentic, OR if intent IS agentic AND it's the first interaction.
+        const shouldShowSpeakerInfo =
+            humanMessage?.intent !== 'agentic' ||
+            (humanMessage?.intent === 'agentic' && isFirstInteraction)
+
         return (
             <BaseMessageCell
                 speakerIcon={
-                    ModelIcon && (!isSearchIntent || isLoading) ? (
+                    shouldShowSpeakerInfo && ModelIcon ? (
                         <ModelIcon size={NON_HUMAN_CELL_AVATAR_SIZE} />
                     ) : null
                 }
                 speakerTitle={
-                    isSearchIntent ? undefined : (
-                        <span data-testid="chat-model">
-                            {chatModel
-                                ? chatModel.id.includes('deep-cody')
-                                    ? 'Claude 3.5 Sonnet (New)'
-                                    : chatModel.title ?? `Model ${chatModel.id} by ${chatModel.provider}`
-                                : 'Model'}
-                        </span>
-                    )
+                    shouldShowSpeakerInfo ? (
+                        // If agentic and first interaction, show the detailed model string
+                        humanMessage?.intent === 'agentic' && isFirstInteraction ? (
+                            <span data-testid="chat-model">
+                                {chatModel
+                                    ? chatModel.id.includes('deep-cody')
+                                        ? 'Claude 3.5 Sonnet (New)'
+                                        : chatModel.title ??
+                                          `Model ${chatModel.id} by ${chatModel.provider}`
+                                    : 'Model'}
+                            </span>
+                        ) : (
+                            // Otherwise (not agentic), show the standard title
+                            chatModel?.title
+                        )
+                    ) : null // Don't show title if shouldShowSpeakerInfo is false
                 }
                 content={
                     <>

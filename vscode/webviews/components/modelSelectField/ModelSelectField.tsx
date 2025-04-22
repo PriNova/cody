@@ -339,9 +339,7 @@ function modelAvailability(
         const isBYOKWithRPM =
             model.tags.includes(ModelTag.BYOK) && model.clientSideConfig?.options?.RPM !== undefined
 
-        if (!model.tags.includes(ModelTag.Default) && !isBYOKWithRPM) {
-            return 'not-selectable-on-enterprise'
-        }
+        return !isBYOKWithRPM ? 'not-selectable-on-enterprise' : 'available'
     }
     return 'available'
 }

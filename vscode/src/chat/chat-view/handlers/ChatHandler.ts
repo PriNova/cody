@@ -52,6 +52,7 @@ export class ChatHandler implements AgentHandler {
     ): Promise<void> {
         // All mentions we receive are either source=initial or source=user. If the caller
         // forgot to set the source, assume it's from the user.
+        chatBuilder.setLastMessageIntent('chat')
         mentions = mentions.map(m => (m.source ? m : { ...m, source: ContextItemSource.User }))
 
         const didYouMeanPromise = this.contextRetriever.computeDidYouMean(inputText, signal)

@@ -1,4 +1,5 @@
-import _, { isEqual } from 'lodash'
+import _ from 'lodash'
+import { isEqual } from 'lodash'
 import { Observable, filter, map } from 'observable-fns'
 import * as vscode from 'vscode'
 

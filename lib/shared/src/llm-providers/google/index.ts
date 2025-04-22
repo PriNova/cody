@@ -1,5 +1,8 @@
+import type { ImageContentPart } from '../..'
+
 export interface Part {
     text: string
+    thought?: boolean
 }
 export interface GeminiCompletionResponse {
     candidates: {
@@ -50,5 +53,5 @@ export interface InlineDataPart {
 
 export interface GeminiChatMessage {
     role: string
-    parts: (Part | InlineDataPart | FunctionCall | FunctionResponse)[]
+    parts: (Part | InlineDataPart | ImageContentPart | FunctionCall | FunctionResponse)[]
 }

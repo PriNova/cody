@@ -1,11 +1,5 @@
-import type {
-    FunctionCall,
-    FunctionResponse,
-    GeminiChatMessage,
-    InlineDataPart,
-    MimeType,
-    Part,
-} from '.'
+import type { FunctionCall, FunctionResponse, GeminiChatMessage, InlineDataPart, Part } from '.'
+import type { MimeType } from '.'
 import { contextFiltersProvider } from '../../cody-ignore/context-filters-provider'
 import { pendingOperation } from '../../misc/observableOperation'
 import type { Model } from '../../models/model'
@@ -40,15 +34,32 @@ export async function constructGeminiChatMessages(messages: Message[]): Promise<
                     switch (part.type) {
                         case 'text':
                             return {
-                                text: (await msg.text?.toFilteredString(contextFiltersProvider)) || '',
+                                text:
+                                    part.text ||
+                                    (await msg.text?.toFilteredString(contextFiltersProvider)) ||
+                                    '',
                             } as Part
-                        case 'image_url':
+                        case 'image_url': {
+                            const base64Data = part.image_url.url.replace(/^data:image\/\w+;base64,/, '')
                             return {
                                 inline_data: {
-                                    mime_type: 'image/jpeg' as MimeType,
-                                    data: part.image_url.url,
+                                    mime_type: detectMimeType(base64Data),
+                                    data: base64Data,
                                 },
-                            } as unknown as InlineDataPart
+                            } as InlineDataPart
+                        }
+                        case 'inline_data': {
+                            const base64Data = part.inline_data.data.replace(
+                                /^data:image\/\w+;base64,/,
+                                ''
+                            )
+                            return {
+                                inline_data: {
+                                    mime_type: detectMimeType(base64Data),
+                                    data: base64Data,
+                                },
+                            } as InlineDataPart
+                        }
                         case 'functionCall':
                             return {
                                 functionCall: {
@@ -124,7 +135,7 @@ export const isGeminiThinkingModel = (model: Model | undefined | typeof pendingO
         model &&
             model !== pendingOperation &&
             model.tags.includes(ModelTag.BYOK) &&
-            model.id.includes('gemini-2.0-flash-thinking')
+            model.id.includes('2.5-flash')
     )
 
 /**
@@ -171,4 +182,26 @@ export function parseToJson(input: string | object | undefined | null): Record<s
     // Fallback for unexpected primitive types (e.g., number, boolean directly passed if TS allows)
     // Wrap them too for consistency.
     return { value: input } // Consistent wrapper key
+}
+
+function detectMimeType(base64String: string): MimeType {
+    // Remove data URI prefix if present
+    const base64Data = base64String.replace(/^data:image\/\w+;base64,/, '')
+
+    // Get first 10 bytes from base64
+    const binaryStart = atob(base64Data).slice(0, 10)
+
+    // Check magic numbers using charCodes
+    if (binaryStart.charCodeAt(0) === 0xff && binaryStart.charCodeAt(1) === 0xd8) {
+        return 'image/jpeg'
+    }
+    if (binaryStart.charCodeAt(0) === 0x89 && binaryStart.charCodeAt(1) === 0x50) {
+        return 'image/png'
+    }
+    if (binaryStart.charCodeAt(8) === 0x57 && binaryStart.charCodeAt(9) === 0x45) {
+        return 'image/webp'
+    }
+
+    // Default to jpeg if unknown
+    return 'image/jpeg'
 }

@@ -1,5 +1,8 @@
 import type { CodyIDE, SerializedChatTranscript, UserLocalHistory } from '@sourcegraph/cody-shared'
-import type { LightweightChatHistory } from '@sourcegraph/cody-shared/src/chat/transcript'
+import {
+    ChatHistoryType,
+    type LightweightChatHistory,
+} from '@sourcegraph/cody-shared/src/chat/transcript'
 import { useExtensionAPI, useObservable } from '@sourcegraph/prompt-editor'
 import {
     HistoryIcon,
@@ -332,7 +335,7 @@ export const HistoryTabWithData: React.FC<
 
 function useUserHistory(): LightweightChatHistory | UserLocalHistory | null | undefined {
     const userHistory = useExtensionAPI().userHistory
-    return useObservable(useMemo(() => userHistory(), [userHistory])).value
+    return useObservable(useMemo(() => userHistory(ChatHistoryType.Full), [userHistory])).value
 }
 
 function useHistorySearch(chats: SerializedChatTranscript[], initialSearchTerm: string) {

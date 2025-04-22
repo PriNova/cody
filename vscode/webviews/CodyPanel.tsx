@@ -10,7 +10,7 @@ import {
     firstValueFrom,
 } from '@sourcegraph/cody-shared'
 import { useExtensionAPI, useObservable } from '@sourcegraph/prompt-editor'
-import { DatabaseBackup } from 'lucide-react'
+import { Cpu, Database, Globe, Shield } from 'lucide-react' // Import needed icons
 import type React from 'react'
 import { type FunctionComponent, useEffect, useMemo, useRef, useState } from 'react'
 import type { ConfigurationSubsetForWebview, LocalEnv } from '../src/chat/protocol'
@@ -19,7 +19,7 @@ import { Chat } from './Chat'
 import { useClientActionDispatcher } from './client/clientState'
 import { Notices } from './components/Notices'
 import { StateDebugOverlay } from './components/StateDebugOverlay'
-import type { ServerType } from './components/mcp'
+import type { ServerType } from './components/mcp' // Import the webview's ServerType
 import { ServerHome } from './components/mcp/ServerHome'
 import { TabContainer, TabRoot } from './components/shadcn/ui/tabs'
 import { HistoryTab, PromptsTab, TabsBar, View } from './tabs'
@@ -28,6 +28,9 @@ import type { VSCodeWrapper } from './utils/VSCodeApi'
 import { useUserAccountInfo } from './utils/useConfig'
 import { useFeatureFlag } from './utils/useFeatureFlags'
 import { TabViewContext } from './utils/useTabView'
+// Import McpServer type from shared if needed for clarity, or rely on the api return type
+// import type { McpServer } from '@sourcegraph/cody-shared/src/llm-providers/mcp/types';
+
 interface CodyPanelProps {
     view: View
     setView: (view: View) => void
@@ -50,6 +53,70 @@ interface CodyPanelProps {
     showIDESnippetActions?: boolean
     onExternalApiReady?: (api: CodyExternalApi) => void
     onExtensionApiReady?: (api: WebviewToExtensionAPI) => void
+}
+
+/**
+ * Helper function to map backend McpServer to webview ServerType
+ */
+function mapMcpServerToServerType(mcpServer: any): ServerType {
+    let parsedConfig = {} as any
+    try {
+        if (mcpServer.config) {
+            parsedConfig = JSON.parse(mcpServer.config)
+        }
+    } catch (error) {
+        console.error('Failed to parse MCP server config string:', mcpServer.name, error)
+        // Return minimal server info if config parsing fails
+        return {
+            id: mcpServer.name,
+            name: mcpServer.name,
+            type: mcpServer.type || 'unknown', // Use 'unknown' if type is missing
+            status: mcpServer.status === 'connected' ? 'online' : 'offline',
+            icon: Globe, // Default icon
+            tools: mcpServer.tools,
+            url: '',
+            command: '',
+            args: [''],
+            env: [{ name: '', value: '' }],
+            metrics: undefined, // Or map if available
+            // Keep config string for update logic if needed, or remove
+            config: mcpServer.config,
+        } as ServerType
+    }
+
+    // Map icon based on type or default
+    let icon = Globe
+    switch (parsedConfig.type?.toLowerCase()) {
+        case 'database':
+            icon = Database
+            break
+        case 'worker':
+            icon = Cpu
+            break
+        case 'service':
+            icon = Shield
+            break
+        default:
+            icon = Globe // Default to Globe or another generic icon
+    }
+
+    return {
+        id: mcpServer.name, // Use name as ID as per existing webview logic
+        name: mcpServer.name,
+        type: parsedConfig.type || 'MCP', // Use parsed type or default to MCP
+        status: mcpServer.status === 'connected' ? 'online' : 'offline',
+        icon, // Use determined icon
+        url: parsedConfig.url || '',
+        command: parsedConfig.command || '',
+        // Ensure args is always an array, default to [''] if not present or not an array
+        args: Array.isArray(parsedConfig.args) ? parsedConfig.args : [''],
+        // Ensure env is always an array, default to [{ name: '', value: '' }] if not present or not an array
+        env: Array.isArray(parsedConfig.env) ? parsedConfig.env : [{ name: '', value: '' }],
+        metrics: mcpServer.metrics, // Map metrics if available from backend
+        tools: mcpServer.tools,
+        // Keep config string for update logic if needed, or remove
+        config: mcpServer.config,
+    } as ServerType // Cast to the webview's ServerType
 }
 
 /**
@@ -78,22 +145,28 @@ export const CodyPanel: FunctionComponent<CodyPanelProps> = ({
     const externalAPI = useExternalAPI()
     const api = useExtensionAPI()
     const { value: chatModels } = useObservable(useMemo(() => api.chatModels(), [api.chatModels]))
-    const { value: mcpServers } = useObservable<ServerType[]>(
-        useMemo(
-            () =>
-                api.mcpSettings()?.map(servers =>
-                    (servers || [])?.map(s => ({
-                        id: s.name,
-                        name: s.name,
-                        tools: s.tools,
-                        status: s.status === 'connected' ? 'online' : 'offline',
-                        icon: DatabaseBackup,
-                        type: 'mcp',
-                    }))
-                ),
-            [api.mcpSettings]
-        )
+
+    // ** FIX START **
+    // Fetch McpServer[] from the backend (which has the 'config' string)
+    const { value: backendMcpServers } = useObservable(
+        useMemo(() => api.mcpSettings(), [api.mcpSettings])
     )
+
+    // Map the backend McpServer[] to the webview's ServerType[]
+    const mcpServers: ServerType[] | undefined | null = useMemo(() => {
+        if (!backendMcpServers) {
+            return backendMcpServers // null or undefined
+        }
+        // If backendMcpServers is the special -1 value indicating disabled, return []
+        if (backendMcpServers.length === -1) {
+            return []
+        }
+
+        // Map each backend McpServer to the webview ServerType
+        return backendMcpServers.map(mapMcpServerToServerType)
+    }, [backendMcpServers])
+    // ** FIX END **
+
     // workspace upgrade eligibility should be that the flag is set, is on dotcom and only has one account. This prevents enterprise customers that are logged into multiple endpoints from seeing the CTA
     const isWorkspacesUpgradeCtaEnabled =
         useFeatureFlag(FeatureFlag.SourcegraphTeamsUpgradeCTA) &&
@@ -183,12 +256,13 @@ export const CodyPanel: FunctionComponent<CodyPanelProps> = ({
                     {view === View.Prompts && (
                         <PromptsTab IDE={clientCapabilities.agentIDE} setView={setView} />
                     )}
+                    {/* Only show ServerHome if agentic chat is enabled and mcpServers data is available */}
                     {view === View.Settings &&
-                        // NOTE: This is temporary to hide the MCP UI until it is implemented.
-                        // During internal dogfooding, users will be using the vscode config to set up
-                        // their servers.
-                        mcpServers?.length !== -1 &&
-                        config?.experimentalAgenticChatEnabled && <ServerHome mcpServers={mcpServers} />}
+                        config?.experimentalAgenticChatEnabled &&
+                        mcpServers && // Ensure mcpServers is not null/undefined
+                        mcpServers.length !== -1 && ( // Check for the special -1 case from backend
+                            <ServerHome mcpServers={mcpServers} />
+                        )}
                 </TabContainer>
                 <StateDebugOverlay />
             </TabRoot>

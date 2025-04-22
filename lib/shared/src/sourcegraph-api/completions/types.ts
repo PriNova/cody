@@ -60,7 +60,8 @@ export type MessagePart =
     | TextContentPart // natively supported by LLM
     | { type: 'context_file'; uri: string; content?: string } // Cody extension
     | { type: 'context_repo'; repoId: string } // Cody extension
-    | { type: 'image_url'; image_url: { url: string } } // natively supported by LLM
+    | InlineDataPart
+    | ImageContentPart // natively supported by LLM
     | ToolCallContentPart // Assistant-only
     | ToolResultContentPart // Human-only
     | GeminiToolCallContentPart
@@ -69,6 +70,11 @@ export type MessagePart =
 export interface TextContentPart {
     type: 'text'
     text: string | undefined | null
+}
+
+export interface InlineDataPart {
+    type: 'inline_data'
+    inline_data: { mime_type: string; data: string }
 }
 
 // @added(Versions.V5_8)

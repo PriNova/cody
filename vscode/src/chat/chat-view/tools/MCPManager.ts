@@ -542,33 +542,83 @@ export class MCPManager {
 /**
  * Create a tool state object from MCP tool execution result
  */
+/**
+ * Create a tool state object from MCP tool execution result
+ */
 export function createMCPToolState(
     serverName: string,
     toolName: string,
     parts: MessagePart[],
     status = UIToolStatus.Done
-): ContextItemToolState {
+): ContextItemToolState[] {
+    const toolStates: ContextItemToolState[] = []
+    const toolIdBase = `mcp-${toolName}-${Date.now()}`
+
     const textContent = parts
-        .filter(p => p.type === 'text')
+        .filter(p => p.type === 'text') // Ensure text exists
         .map(p => p.text)
         .join('\n')
 
-    // TODO: Handle image_url parts appropriately
-    // const imagePart = parts.find(p => p.type === 'image_url')
+    // Get image URL parts
+    const imageParts = parts.filter(p => p.type === 'image_url') // Ensure image URL exists
 
-    return {
-        type: 'tool-state',
-        toolId: `mcp-${toolName}-${Date.now()}`,
-        status,
-        toolName: `${serverName}_${toolName}`,
-        content: textContent,
-        // ContextItemCommon properties
-        outputType: 'mcp',
-        uri: URI.parse(''),
-        title: serverName + ' - ' + toolName,
-        description: textContent,
-        source: ContextItemSource.Agentic,
-        icon: 'database',
-        metadata: ['mcp', toolName],
+    // Create text state only if textContent is not empty
+    if (textContent) {
+        toolStates.push({
+            type: 'tool-state',
+            toolId: `${toolIdBase}-text`, // Unique ID for text part
+            status,
+            toolName: `${serverName}_${toolName}`,
+            content: textContent,
+            // ContextItemCommon properties
+            outputType: 'mcp', // More specific type
+            uri: URI.parse(''),
+            title: serverName + ' - ' + toolName + ' (Text)',
+            description: textContent.substring(0, 100) + (textContent.length > 100 ? '...' : ''), // Truncate description
+            source: ContextItemSource.Agentic,
+            icon: 'database',
+            metadata: ['mcp', toolName, 'text'],
+        })
     }
+
+    // Create image state only if imageParts exist
+    if (imageParts.length > 0) {
+        // Combine image URLs if multiple images are present (though typically one)
+        const imageContent = imageParts.map(p => p.image_url.url).join('\n')
+        toolStates.push({
+            type: 'tool-state',
+            toolId: `${toolIdBase}-image`, // Unique ID for image part
+            status,
+            toolName: `${serverName}_${toolName}`,
+            content: imageContent, // Store the URL(s)
+            // ContextItemCommon properties
+            outputType: 'mcp', // More specific type
+            uri: URI.parse(''), // Or potentially the image URL itself if appropriate?
+            title: serverName + ' - ' + toolName + ' (Image)',
+            description: `Image result from ${toolName}`,
+            source: ContextItemSource.Agentic,
+            icon: 'file-media', // Use a more appropriate icon
+            metadata: ['mcp', toolName, 'image'],
+        })
+    }
+
+    // If neither text nor image content exists, create a generic empty state
+    if (toolStates.length === 0) {
+        toolStates.push({
+            type: 'tool-state',
+            toolId: `${toolIdBase}-empty`,
+            status: status === UIToolStatus.Error ? status : UIToolStatus.Done, // Reflect error or success
+            toolName: `${serverName}_${toolName}`,
+            content: status === UIToolStatus.Error ? 'Tool failed' : 'Tool returned no content',
+            outputType: 'status',
+            uri: URI.parse(''),
+            title: serverName + ' - ' + toolName + ' (No Output)',
+            description: 'The tool execution resulted in no text or image output.',
+            source: ContextItemSource.Agentic,
+            icon: 'info',
+            metadata: ['mcp', toolName, 'empty'],
+        })
+    }
+
+    return toolStates
 }

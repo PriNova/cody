@@ -1,4 +1,4 @@
-import { contextFiltersProvider, displayPath, logDebug } from '@sourcegraph/cody-shared'
+import { displayPath, logDebug } from '@sourcegraph/cody-shared'
 import * as vscode from 'vscode'
 import { getEditor } from '../../../editor/active-editor'
 
@@ -56,9 +56,9 @@ export const fileOps = {
         }
 
         const fileUri = vscode.Uri.joinPath(currentWorkspaceURI, filePath)
-        if (await contextFiltersProvider.isUriIgnored(fileUri)) {
+        /* if (await contextFiltersProvider.isUriIgnored(fileUri)) {
             return null
-        }
+        } */
 
         const doc = await vscode.workspace.openTextDocument(fileUri)
         return { uri: fileUri, doc }

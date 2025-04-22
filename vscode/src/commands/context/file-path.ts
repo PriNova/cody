@@ -3,7 +3,6 @@ import {
     type ContextItem,
     ContextItemSource,
     TokenCounterUtils,
-    contextFiltersProvider,
     logError,
     toRangeData,
     wrapInActiveSpan,
@@ -20,9 +19,9 @@ export async function getContextFileFromUri(
 ): Promise<ContextItem | null> {
     return wrapInActiveSpan('commands.context.filePath', async span => {
         try {
-            if (await contextFiltersProvider.isUriIgnored(file)) {
+            /* if (await contextFiltersProvider.isUriIgnored(file)) {
                 return null
-            }
+            } */
 
             const doc = await vscode.workspace.openTextDocument(file)
 
@@ -70,15 +69,16 @@ export async function getContextFromRelativePath(path: string): Promise<ContextI
             return null
         }
         // Combine the workspace URI with the path to get the URI of the file
-        const file = vscode.Uri.joinPath(currentWorkspaceURI, path)
+        const file = vscode.Uri.joinPath(currentWorkspaceURI, path.replace(/\\+/g, '/'))
+        //console.log('getContextFromRelativePath', 'file', file.toString())
         // Check if the resolved file path is still within the workspace.
         // Path traversal check.
-        if (!file.fsPath.startsWith(currentWorkspaceURI.fsPath + sep)) {
+        if (!file.path.startsWith(currentWorkspaceURI.path + sep)) {
             throw new Error('Path traversal detected')
         }
-        if (await contextFiltersProvider.isUriIgnored(file)) {
+        /* if (await contextFiltersProvider.isUriIgnored(file)) {
             return null
-        }
+        } */
         const doc = await vscode.workspace.openTextDocument(file)
         const content = doc.getText()
         if (!content.trim()) {

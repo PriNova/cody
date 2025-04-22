@@ -826,6 +826,7 @@ const TranscriptInteraction: FC<TranscriptInteractionProps> = memo(props => {
                         smartApply={isAgenticMode ? undefined : smartApplyWithInstruction}
                         onSelectedFiltersUpdate={onSelectedFiltersUpdate}
                         isLastSentInteraction={isLastSentInteraction}
+                        isFirstInteraction={isFirstInteraction}
                         setThoughtProcessOpened={setThoughtProcessOpened}
                         isThoughtProcessOpened={isThoughtProcessOpened}
                     />

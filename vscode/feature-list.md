@@ -22,8 +22,55 @@
    - Consider context filtering via .gitignore.
    - Add support for loading custom system instructions from `.cody/configs/system.md`
 
-6. ** Chat History**:
+6. **Chat History:**
    - Change chat history title.
    - Search across both chat titles and message content with support for multi-word search queries
 
-7. **Use external repositories, directories and files for context
+7. **Use external repositories, directories and files for context**
+
+8. **Agent Mode (BYOK only):** You can set the Agent Mode in the mode dropdown to use multi-turn completions and with MCP integration
+   - Support for Agent Mode is only for BYOK models with the `RPM` key/value field in the `options` property of the dev models.
+   This field determines the rounds per minute (RPM) for the specified model to prevent exceeding the rate limits.
+   Read before you set this value what rate-limits apply to your plan.
+   ```
+   "options": {
+                "temperature": 0.0,
+                "googleSearch": true,
+                "googleImage": true,
+                "RPM": 15
+            }
+   ```
+
+   - All default standard tools apply to this mode like in the Agentic Chat model. Ask with the following prompts what tools are available:
+   "What tools are available? Please list them."
+   - To integrate MCP servers into the Agent Mode use the following configuration in the settings.json file:
+   ```
+   "cody.mcpServers": {
+        "Memory": {
+            "transportType": "stdio",
+            "command": "npx",
+            "args": [
+                "-y",
+                "@modelcontextprotocol/server-memory"
+            ],
+            "env": {
+                "MEMORY_FILE_PATH": "/home/prinova/CodeProjects/cody/.sourcegraph/memory/memory.json"
+            }
+        },
+        "DuckDuckGo": {
+            "transportType": "stdio",
+            "command": "uvx",
+            "args": [
+                "duckduckgo-mcp-server"
+            ]
+        },
+        "Context7": {
+            "transportType": "stdio",
+            "command": "npx",
+            "args": [
+                "-y",
+                "@upstash/context7-mcp@latest"
+            ]
+        },
+    },
+    ```

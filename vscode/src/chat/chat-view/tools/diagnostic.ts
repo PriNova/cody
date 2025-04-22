@@ -14,18 +14,18 @@ export const diagnosticTool: AgentTool = {
     spec: {
         name: 'get_diagnostic',
         description:
-            'Get diagnostics (including errors) from the editor for the file you have used text_editor on. This tool should be used at the end of your response on the files you have edited.',
+            'Get diagnostics (including errors) from the editor for the file you have used text_editor on. This tool should be used always at the end of your response on the files you have edited.',
         input_schema: zodToolSchema(GetDiagnosticSchema),
     },
     invoke: async ({ name, type }: GetDiagnosticInput) => {
         validateWithZod(GetDiagnosticSchema, { name }, 'get_diagnostic')
         const fileName = name === '*' ? 'Workspace' : name
-        const severity =
+        /* const severity =
             type === 'warning'
                 ? vscode.DiagnosticSeverity.Warning
                 : type === 'all'
                   ? true
-                  : vscode.DiagnosticSeverity.Error
+                  : vscode.DiagnosticSeverity.Error */
 
         try {
             let diagnostics = vscode.languages.getDiagnostics()?.flatMap(d => d[1])
@@ -42,7 +42,7 @@ export const diagnosticTool: AgentTool = {
 
             return createDiagnosticToolState(
                 name,
-                diagnostics.filter(d => d.severity === severity),
+                diagnostics, //.filter(d => d.severity === severity),
                 fileInfo.uri
             )
         } catch (error) {
@@ -100,9 +100,9 @@ function createDiagnosticToolState(
     error?: string
 ): ContextItemToolState {
     const toolId = `diagnostic-${Date.now()}`
-    const hasProblems = diagnostics?.length > 0 || error !== undefined
+    const hasProblems = diagnostics?.length > 0
     const content = hasProblems
-        ? `Diagnostics for ${name}:\n${diagnostics.map(d => d.message).join('\n')}`
+        ? `Diagnostics for ${fileName}:\n${diagnostics.map(d => d.message).join('\n')}`
         : error ?? 'EMPTY'
     const icon = hasProblems ? 'alarm-clock-check' : 'alarm-clock-minus'
     const status = error ? UIToolStatus.Error : hasProblems ? UIToolStatus.Info : UIToolStatus.Done

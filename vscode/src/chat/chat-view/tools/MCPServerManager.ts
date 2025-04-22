@@ -73,7 +73,7 @@ export class MCPServerManager {
      */
     public async getResourceList(serverName: string): Promise<McpResource[]> {
         try {
-            if (!serverName) return [] // <-- Skip until we support resources
+            //if (!serverName) return [] // <-- Skip until we support resources
 
             const connection = this.connectionManager.getConnection(serverName)
             if (!connection) return []
@@ -90,6 +90,7 @@ export class MCPServerManager {
                 mimeType: r.mimeType,
                 title: `${r.title}`,
             }))
+            //console.log('response', JSON.stringify(resources, null, 2))
             logDebug('MCPServerManager', `Fetched ${resources.length} resources for ${serverName}`, {
                 verbose: { resources },
             })
@@ -153,7 +154,7 @@ export class MCPServerManager {
                     },
                     invoke: async (args: Record<string, any>) => {
                         try {
-                            return this.executeTool(serverName, tool.name, args)
+                            return await this.executeTool(serverName, tool.name, args)
                         } catch (error) {
                             logDebug('MCPServerManager', `Error executing tool ${tool.name}:`, {
                                 verbose: { error },
@@ -253,14 +254,18 @@ export class MCPServerManager {
                     const url = `data:${mimeType};base64,${p.data}`
                     return { type: 'image_url', image_url: { url } }
                 }
-                logDebug('MCPServerManager', `Unsupported content: ${p?.type}`, { verbose: { p } })
+                console.log('MCPServerManager', `Unsupported content: ${p?.type}`, { verbose: { p } })
                 return { type: 'text', text: JSON.stringify(p) }
             }) satisfies MessagePart[]
 
             logDebug('MCPServerManager', `Tool ${toolName} executed successfully`, {
                 verbose: { contentParts },
             })
-
+            /* console.log(
+                'MCPServerManager',
+                `Received response from tool ${toolName}`,
+                JSON.stringify(contentParts, null, 2)
+            ) */
             return createMCPToolState(serverName, toolName, contentParts)
         } catch (error) {
             logDebug('MCPServerManager', `Error calling tool ${toolName} on server ${serverName}`, {

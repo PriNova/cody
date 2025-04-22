@@ -1,16 +1,18 @@
 import { CodyIDE, clientCapabilities } from '@sourcegraph/cody-shared'
 import { getPlatform } from '@sourcegraph/cody-shared/src/common/platform'
+import * as vscode from 'vscode'
 import { fileOps } from '../tools/file-operations'
 
 // Lazy-loaded environment data - calculated once when needed
-let cachedEnv: { OS: string; IDE: string } | null = null
+let cachedEnv: { OS: string; IDE: string; WORKSPACE_ROOT: string } | null = null
 
 // Get environment data with memoization
-const getUserEnv = (): { OS: string; IDE: string } => {
+const getUserEnv = (): { OS: string; IDE: string; WORKSPACE_ROOT: string } => {
     if (!cachedEnv) {
         cachedEnv = {
             OS: getPlatform() || 'unknown',
             IDE: clientCapabilities()?.agentIDE || CodyIDE.VSCode,
+            WORKSPACE_ROOT: vscode.workspace.workspaceFolders?.[0]?.uri.path || 'unknown',
         }
     }
     return cachedEnv
@@ -32,8 +34,8 @@ Environment you are running in:
 <env>
 1. Platform: {{USER_INFO_OS}}
 2. IDE: {{USER_INFO_IDE}}
-3. Date: ${currentDate}
-</env>
+3. Workspace root directory: {{USER_INFO_WORKSPACE_ROOT}}
+4. Date: ${currentDate}
 
 Remember:
 - Always adhere to existing code conventions and patterns.
@@ -49,8 +51,10 @@ REMEMBER, always be helpful and proactive! Don't ask for permission to do someth
 When you have completed the task, please provide a summary of what you did and any relevant information that the user should know. This will help ensure that the user understands the changes made and can easily follow up if they have any questions or need further assistance. Do not indicate that you will perform an action without actually doing it. Always provide the final result in your response.`
 
 export function buildAgentPrompt(): string {
-    const { OS, IDE } = getUserEnv()
-    return SYSTEM_PROMPT_TEMPLATE.replace('{{USER_INFO_OS}}', OS).replace('{{USER_INFO_IDE}}', IDE)
+    const { OS, IDE, WORKSPACE_ROOT } = getUserEnv()
+    return SYSTEM_PROMPT_TEMPLATE.replace('{{USER_INFO_OS}}', OS)
+        .replace('{{USER_INFO_IDE}}', IDE)
+        .replace('{{USER_INFO_WORKSPACE_ROOT}}', WORKSPACE_ROOT)
 }
 
 const CURRENT_EDITOR_STATE_PROMPT = `<user_env>

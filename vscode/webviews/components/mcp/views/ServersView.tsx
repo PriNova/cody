@@ -7,13 +7,27 @@ import { ServerDetailView } from './ServerDetailView'
 interface ServersViewProps {
     servers: ServerType[]
     selectedServer: ServerType | null
-    onSelectServer: (server: ServerType) => void
+    onSelectServer: (server: ServerType | null) => void
     addServers: (server: ServerType) => void
+    onUpdateServer: (server: ServerType) => void
 }
 
-export function ServersView({ servers, selectedServer, onSelectServer, addServers }: ServersViewProps) {
+export function ServersView({
+    servers,
+    selectedServer,
+    onSelectServer,
+    addServers,
+    onUpdateServer,
+}: ServersViewProps) {
     if (selectedServer) {
-        return <ServerDetailView server={selectedServer} onAddServer={addServers} />
+        return (
+            <ServerDetailView
+                key={selectedServer.id}
+                server={selectedServer}
+                onUpdateServer={onUpdateServer}
+                onCancel={() => onSelectServer(null)}
+            />
+        )
     }
 
     return (

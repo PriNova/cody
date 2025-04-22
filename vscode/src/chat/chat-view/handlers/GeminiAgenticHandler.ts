@@ -12,7 +12,6 @@ import {
     isDefined,
     logDebug,
     modelsService,
-    telemetryRecorder,
 } from '@sourcegraph/cody-shared'
 import type { ContextItemToolState } from '@sourcegraph/cody-shared/src/codebase-context/messages'
 import { URI } from 'vscode-uri'
@@ -31,6 +30,46 @@ interface ToolResult {
     output: ContextItemToolState
     tool_result: ToolResultContentPart
 }
+
+// Define the TypeScript type for a cleaned schema object, reflecting the supported Gemini fields.
+// This will be used recursively.
+interface GeminiParameterSchema {
+    type?: string // Maps to Gemini's Type enum values like 'STRING', 'NUMBER', 'INTEGER', 'BOOLEAN', 'ARRAY', 'OBJECT', 'NULL'
+    format?: string
+    title?: string
+    description?: string
+    nullable?: boolean
+    enum?: (string | number | boolean | null)[]
+    maxItems?: string // As per Gemini spec, should be string (int64 format)
+    minItems?: string // As per Gemini spec, should be string (int64 format)
+    properties?: Record<string, GeminiParameterSchema> // Recursive definition for object properties
+    required?: string[] // For object types, lists names of required properties
+    anyOf?: GeminiParameterSchema[] // Recursive definition for anyOf
+    items?: GeminiParameterSchema // Recursive definition for array items
+    minimum?: number // For number/integer types
+    maximum?: number // For number/integer types
+    // Note: propertyOrdering is listed but often not required for basic schema definition, omitting for simplicity unless needed.
+}
+
+// Define the TypeScript types for the overall Gemini tool structure
+interface GeminiFunctionDeclaration {
+    name: string
+    description?: string // Description can be optional
+    // Parameters object structure expected by Gemini - this *is* a Schema object itself with type 'object'
+    parameters: {
+        type: 'object'
+        properties?: Record<string, GeminiParameterSchema> // Top-level parameters are defined here using our cleaned schema type
+        required?: string[] // Required names of the top-level properties listed in 'properties'
+    }
+}
+
+// This interface represents the single wrapper object expected by the Gemini API's 'tools' parameter
+interface GeminiToolWrapper {
+    functionDeclarations: GeminiFunctionDeclaration[]
+}
+
+// The final output type for the 'tools' parameter is an array containing one wrapper object.
+type GeminiToolsParam = GeminiToolWrapper[]
 
 /**
  * Base AgenticHandler class that manages tool execution state
@@ -160,6 +199,7 @@ export class GeminiAgenticHandler extends ChatHandler implements AgentHandler {
 
                 // Execute tools and update results
                 const content = Array.from(toolCalls.values())
+                //console.log('Tool call content arguments:', JSON.stringify(content, null, 2))
                 delegate.postMessageInProgress(botResponse)
 
                 const results = await this.executeTools(content, this.agentModel).catch(() => {
@@ -167,19 +207,34 @@ export class GeminiAgenticHandler extends ChatHandler implements AgentHandler {
                     return []
                 })
 
+                //console.log('Tool call results:', JSON.stringify(results, null, 2))
+
                 const toolResults = results?.map(result => result.tool_result).filter(isDefined)
                 const toolOutputs = results?.map(result => result.output).filter(isDefined)
 
+                const textOnlyParts = toolResults.flatMap(result => {
+                    const parts = JSON.parse(result.tool_result.content) as MessagePart[]
+                    return parts.filter(part => part.type === 'text')
+                })
+
                 botResponse.contextFiles = toolOutputs
-                botResponse.content = content
+                botResponse.content = [
+                    ...content, // Include the tool calls
+                    ...textOnlyParts,
+                ]
 
                 delegate.postMessageInProgress(botResponse)
 
                 chatBuilder.addBotMessage(botResponse, this.agentModel)
 
+                const messageParts = toolResults.flatMap(result => {
+                    const parts = JSON.parse(result.tool_result.content) as MessagePart[]
+                    return parts
+                })
+
                 // Add a human message to hold tool results
                 chatBuilder.addHumanMessage({
-                    content: toolResults,
+                    content: [...messageParts, ...toolResults],
                     intent: 'agentic',
                     contextFiles: toolOutputs,
                 })
@@ -227,26 +282,10 @@ export class GeminiAgenticHandler extends ChatHandler implements AgentHandler {
             maxTokensToSample: 8000,
             messages: JSON.stringify(fixedPrompt),
             // Format tools according to Gemini function calling specification
-            tools: [
-                {
-                    functionDeclarations: Array.from(
-                        new Map(
-                            this.tools.map(tool => [
-                                tool.spec.name,
-                                {
-                                    name: tool.spec.name,
-                                    description: tool.spec.description,
-                                    parameters: {
-                                        type: 'object',
-                                        properties: tool.spec.input_schema.properties || {},
-                                        required: tool.spec.input_schema.required || [],
-                                    },
-                                },
-                            ])
-                        ).values()
-                    ),
-                },
-            ],
+            // Use the helper function to convert available tools
+            tools: convertAnthropicToolsToGeminiTools({
+                tools: this.tools.filter(tool => !tool.disabled),
+            }),
             stream: true,
             model,
         }
@@ -326,7 +365,7 @@ export class GeminiAgenticHandler extends ChatHandler implements AgentHandler {
         // Get the existing call *before* potentially modifying the incoming toolCall chunk
         const existingCall = toolCalls.get(toolCall?.tool_call?.id)
         if (!existingCall) {
-            logDebug('AgenticHandler', `Calling ${toolCall?.tool_call?.name}`, { verbose: toolCall })
+            console.log('AgenticHandler', `Calling ${toolCall?.tool_call?.name}`, { verbose: toolCall })
         }
         // Merge the existing call (if any) with the new toolCall,
         // prioritizing properties from the new toolCall.  This ensures
@@ -348,26 +387,18 @@ export class GeminiAgenticHandler extends ChatHandler implements AgentHandler {
             const results = await Promise.allSettled(
                 toolCalls.map(async toolCall => {
                     try {
-                        telemetryRecorder.recordEvent('cody.tool-use', 'selected', {
-                            billingMetadata: {
-                                product: 'cody',
-                                category: 'billable',
-                            },
-                            privateMetadata: {
-                                model,
-                                input_args: JSON.stringify(toolCall.tool_call?.arguments),
-                                tool_name: toolCall.tool_call?.name,
-                                type: 'builtin',
-                            },
-                        })
                         logDebug('AgenticHandler', `Executing ${toolCall.tool_call?.name}`, {
                             verbose: toolCall,
                         })
                         return await this.executeSingleTool(toolCall, model)
                     } catch (error) {
-                        logDebug('AgenticHandler', `Error executing tool ${toolCall.tool_call?.name}`, {
-                            verbose: error,
-                        })
+                        console.log(
+                            'AgenticHandler',
+                            `Error executing tool ${toolCall.tool_call.name}`,
+                            {
+                                verbose: error,
+                            }
+                        )
                         return null // Return null for failed tool executions
                     }
                 })
@@ -408,72 +439,79 @@ export class GeminiAgenticHandler extends ChatHandler implements AgentHandler {
             status: UIToolStatus.Done,
         }
 
-        // Update status to pending *before* execution
         try {
             const args = parseToolCallArgs(toolCall.tool_call.arguments)
-            const result = await tool.invoke(args).catch(error => {
-                telemetryRecorder.recordEvent('cody.tool-use', 'failed', {
-                    billingMetadata: {
-                        product: 'cody',
-                        category: 'billable',
-                    },
-                    privateMetadata: {
-                        model,
-                        input_args: JSON.stringify(toolCall.tool_call?.arguments),
-                        tool_name: toolCall.tool_call?.name,
-                        type: 'builtin',
-                    },
-                })
-                logDebug('AgenticHandler', `Error executing tool ${toolCall.tool_call.name}`, {
-                    verbose: error,
-                })
-                return null
-            })
+            logDebug('AgenticHandler', 'Tool call arguments:', JSON.stringify(args, null, 2))
+            const results = await tool.invoke(args)
+            logDebug(
+                'AgenticHandler',
+                `Tool ${toolCall.tool_call.name} executed successfully`,
+                JSON.stringify(results, null, 2)
+            )
 
-            if (result === null) {
-                throw new Error(`Tool ${toolCall.tool_call.name} failed`)
+            // Convert the results into MessagePart array
+            const messageParts: MessagePart[] = []
+
+            // Handle text content
+            if (results) {
+                if (Array.isArray(results)) {
+                    // Handle array results (MCP format)
+                    if (
+                        results.some(
+                            r => r.content && r.outputType === 'mcp' && r.metadata?.includes('text')
+                        )
+                    ) {
+                        const textResult = results.find(r => r.metadata?.includes('text'))
+                        messageParts.push({
+                            type: 'text',
+                            text: textResult?.content || '',
+                        })
+                    }
+
+                    if (
+                        results.some(
+                            r => r.content && r.outputType === 'mcp' && r.metadata?.includes('image')
+                        )
+                    ) {
+                        const imageResult = results.find(r => r.metadata?.includes('image'))
+                        const imageUrls = imageResult?.content?.split('\n') || []
+                        for (const url of imageUrls) {
+                            const base64Data = url.replace(/^data:image\/\w+;base64,/, '')
+                            messageParts.push({
+                                type: 'image_url',
+                                image_url: { url: base64Data },
+                            })
+                        }
+                    }
+                } else {
+                    // Handle non-array results (diagnostic, terminal output etc.)
+                    if (results.content) {
+                        messageParts.push({
+                            type: 'text',
+                            text: results.content,
+                        })
+                    }
+                }
+            } else {
+                messageParts.push({
+                    type: 'text',
+                    text: `Tool ${toolCall.tool_call.name} failed`,
+                })
             }
 
-            tool_result.tool_result.content = result.content || 'Empty result'
-
-            logDebug('AgenticHandler', `Executed ${toolCall.tool_call.name}`, { verbose: result })
-
-            telemetryRecorder.recordEvent('cody.tool-use', 'executed', {
-                billingMetadata: {
-                    product: 'cody',
-                    category: 'billable',
-                },
-                privateMetadata: {
-                    model,
-                    input_args: JSON.stringify(toolCall.tool_call?.arguments),
-                    tool_name: toolCall.tool_call?.name,
-                    type: 'builtin',
-                },
-            })
+            // Update tool result content with all parts
+            tool_result.tool_result.content = JSON.stringify(messageParts)
 
             return {
                 tool_result,
                 output: {
-                    ...result,
+                    ...(Array.isArray(results) && results.length > 0 ? results[0] : results), // Use first result for base properties if available
                     ...tool_item,
                     status: UIToolStatus.Done,
                 },
             }
         } catch (error) {
             tool_result.tool_result.content = String(error)
-            telemetryRecorder.recordEvent('cody.tool-use', 'failed', {
-                billingMetadata: {
-                    product: 'cody',
-                    category: 'billable',
-                },
-                privateMetadata: {
-                    model,
-                    input_args: JSON.stringify(toolCall.tool_call?.arguments),
-                    tool_name: toolCall.tool_call?.name,
-                    type: 'builtin',
-                },
-            })
-            logDebug('AgenticHandler', `${toolCall.tool_call.name} failed`, { verbose: error })
             return {
                 tool_result,
                 output: {
@@ -565,4 +603,175 @@ function transformItems(items: ContextItem[]): ContextItem[] {
             }
             return i
         })
+}
+
+/**
+ * Converts a list of Anthropic Tool objects (from the Model Context Protocol schema)
+ * into the structure expected by the Gemini API for the 'tools' parameter.
+ * This uses a recursive cleaning function to ensure only supported schema fields are included.
+ *
+ * @param mcpTools - An object containing a list of AgentTool objects (which wrap Anthropic Tool specs).
+ * @returns An array containing a single object with the 'functionDeclarations' property,
+ *          formatted for the Gemini API's 'tools' parameter.
+ */
+function convertAnthropicToolsToGeminiTools(mcpTools: { tools: AgentTool[] }): GeminiToolsParam {
+    const functionDeclarations: GeminiFunctionDeclaration[] = []
+
+    for (const tool of mcpTools.tools) {
+        // Ensure tool.spec and tool.spec.input_schema exist and are structured as expected
+        // A tool input schema should generally be an object with properties.
+        if (
+            !tool.spec ||
+            !tool.spec.input_schema ||
+            tool.spec.input_schema.type !== 'object' ||
+            !tool.spec.input_schema.properties ||
+            typeof tool.spec.input_schema.properties !== 'object'
+        ) {
+            // Log a warning for invalid schema structure before skipping
+            logDebug(
+                `Skipping tool "${tool.spec?.name}" due to invalid or non-object input_schema structure. Schema:`,
+                JSON.stringify(tool.spec?.input_schema)
+            )
+            continue
+        }
+
+        const originalInputSchema = tool.spec.input_schema as Record<string, any> // Cast for easier property access
+
+        // Clean each top-level parameter schema using the recursive helper
+        const cleanedParametersProperties: Record<string, GeminiParameterSchema> = {}
+        const originalProperties = originalInputSchema.properties as Record<string, any>
+
+        for (const key in originalProperties) {
+            if (Object.hasOwnProperty.call(originalProperties, key)) {
+                const originalParamSchema = originalProperties[key]
+                const cleanedParamSchema = cleanSchemaForGemini(originalParamSchema)
+
+                // Only add the parameter to the function definition if the cleaned schema is not empty
+                if (Object.keys(cleanedParamSchema).length > 0) {
+                    cleanedParametersProperties[key] = cleanedParamSchema
+                }
+            }
+        }
+
+        // Create the Gemini function declaration object
+        const functionDeclaration: GeminiFunctionDeclaration = {
+            name: tool.spec.name,
+            description: tool.spec.description, // Use the tool's description
+            parameters: {
+                // This structure is required by Gemini for function call parameters
+                type: 'object', // The parameters wrapper itself is always an object
+                properties: cleanedParametersProperties, // Use the *cleaned* parameter properties we just built
+                // Include 'required' from the original input_schema (top level required for the object's properties)
+                // Ensure it's an array if present, otherwise default to empty array
+                required:
+                    originalInputSchema.required !== undefined &&
+                    Array.isArray(originalInputSchema.required)
+                        ? originalInputSchema.required
+                        : [],
+            },
+        }
+
+        // Add the constructed Gemini function declaration object to the list
+        functionDeclarations.push(functionDeclaration)
+    }
+
+    // Wrap the list of function declarations in the required GeminiToolWrapper object
+    const geminiToolWrapper: GeminiToolWrapper = {
+        functionDeclarations: functionDeclarations,
+    }
+
+    // Return the wrapper object within an array, as required by the Gemini API 'tools' parameter
+    // Return an empty array if no valid function declarations were created
+    return functionDeclarations.length > 0 ? [geminiToolWrapper] : []
+}
+
+/**
+ * Recursively cleans a JSON Schema object to only include fields supported by the Gemini API's Schema definition.
+ *
+ * @param schema - The schema object (or a part of one) to clean.
+ * @returns A new object containing only the Gemini-supported schema fields.
+ */
+function cleanSchemaForGemini(schema: any): GeminiParameterSchema {
+    if (!schema || typeof schema !== 'object') {
+        return {} // Return empty object for invalid input
+    }
+
+    const cleaned: GeminiParameterSchema = {}
+
+    // Explicitly copy allowed fields from the original schema
+    if (schema.type !== undefined) cleaned.type = schema.type // Keep original type string (e.g., 'string', 'integer', 'object', 'array')
+    if (schema.format !== undefined) cleaned.format = schema.format
+    if (schema.title !== undefined) cleaned.title = schema.title
+    if (schema.description !== undefined) cleaned.description = schema.description
+    if (schema.nullable !== undefined) cleaned.nullable = schema.nullable
+
+    // Ensure enum is an array if present
+    if (schema.enum !== undefined && Array.isArray(schema.enum)) {
+        // Perform a basic validation/cleaning of enum values if necessary,
+        // but for now assume the array elements are acceptable primitive types.
+        cleaned.enum = schema.enum
+    }
+
+    // Handle array properties, casting to string as per Gemini spec if needed
+    if (schema.maxItems !== undefined) cleaned.maxItems = String(schema.maxItems)
+    if (schema.minItems !== undefined) cleaned.minItems = String(schema.minItems)
+
+    // Handle number/integer properties
+    if (schema.minimum !== undefined) cleaned.minimum = schema.minimum
+    if (schema.maximum !== undefined) cleaned.maximum = schema.maximum
+
+    // Handle recursive structures: properties for objects
+    if (cleaned.type === 'object' && schema.properties && typeof schema.properties === 'object') {
+        cleaned.properties = {}
+        for (const propKey in schema.properties) {
+            if (Object.hasOwnProperty.call(schema.properties, propKey)) {
+                // Recursively clean nested property schemas
+                const cleanedPropertySchema = cleanSchemaForGemini(schema.properties[propKey])
+                // Only include the property if the cleaned nested schema is not empty
+                if (Object.keys(cleanedPropertySchema).length > 0) {
+                    cleaned.properties[propKey] = cleanedPropertySchema
+                }
+            }
+        }
+        // If no properties remain after cleaning, remove the properties object
+        if (Object.keys(cleaned.properties).length === 0) {
+            cleaned.properties = undefined
+        }
+
+        // Copy 'required' array for object types' *properties* if it exists and is an array
+        if (schema.required !== undefined && Array.isArray(schema.required)) {
+            // Optional: You might want to filter this 'required' array to only include
+            // property keys that actually exist in the `cleaned.properties` object.
+            cleaned.required = schema.required
+        }
+    }
+
+    // Handle recursive structures: items for arrays
+    if (cleaned.type === 'array' && schema.items && typeof schema.items === 'object') {
+        // Recursively clean the items schema
+        const cleanedItemsSchema = cleanSchemaForGemini(schema.items)
+        // Only include items if the cleaned nested schema is not empty
+        if (Object.keys(cleanedItemsSchema).length > 0) {
+            cleaned.items = cleanedItemsSchema
+        }
+    }
+
+    // Handle recursive structures: anyOf
+    if (schema.anyOf !== undefined && Array.isArray(schema.anyOf)) {
+        const cleanedAnyOf = schema.anyOf
+            .map((item: any) => cleanSchemaForGemini(item))
+            .filter((item: any) => Object.keys(item).length > 0) // Filter out empty results from sub-schemas
+
+        if (cleanedAnyOf.length > 0) {
+            cleaned.anyOf = cleanedAnyOf
+        }
+    }
+
+    // After processing, if the cleaned object only contains a 'type' and nothing else
+    // (and it's not a basic primitive type), or if it's completely empty,
+    // we might consider if it represents a valid schema definition for Gemini.
+    // For simplicity, we'll return the object as is; the caller (convertAnthropicToolsToGeminiTools)
+    // will check if the top-level parameter schema is empty.
+
+    return cleaned
 }

@@ -1,5 +1,5 @@
 import { Search } from 'lucide-react'
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Input } from '../shadcn/ui/input'
 import { cn } from '../shadcn/utils'
 import type { ServerType } from './types'
@@ -13,28 +13,39 @@ export function ServerHome({ mcpServers = [] }: ServerHomeProps) {
     const [selectedServer, setSelectedServer] = useState<ServerType | null>(null)
     const [searchQuery, setSearchQuery] = useState('')
 
-    if (!servers) {
-        return <div>Loading...</div>
-    }
+    useEffect(() => {
+        setServers(mcpServers)
+    }, [mcpServers])
 
-    const addServers = useCallback(
+    const addServer = useCallback(
         (server: ServerType) => {
-            setServers([...servers, server])
+            if (!servers.find(s => s.id === server.id)) {
+                setServers(prevServers => [...prevServers, server])
+            } else {
+                console.warn(`Server with ID ${server.id} already exists.`)
+            }
         },
         [servers]
     )
 
-    // Filter servers based on search query
+    const updateServer = useCallback((updatedServer: ServerType) => {
+        setServers(prevServers =>
+            prevServers.map(server => (server.id === updatedServer.id ? updatedServer : server))
+        )
+    }, [])
+
     const filteredServers = useMemo(() => {
-        if (mcpServers) {
-            setServers(mcpServers)
-        }
         return servers.filter(
             server =>
                 server.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                 server.type.toLowerCase().includes(searchQuery.toLowerCase())
         )
-    }, [searchQuery, servers, mcpServers])
+    }, [searchQuery, servers])
+
+    const handleSelectServer = useCallback((server: ServerType | null) => {
+        setSelectedServer(server)
+    }, [])
+
     return (
         <div className="tw-flex tw-flex-col tw-gap-4 tw-flex-grow tw-overflow-y-scroll">
             <div className="tw-flex tw-h-full tw-transition-all tw-duration-300 tw-flex-col">
@@ -57,8 +68,9 @@ export function ServerHome({ mcpServers = [] }: ServerHomeProps) {
                     <ServersView
                         servers={filteredServers}
                         selectedServer={selectedServer}
-                        onSelectServer={setSelectedServer}
-                        addServers={addServers}
+                        onSelectServer={handleSelectServer}
+                        addServers={addServer}
+                        onUpdateServer={updateServer}
                     />
                 </div>
             </div>

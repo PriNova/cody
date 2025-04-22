@@ -8,6 +8,7 @@ import { diagnosticTool } from './diagnostic'
 import { editTool } from './editor'
 import { getFileTool } from './file'
 import { getCodebaseSearchTool } from './search'
+//import { getCodebaseSearchTool } from './search'
 import { shellTool } from './shell'
 
 export type AgentID = string
