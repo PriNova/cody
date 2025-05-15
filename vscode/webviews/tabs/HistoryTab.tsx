@@ -42,8 +42,8 @@ export const HistoryTab: React.FC<HistoryTabProps> = props => {
     )
 
     return (
-        <div className="tw-px-8 tw-pt-6 tw-pb-12">
-            {chats === undefined ? (
+        <div className="tw-flex tw-flex-col tw-justify-center tw-overflow-hidden tw-h-full tw-w-full tw-m-4">
+            {!chats ? (
                 <LoadingDots />
             ) : chats === null ? (
                 <p>History is not available.</p>

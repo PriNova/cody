@@ -39,7 +39,7 @@ import {
 import { HumanMessageCell } from './cells/messageCell/human/HumanMessageCell'
 
 import { type Context, type Span, context, trace } from '@opentelemetry/api'
-import { DeepCodyAgentID, ToolCodyModelName } from '@sourcegraph/cody-shared/src/models/client'
+import { DeepCodyAgentID } from '@sourcegraph/cody-shared/src/models/client'
 import * as uuid from 'uuid'
 import { URI } from 'vscode-uri'
 import { isCodeSearchContextItem } from '../../src/context/openctx/codeSearch'
@@ -155,7 +155,7 @@ export const Transcript: FC<TranscriptProps> = props => {
 
             // Calculate history tokens from previous messages
             const messageTokens = await Promise.all(
-                messages.map(msg => counter.encode(msg.text?.toString() || '').length)
+                messages.map(async msg => (await counter.encode(msg.text?.toString() || '')).length)
             )
 
             // Calculate context file tokens
@@ -163,7 +163,7 @@ export const Transcript: FC<TranscriptProps> = props => {
                 messages.flatMap(msg =>
                     (msg.contextFiles || [])
                         .filter(item => !item.isTooLarge && !item.isIgnored)
-                        .map(item => counter.encode(item.content || '').length)
+                        .map(async item => (await counter.encode(item.content || '')).length)
                 )
             )
             const total = [...messageTokens, ...contextTokens].reduce((a, b) => a + b, 0)
@@ -215,7 +215,7 @@ export const Transcript: FC<TranscriptProps> = props => {
                 const contextTokenCount = await Promise.all(
                     lastHumanWithContext.contextFiles
                         ?.filter(item => !item.isTooLarge && !item.isIgnored)
-                        .map(item => counter.encode(item.content || '').length) || []
+                        .map(async item => (await counter.encode(item.content || '')).length) || []
                 )
 
                 const totalContextTokens = contextTokenCount.reduce((a, b) => a + b, 0)
@@ -228,6 +228,22 @@ export const Transcript: FC<TranscriptProps> = props => {
             calculateInitialContextTokens()
         }
     }, [transcript, tokenCounter, updateCurrentInputTokens])
+
+    useEffect(() => {
+        const handleCopyEvent = (event: ClipboardEvent) => {
+            const selectedText = window.getSelection()?.toString() || ''
+            if (!selectedText) return
+            getVSCodeAPI().postMessage({
+                command: 'copy',
+                text: selectedText,
+                eventType: 'Keydown',
+            })
+        }
+        document.addEventListener('copy', handleCopyEvent)
+        return () => {
+            document.removeEventListener('copy', handleCopyEvent)
+        }
+    }, [])
 
     return (
         <div
@@ -420,8 +436,6 @@ const TranscriptInteraction: FC<TranscriptInteractionProps> = memo(props => {
             setSelectedIntent('chat')
         }
     }, [humanMessage, isFirstInteraction, isLastInteraction])
-
-    const usingToolCody = assistantMessage?.model?.includes(ToolCodyModelName)
 
     const onUserAction = useCallback(
         (action: 'edit' | 'submit', manuallySelectedIntent: ChatMessage['intent']) => {
@@ -786,7 +800,7 @@ const TranscriptInteraction: FC<TranscriptInteractionProps> = memo(props => {
                             }}
                         />
                     )}
-                    {!usingToolCody && !isSearchIntent && humanMessage.agent && (
+                    {!isSearchIntent && humanMessage.agent && (
                         <AgenticContextCell
                             key={`${humanMessage.index}-${humanMessage.intent}-process`}
                             isContextLoading={isContextLoading}
@@ -796,8 +810,7 @@ const TranscriptInteraction: FC<TranscriptInteractionProps> = memo(props => {
                     {humanMessage.agent && assistantMessage?.isLoading && (
                         <ApprovalCell vscodeAPI={vscodeAPI} />
                     )}
-                    {!usingToolCody &&
-                        !(humanMessage.agent && isContextLoading) &&
+                    {!(humanMessage.agent && isContextLoading) &&
                         (humanMessage.contextFiles || assistantMessage || isContextLoading) &&
                         !isSearchIntent && (
                             <ContextCell

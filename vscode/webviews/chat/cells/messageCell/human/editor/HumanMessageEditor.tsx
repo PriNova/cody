@@ -34,7 +34,7 @@ import {
 } from 'react'
 import type { UserAccountInfo } from '../../../../../Chat'
 import { type ClientActionListener, useClientActionListener } from '../../../../../client/clientState'
-import { promptModeToIntent } from '../../../../../prompts/PromptsTab'
+import { promptModeToIntent } from '../../../../../prompts/promptUtils'
 import { getVSCodeAPI } from '../../../../../utils/VSCodeApi'
 import { useTelemetryRecorder } from '../../../../../utils/telemetry'
 import { useConfig } from '../../../../../utils/useConfig'
@@ -146,7 +146,7 @@ export const HumanMessageEditor: FunctionComponent<{
         () =>
             debounce(async (text: string, contextTokens: number) => {
                 const counter = await tokenCounter
-                const count = counter.encode(text).length
+                const count = (await counter.encode(text)).length
                 updateTokenCounts(count, contextTokens)
             }, 300),
         [tokenCounter, updateTokenCounts]
@@ -548,7 +548,7 @@ export const HumanMessageEditor: FunctionComponent<{
             const calculateInitialTokens = async () => {
                 const counter = await tokenCounter
                 const text = inputTextWithoutContextChipsFromPromptEditorState(initialEditorState)
-                const textTokens = counter.encode(text).length
+                const textTokens = (await counter.encode(text)).length
 
                 // For initial context tokens, we need to wait for the editor to be initialized
                 // and then get the context items from there

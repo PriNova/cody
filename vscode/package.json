@@ -3,7 +3,7 @@
   "name": "cody-ai",
   "private": true,
   "displayName": "Cody: AI Code Assistant",
-  "version": "1.86.1+0",
+  "version": "1.94.0+0",
   "publisher": "sourcegraph",
   "license": "Apache-2.0",
   "icon": "resources/sourcegraph.png",
@@ -13,7 +13,7 @@
     "postinstall": "pnpm download-wasm && pnpm download-fonts && pnpm copy-win-ca-roots",
     "dev": "pnpm run -s dev:desktop",
     "dev:insiders": "pnpm run -s dev:desktop:insiders",
-    "start:dev:desktop": "ts-node scripts/run-with-extension-development-path.ts code --disable-extension=sourcegraph.cody-ai --disable-extension=github.copilot --inspect-extensions=9333 --new-window ./.. --goto ./src/completions/inline-completion-item-provider.ts:16:5",
+    "start:dev:desktop": "ts-node scripts/run-with-extension-development-path.ts code-insiders --disable-extension=sourcegraph.cody-ai --disable-extension=github.copilot --inspect-extensions=9333 --new-window ./../VoiceCoding",
     "dev:desktop": "pnpm run -s build:dev:desktop && pnpm run start:dev:desktop",
     "dev:desktop:insiders": "pnpm run -s build:dev:desktop && ts-node scripts/run-with-extension-development-path.ts code-insiders --disable-extension=sourcegraph.cody-ai --disable-extension=github.copilot --inspect-extensions=9333 --new-window ./.. --goto ./src/completions/inline-completion-item-provider.ts:16:5",
     "dev:web": "pnpm run -s build:dev:web && pnpm run -s _dev:vscode-test-web --browserType none",
@@ -53,8 +53,7 @@
     "vscode:prepublish": "pnpm -s run build",
     "vscode:uninstall": "node ./dist/post-uninstall.js",
     "test:unit:tree-sitter-queries": "vitest ./src/tree-sitter/query-tests/*.test.ts",
-    "release-notes": "ts-node-transpile-only ./scripts/release-notes.ts",
-    "measure-bundle-size": "cross-env LOG_BUNDLE_SIZE=true ts-node-transpile-only ./scripts/measure-bundle-size.ts"
+    "release-notes": "ts-node-transpile-only ./scripts/release-notes.ts"
   },
   "categories": ["AI", "Chat", "Programming Languages", "Machine Learning", "Snippets", "Education"],
   "keywords": [
@@ -123,71 +122,6 @@
   "browser": "./dist/extension.web.js",
   "activationEvents": ["onLanguage", "onStartupFinished", "onWebviewPanel:cody.editorPanel"],
   "contributes": {
-    "walkthroughs": [
-      {
-        "id": "welcome",
-        "title": "Getting Started with Cody",
-        "description": "Discover how Cody can help you write, understand and fix code faster",
-        "steps": [
-          {
-            "id": "autocomplete",
-            "title": "Code Autocomplete",
-            "description": "Start writing code and Cody will complete the line (or the entire function) for you. Hit tab to accept the suggestion.",
-            "media": {
-              "markdown": "walkthroughs/autocomplete.md"
-            }
-          },
-          {
-            "id": "chat",
-            "title": "Cody Chat",
-            "description": "Answer questions about general programming topics, or specific to your codebase, with Cody chat.\n[Open Chat](command:cody.chat.newEditorPanel)",
-            "media": {
-              "markdown": "walkthroughs/chat.md"
-            }
-          },
-          {
-            "id": "edit",
-            "title": "Edit Code",
-            "description": "Ask Cody to perform code edits with your instructions.",
-            "media": {
-              "markdown": "walkthroughs/edit.md"
-            }
-          },
-          {
-            "id": "fix",
-            "title": "Fix Code",
-            "description": "Use Cody to fix or explain problems in your code.",
-            "media": {
-              "markdown": "walkthroughs/fix.md"
-            }
-          },
-          {
-            "id": "commands",
-            "title": "Cody Commands",
-            "description": "Discover all the built-in Cody commands, and create your own custom commands.\n[Show Commands](command:cody.menu.commands)",
-            "media": {
-              "markdown": "walkthroughs/commands.md"
-            }
-          },
-          {
-            "id": "keyboard",
-            "title": "Keyboard Shortcuts",
-            "description": "Easily customize the default keyboard shortcuts to suit your workflow.\n[Show Keyboard Shortcuts Editor](command:cody.sidebar.keyboardShortcuts)",
-            "media": {
-              "markdown": "walkthroughs/keyboard.md"
-            }
-          },
-          {
-            "id": "ollama",
-            "title": "Ollama (Experimental)",
-            "description": "Learn how to use your local models with Cody.",
-            "media": {
-              "markdown": "walkthroughs/ollama.md"
-            }
-          }
-        ]
-      }
-    ],
     "colors": [
       {
         "id": "cody.fixup.conflictBackground",
@@ -257,13 +191,6 @@
       ]
     },
     "commands": [
-      {
-        "command": "cody.welcome",
-        "title": "Getting Started Guide",
-        "category": "Cody",
-        "group": "Cody",
-        "icon": "$(book)"
-      },
       {
         "command": "cody.feedback",
         "title": "Feedback",
@@ -1212,6 +1139,11 @@
         "openctx.providers": {
           "type": "object",
           "markdownDescription": "OpenCtx providers configuration.",
+          "default": {}
+        },
+        "cody.mcpServers": {
+          "type": "object",
+          "markdownDescription": "Configuration for MCP servers to use with agentic chat.",
           "default": {}
         },
         "cody.internal.unstable": {

@@ -4,6 +4,231 @@ This is a log of all notable changes to Cody for VS Code.
 
 <!--- {/_ CHANGELOG_START _/} -->
 
+## 1.94.0
+
+### Features
+
+#### Auto-Edit
+
+- Use prediction/code_to_rewrite feedback button [#7868](https://github.com/sourcegraph/cody/pull/7868)
+- Add `readyToBeRendered` state to the analytics logger [#7867](https://github.com/sourcegraph/cody/pull/7867)
+- Use a character diff for modified lines when suitable [#7869](https://github.com/sourcegraph/cody/pull/7869)
+- Refactor the prompt utils code into separate files [#7857](https://github.com/sourcegraph/cody/pull/7857)
+
+#### Chat
+
+- Open mcp settings in json [#7910](https://github.com/sourcegraph/cody/pull/7910)
+- Add copy message button to copy message output [#7807](https://github.com/sourcegraph/cody/pull/7807)
+- Use Gemini Flash mode as default [#7831](https://github.com/sourcegraph/cody/pull/7831)
+- No error message in input box when there are no changes to commit [#7827](https://github.com/sourcegraph/cody/pull/7827)
+- Use agentic chat by default [#7761](https://github.com/sourcegraph/cody/pull/7761)
+
+#### Mcp
+
+- Add tool enable/disable [#7870](https://github.com/sourcegraph/cody/pull/7870)
+- Implement MCP server management with UI [#7812](https://github.com/sourcegraph/cody/pull/7812)
+
+#### Prompts
+
+- Display draft notice for prompts in the quick prompts selector [#7844](https://github.com/sourcegraph/cody/pull/7844)
+
+### Fix
+
+#### Auto-Edit
+
+- Only trim hot streak predictions when codeToReplace is missing a final new line [#7889](https://github.com/sourcegraph/cody/pull/7889)
+- Fix the view prompt for active editor [#7862](https://github.com/sourcegraph/cody/pull/7862)
+- Do not suggest empty line insertions [#7855](https://github.com/sourcegraph/cody/pull/7855)
+- Dispose next cursor manager [#7852](https://github.com/sourcegraph/cody/pull/7852)
+- Add the prompt in debug panel for hot-streak [#7842](https://github.com/sourcegraph/cody/pull/7842)
+- Use correct doc context version to show inline completions more often [#7837](https://github.com/sourcegraph/cody/pull/7837)
+- Add common post processing pipeline for prediction from the model [#7851](https://github.com/sourcegraph/cody/pull/7851)
+- Adjust the config for long suggestion model [#7850](https://github.com/sourcegraph/cody/pull/7850)
+
+#### Chat
+
+- Add MCP tool schema to tool config prompt [#7911](https://github.com/sourcegraph/cody/pull/7911)
+- Allow spaces in mcp server arguments [#7909](https://github.com/sourcegraph/cody/pull/7909)
+- Update prompt list UI [#7796](https://github.com/sourcegraph/cody/pull/7796)
+- Fix bugs in Range and Position computing [#7858](https://github.com/sourcegraph/cody/pull/7858)
+
+#### Edit-Buttons
+
+- Display of insert and copy buttons on non VSCode clients [#7849](https://github.com/sourcegraph/cody/pull/7849)
+
+#### History Tab
+
+- Improve layout for empty state [#7836](https://github.com/sourcegraph/cody/pull/7836)
+
+#### User Menu
+
+- Show Enterprise Starter for user type instead of Enterprise for ES users [#7846](https://github.com/sourcegraph/cody/pull/7846)
+- Add external link icon to upgrade to pro link [#7845](https://github.com/sourcegraph/cody/pull/7845)
+
+### Chore
+
+#### Auto-Edit
+
+- Prepare hot-streak for dogfooding [#7894](https://github.com/sourcegraph/cody/pull/7894)
+- Allow custom models for websocket requests [#7791](https://github.com/sourcegraph/cody/pull/7791)
+- Consolidate renderers/decorators [#7890](https://github.com/sourcegraph/cody/pull/7890)
+
+### Refactor
+
+#### Chat
+
+- Remove parenthesis wrapping of other files when calling `selectedCodePromptWithExtraFiles` [#7022](https://github.com/sourcegraph/cody/pull/7022)
+- Remove Tool Cody model [#7881](https://github.com/sourcegraph/cody/pull/7881)
+- Remove duplicate mode icon [#7880](https://github.com/sourcegraph/cody/pull/7880)
+- Prompt Picker Improvements [#7861](https://github.com/sourcegraph/cody/pull/7861)
+
+
+## 1.92.0
+
+### Fix
+
+#### Auto-Edit
+
+- do not suggest empty line insertions [#7866](https://github.com/sourcegraph/cody/pull/7866)
+- Fix the view prompt for active editor [#7864](https://github.com/sourcegraph/cody/pull/7864)
+- dispose next cursor manager [#7854](https://github.com/sourcegraph/cody/pull/7854)
+- use correct doc context version to show inline completions more often [#7840](https://github.com/sourcegraph/cody/pull/7840)
+- Add common post processing pipeline for prediction from the model [#7865](https://github.com/sourcegraph/cody/pull/7865)
+- Adjust the config for long suggestion model [#7856](https://github.com/sourcegraph/cody/pull/7856)
+
+### Chore
+
+#### Auto-Edit
+
+- allow custom models for websocket requests [#7838](https://github.com/sourcegraph/cody/pull/7838)
+
+## 1.90.0
+
+### Features
+
+#### Auto-Edit
+
+- Add hot-streak model for long suggestion [#7769](https://github.com/sourcegraph/cody/pull/7769)
+- Display next cursor suggestions [#7701](https://github.com/sourcegraph/cody/pull/7701)
+
+#### Guardrails
+
+- Regenerate blocks which are detected in Guardrails checks [#7747](https://github.com/sourcegraph/cody/pull/7747)
+
+### Fix
+
+#### Auto-Edit
+
+- model call latency metric did not reflect actual timing [#7783](https://github.com/sourcegraph/cody/pull/7783)
+
+#### Chat
+
+- Chat UI Mode Inconsistency with Edit Intent [#7776](https://github.com/sourcegraph/cody/pull/7776)
+- use DeepCodyModelRef instead of id [#7756](https://github.com/sourcegraph/cody/pull/7756)
+
+#### Edit
+
+- Do not widen selections past the end of the document. [#7764](https://github.com/sourcegraph/cody/pull/7764)
+
+#### Search
+
+- handle missing keywords in XML parsing [#7777](https://github.com/sourcegraph/cody/pull/7777)
+
+#### Web
+
+- Fix agent recreation in Cody Web component to properly respond to config changes [#7787](https://github.com/sourcegraph/cody/pull/7787)
+
+### Chore
+
+#### Auto-Edit
+
+- prepare rollout of websocket proxy to s2 users [#7781](https://github.com/sourcegraph/cody/pull/7781)
+
+#### Web
+
+- rename disposeAndCreateNewAgent to createAndSetNewAgent [#7788](https://github.com/sourcegraph/cody/pull/7788)
+
+### Reverts
+
+- Revert "chore: migrate feature flags evaluation to new batch api [#-1](https://github.com/sourcegraph/cody/pull/7380)
+
+### Uncategorized
+
+#### Others
+
+- Changelog for 1.88.0 [#7789](https://github.com/sourcegraph/cody/pull/7789)
+- Make sure autocomplete service is working per project [#7785](https://github.com/sourcegraph/cody/pull/7785)
+- Handle broken avatar URLs [#7782](https://github.com/sourcegraph/cody/pull/7782)
+- Remove unused chat intent queries [#7774](https://github.com/sourcegraph/cody/pull/7774)
+- Changelog for 1.86.1 [#7771](https://github.com/sourcegraph/cody/pull/7771)
+- Rename displayAgentAutocomplete to displayInlay & clean up [#7751](https://github.com/sourcegraph/cody/pull/7751)
+- Fix search results not getting mentioned in follow up chat [#7711](https://github.com/sourcegraph/cody/pull/7711)
+
+## 1.90.0
+
+### Features
+
+#### Auto-Edit
+
+- Add hot-streak model for long suggestion [#7769](https://github.com/sourcegraph/cody/pull/7769)
+
+#### Autoedit
+
+- Display next cursor suggestions [#7701](https://github.com/sourcegraph/cody/pull/7701)
+
+#### Guardrails
+
+- Regenerate blocks which are detected in Guardrails checks [#7747](https://github.com/sourcegraph/cody/pull/7747)
+
+### Fix
+
+#### Auto-Edit
+
+- model call latency metric did not reflect actual timing [#7783](https://github.com/sourcegraph/cody/pull/7783)
+
+#### Chat
+
+- Chat UI Mode Inconsistency with Edit Intent [#7776](https://github.com/sourcegraph/cody/pull/7776)
+- use DeepCodyModelRef instead of id [#7756](https://github.com/sourcegraph/cody/pull/7756)
+
+#### Edit
+
+- Do not widen selections past the end of the document. [#7764](https://github.com/sourcegraph/cody/pull/7764)
+
+#### Search
+
+- handle missing keywords in XML parsing [#7777](https://github.com/sourcegraph/cody/pull/7777)
+
+#### Web
+
+- Fix agent recreation in Cody Web component to properly respond to config changes [#7787](https://github.com/sourcegraph/cody/pull/7787)
+
+### Chore
+
+#### Auto-Edit
+
+- prepare rollout of websocket proxy to s2 users [#7781](https://github.com/sourcegraph/cody/pull/7781)
+
+#### Web
+
+- rename disposeAndCreateNewAgent to createAndSetNewAgent [#7788](https://github.com/sourcegraph/cody/pull/7788)
+
+### Reverts
+
+- Revert "chore: migrate feature flags evaluation to new batch api [#-1](https://github.com/sourcegraph/cody/pull/7380)
+
+### Uncategorized
+
+#### Others
+
+- Changelog for 1.88.0 [#7789](https://github.com/sourcegraph/cody/pull/7789)
+- Make sure autocomplete service is working per project [#7785](https://github.com/sourcegraph/cody/pull/7785)
+- Handle broken avatar URLs [#7782](https://github.com/sourcegraph/cody/pull/7782)
+- Remove unused chat intent queries [#7774](https://github.com/sourcegraph/cody/pull/7774)
+- Changelog for 1.86.1 [#7771](https://github.com/sourcegraph/cody/pull/7771)
+- Rename displayAgentAutocomplete to displayInlay & clean up [#7751](https://github.com/sourcegraph/cody/pull/7751)
+- Fix search results not getting mentioned in follow up chat [#7711](https://github.com/sourcegraph/cody/pull/7711)
+
 ## 1.88.0
 
 ### Features
@@ -21,7 +246,6 @@ This is a log of all notable changes to Cody for VS Code.
 ### Reverts
 
 - Revert "chore: migrate feature flags evaluation to new batch api [#-1](https://github.com/sourcegraph/cody/pull/7380)
-
 
 ## 1.86.1
 
@@ -221,7 +445,6 @@ This is a log of all notable changes to Cody for VS Code.
 #### Chat
 
 - Remove loading dots from context display [#7557](https://github.com/sourcegraph/cody/pull/7557)
-
 
 ## 1.82.0
 

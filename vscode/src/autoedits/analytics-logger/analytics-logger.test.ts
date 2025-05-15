@@ -14,7 +14,8 @@ import { getCurrentDocContext } from '../../completions/get-current-doc-context'
 import { documentAndPosition } from '../../completions/test-helpers'
 import * as sentryModule from '../../services/sentry/sentry'
 import { type AutoeditModelOptions, AutoeditStopReason } from '../adapters/base'
-import { getCodeToReplaceData, getCurrentFilePath } from '../prompt/prompt-utils'
+import { getCodeToReplaceData } from '../prompt/prompt-utils/code-to-replace'
+import { getCurrentFilePath } from '../prompt/prompt-utils/common'
 import { getDecorationInfo } from '../renderer/diff-utils'
 
 import { AutoeditAnalyticsLogger } from './analytics-logger'
@@ -55,6 +56,8 @@ describe('AutoeditAnalyticsLogger', () => {
             maxSuffixLinesInArea: 2,
             codeToRewritePrefixLines: 1,
             codeToRewriteSuffixLines: 1,
+            prefixTokens: 100,
+            suffixTokens: 100,
         },
     })
 
@@ -76,7 +79,7 @@ describe('AutoeditAnalyticsLogger', () => {
         return {
             startedAt: performance.now(),
             filePath: getCurrentFilePath(document).toString(),
-            docContext,
+            requestDocContext: docContext,
             document,
             position,
             codeToReplaceData: codeToReplace,
@@ -115,11 +118,7 @@ describe('AutoeditAnalyticsLogger', () => {
 
         autoeditLogger.markAsLoaded({
             requestId,
-            cacheId: uuid.v4() as AutoeditCacheID,
             prompt: modelOptions.prompt,
-            codeToReplaceData: codeToReplace,
-            docContext,
-            editPosition: position,
             modelResponse: {
                 type: 'success',
                 stopReason: AutoeditStopReason.RequestFinished,
@@ -133,11 +132,18 @@ describe('AutoeditAnalyticsLogger', () => {
                 prediction,
                 source: autoeditSource.network,
                 isFuzzyMatch: false,
-                codeToRewrite: 'Code to rewrite',
             },
         })
 
         autoeditLogger.markAsPostProcessed({
+            requestId,
+            cacheId: uuid.v4() as AutoeditCacheID,
+            codeToReplaceData: codeToReplace,
+            predictionDocContext: docContext,
+            editPosition: position,
+        })
+
+        autoeditLogger.markAsReadyToBeRendered({
             requestId,
             prediction,
             renderOutput: { type: 'none' },
@@ -207,7 +213,7 @@ describe('AutoeditAnalyticsLogger', () => {
               "category": "billable",
               "product": "cody",
             },
-            "interactionID": "stable-id-for-tests-3",
+            "interactionID": "stable-id-for-tests-2",
             "metadata": {
               "acceptReason": 1,
               "contextSummary.duration": 1.234,
@@ -259,7 +265,7 @@ describe('AutoeditAnalyticsLogger', () => {
                 "unchangedLines": 1,
               },
               "gatewayLatency": undefined,
-              "id": "stable-id-for-tests-3",
+              "id": "stable-id-for-tests-2",
               "inlineCompletionStats": undefined,
               "languageId": "typescript",
               "model": "autoedit-model",
