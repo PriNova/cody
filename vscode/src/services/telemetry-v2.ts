@@ -45,6 +45,15 @@ export function createOrUpdateTelemetryRecorderProvider(
                         clientState,
                     })
                 )
+            } else if (process.env.CODY_STANDALONE_MODE === 'true') {
+                // In standalone mode, disable telemetry to Sourcegraph servers
+                logDebug(debugLogLabel, 'using no-op telemetry recorder for standalone mode')
+                updateGlobalTelemetryInstances(
+                    new MockServerTelemetryRecorderProvider({
+                        configuration,
+                        clientState,
+                    })
+                )
             } else if (isExtensionModeDevOrTest) {
                 logDebug(
                     debugLogLabel,

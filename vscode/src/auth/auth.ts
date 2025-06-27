@@ -2,12 +2,9 @@ import * as vscode from 'vscode'
 
 import {
     type AuthStatus,
-    ClientConfigSingleton,
     type CodyClientConfig,
     DOTCOM_URL,
-    type GraphQLAPIClientConfig,
     type PickResolvedConfiguration,
-    SourcegraphGraphQLAPIClient,
     type UnauthenticatedAuthStatus,
     cenv,
     clientCapabilities,
@@ -18,25 +15,13 @@ import {
     getCodyAuthReferralCode,
     graphqlClient,
     isDotCom,
-    isError,
-    isNetworkLikeError,
     isWorkspaceInstance,
     resolvedConfig,
     telemetryRecorder,
 } from '@sourcegraph/cody-shared'
 import { resolveAuth } from '@sourcegraph/cody-shared/src/configuration/auth-resolver'
-import {
-    AuthConfigError,
-    AvailabilityError,
-    EnterpriseUserDotComError,
-    InvalidAccessTokenError,
-    NeedsAuthChallengeError,
-    isExternalProviderAuthError,
-    isInvalidAccessTokenError,
-    isNeedsAuthChallengeError,
-} from '@sourcegraph/cody-shared/src/sourcegraph-api/errors'
+import { isInvalidAccessTokenError } from '@sourcegraph/cody-shared/src/sourcegraph-api/errors'
 import { isSourcegraphToken } from '../chat/protocol'
-import { newAuthStatus } from '../chat/utils'
 import { logDebug } from '../output-channel-logger'
 import { authProvider } from '../services/AuthProvider'
 import { localStorage } from '../services/LocalStorageProvider'
@@ -455,118 +440,19 @@ export async function validateCredentials(
     signal?: AbortSignal,
     clientConfig?: CodyClientConfig
 ): Promise<AuthStatus> {
-    if (config.auth.error !== undefined) {
-        logDebug(
-            'auth',
-            `Failed to authenticate to ${config.auth.serverEndpoint} due to configuration error`,
-            config.auth.error
-        )
-        return {
-            authenticated: false,
-            endpoint: config.auth.serverEndpoint,
-            pendingValidation: false,
-            error: new AuthConfigError(config.auth.error?.message ?? config.auth.error),
-        }
+    // Bypass auth validation - always return authenticated status
+    logDebug('auth', `Bypassing auth validation for ${config.auth.serverEndpoint}`)
+
+    return {
+        authenticated: true,
+        endpoint: config.auth.serverEndpoint || DOTCOM_URL.toString(),
+        pendingValidation: false,
+        username: 'local-user',
+        displayName: 'BYOK User',
+        avatarURL: '',
+        primaryEmail: 'user@local.dev',
+        hasVerifiedEmail: true,
     }
-
-    // Credentials are needed except for Cody Web, which uses cookies.
-    if (!config.auth.credentials && !clientCapabilities().isCodyWeb) {
-        return { authenticated: false, endpoint: config.auth.serverEndpoint, pendingValidation: false }
-    }
-
-    logDebug('auth', `Authenticating to ${config.auth.serverEndpoint}...`)
-
-    const apiClientConfig: GraphQLAPIClientConfig = {
-        configuration: {
-            customHeaders: config.configuration.customHeaders,
-            telemetryLevel: 'off',
-        },
-        auth: config.auth,
-        clientState: config.clientState,
-    }
-
-    // Check if credentials are valid and if Cody is enabled for the credentials and endpoint.
-    const client = SourcegraphGraphQLAPIClient.withStaticConfig(apiClientConfig)
-
-    try {
-        const userInfo = await client.getCurrentUserInfo(signal)
-        signal?.throwIfAborted()
-
-        if (isError(userInfo)) {
-            if (isExternalProviderAuthError(userInfo)) {
-                logDebug('auth', userInfo.message)
-                return {
-                    authenticated: false,
-                    error: userInfo,
-                    endpoint: config.auth.serverEndpoint,
-                    pendingValidation: false,
-                }
-            }
-            const needsAuthChallenge = isNeedsAuthChallengeError(userInfo)
-            if (isNetworkLikeError(userInfo) || needsAuthChallenge) {
-                logDebug(
-                    'auth',
-                    `Failed to authenticate to ${config.auth.serverEndpoint} due to likely network or endpoint availability error`,
-                    userInfo.message
-                )
-                return {
-                    authenticated: false,
-                    error: needsAuthChallenge ? new NeedsAuthChallengeError() : new AvailabilityError(),
-                    endpoint: config.auth.serverEndpoint,
-                    pendingValidation: false,
-                }
-            }
-        }
-
-        if (!userInfo || isError(userInfo)) {
-            logDebug(
-                'auth',
-                `Failed to authenticate to ${config.auth.serverEndpoint} due to invalid credentials or other endpoint error`,
-                userInfo?.message
-            )
-            return {
-                authenticated: false,
-                endpoint: config.auth.serverEndpoint,
-                error: new InvalidAccessTokenError(),
-                pendingValidation: false,
-            }
-        }
-
-        if (isDotCom(config.auth.serverEndpoint)) {
-            if (!clientConfig) {
-                clientConfig = await ClientConfigSingleton.getInstance().fetchConfigWithToken(
-                    apiClientConfig,
-                    signal
-                )
-            }
-            if (clientConfig?.userShouldUseEnterprise) {
-                return {
-                    authenticated: false,
-                    endpoint: config.auth.serverEndpoint,
-                    pendingValidation: false,
-                    error: new EnterpriseUserDotComError(
-                        getEnterpriseName(userInfo.primaryEmail?.email || '')
-                    ),
-                }
-            }
-        }
-
-        logDebug('auth', `Authentication succeed to endpoint ${config.auth.serverEndpoint}`)
-        return newAuthStatus({
-            ...userInfo,
-            endpoint: config.auth.serverEndpoint,
-            authenticated: true,
-            hasVerifiedEmail: false,
-        })
-    } finally {
-        client.dispose()
-    }
-}
-
-function getEnterpriseName(email: string): string {
-    const domain = email.split('@')[1]
-    const name = domain.split('.')[0]
-    return name.charAt(0).toUpperCase() + name.slice(1)
 }
 
 export async function requestEndpointSettingsDeliveryToSearchPlugin(): Promise<string> {

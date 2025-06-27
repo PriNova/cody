@@ -15,7 +15,7 @@ import {
 import { getVSCodeAPI } from '../utils/VSCodeApi'
 import { View } from './types'
 
-import { type AuthenticatedAuthStatus, CodyIDE, isDefined } from '@sourcegraph/cody-shared'
+import { CodyIDE, isDefined } from '@sourcegraph/cody-shared'
 import { type FC, Fragment, forwardRef, memo, useCallback, useMemo, useState } from 'react'
 import { Tooltip, TooltipContent, TooltipTrigger } from '../components/shadcn/ui/tooltip'
 import { useConfig } from '../utils/useConfig'
@@ -24,7 +24,7 @@ import { useExtensionAPI } from '@sourcegraph/prompt-editor'
 import { isEqual } from 'lodash'
 import type { UserAccountInfo } from '../Chat'
 import { downloadChatHistory } from '../chat/downloadChatHistory'
-import { UserMenu } from '../components/UserMenu'
+import { UserMenu } from '../components/UserMenuStub'
 import { Button } from '../components/shadcn/ui/button'
 import styles from './TabsBar.module.css'
 import { getCreateNewChatCommand } from './utils'
@@ -71,11 +71,11 @@ interface TabConfig {
 }
 
 export const TabsBar = memo<TabsBarProps>(props => {
-    const { currentView, setView, user, endpointHistory, showOpenInEditor } = props
-    const { isCodyProUser, IDE } = user
+    const { currentView, setView, user, showOpenInEditor } = props
+    const { IDE } = user
     const tabItems = useTabs({ user })
     const {
-        config: { webviewType, multipleWebviewsEnabled, allowEndpointChange },
+        config: { webviewType, multipleWebviewsEnabled },
     } = useConfig()
     const currentViewSubActions = tabItems.find(tab => tab.view === currentView)?.subActions ?? []
 
@@ -162,18 +162,7 @@ export const TabsBar = memo<TabsBarProps>(props => {
                                 }
                             />
                         )}
-                        {IDE !== CodyIDE.Web && (
-                            <UserMenu
-                                authStatus={user.user as AuthenticatedAuthStatus}
-                                isProUser={isCodyProUser}
-                                endpointHistory={endpointHistory}
-                                allowEndpointChange={allowEndpointChange}
-                                className="!tw-opacity-100 tw-h-full"
-                                isWorkspacesUpgradeCtaEnabled={props.isWorkspacesUpgradeCtaEnabled}
-                                IDE={IDE}
-                                setTabView={setView}
-                            />
-                        )}
+                        {IDE !== CodyIDE.Web && <UserMenu className="!tw-opacity-100 tw-h-full" />}
                     </div>
                 </div>
                 <div className={styles.subTabs}>

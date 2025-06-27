@@ -82,6 +82,12 @@ async function listRulesApplyingToRemoteFile(
     filePath: string,
     signal?: AbortSignal
 ): Promise<Rule[]> {
+    // In standalone mode, return empty rules to avoid server API calls
+    if (process.env.CODY_STANDALONE_MODE === 'true') {
+        logDebug('rules', 'Standalone mode: skipping remote rule fetch')
+        return []
+    }
+
     try {
         const query = new URLSearchParams()
         query.set('filter[applies_to_repo]', repoName)

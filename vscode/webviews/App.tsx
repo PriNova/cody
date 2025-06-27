@@ -1,4 +1,4 @@
-import { type ComponentProps, useCallback, useEffect, useMemo, useState } from 'react'
+import { type ComponentProps, useEffect, useMemo, useState } from 'react'
 
 import {
     type ChatMessage,
@@ -8,16 +8,16 @@ import {
     type TelemetryRecorder,
     createGuardrailsImpl,
 } from '@sourcegraph/cody-shared'
-import type { AuthMethod } from '../src/chat/protocol'
+
 import styles from './App.module.css'
-import { AuthPage } from './AuthPage'
+import { AuthPage } from './AuthPageStub'
 import { LoadingPage } from './LoadingPage'
 import { useClientActionDispatcher } from './client/clientState'
 import { WebviewOpenTelemetryService } from './utils/webviewOpenTelemetryService'
 
 import { ExtensionAPIProviderFromVSCodeAPI } from '@sourcegraph/prompt-editor'
 import { CodyPanel } from './CodyPanel'
-import { AuthenticationErrorBanner } from './components/AuthenticationErrorBanner'
+
 import { useSuppressKeys } from './components/hooks'
 import { View } from './tabs'
 import type { VSCodeWrapper } from './utils/VSCodeApi'
@@ -136,20 +136,6 @@ export const App: React.FunctionComponent<{ vscodeAPI: VSCodeWrapper }> = ({ vsc
         }
     }, [view, vscodeAPI])
 
-    const loginRedirect = useCallback(
-        (method: AuthMethod) => {
-            // We do not change the view here. We want to keep presenting the
-            // login buttons until we get a token so users don't get stuck if
-            // they close the browser during an auth flow.
-            vscodeAPI.postMessage({
-                command: 'auth',
-                authKind: 'simplified-onboarding',
-                authMethod: method,
-            })
-        },
-        [vscodeAPI]
-    )
-
     // V2 telemetry recorder
     const telemetryRecorder = useMemo(() => createWebviewTelemetryRecorder(vscodeAPI), [vscodeAPI])
 
@@ -185,20 +171,9 @@ export const App: React.FunctionComponent<{ vscodeAPI: VSCodeWrapper }> = ({ vsc
 
     return (
         <ComposedWrappers wrappers={wrappers}>
-            {view === View.Login || !config.authStatus.authenticated ? (
+            {view === View.Login ? (
                 <div className={styles.outerContainer}>
-                    {!config.authStatus.authenticated && config.authStatus.error && (
-                        <AuthenticationErrorBanner errorMessage={config.authStatus.error} />
-                    )}
-                    <AuthPage
-                        simplifiedLoginRedirect={loginRedirect}
-                        uiKindIsWeb={config.config.uiKindIsWeb}
-                        vscodeAPI={vscodeAPI}
-                        codyIDE={config.clientCapabilities.agentIDE}
-                        endpoints={config.config.endpointHistory ?? []}
-                        authStatus={config.authStatus}
-                        allowEndpointChange={config.config.allowEndpointChange}
-                    />
+                    <AuthPage />
                 </div>
             ) : (
                 <CodyPanel

@@ -1,0 +1,50 @@
+--- a/lib/shared/src/sourcegraph-api/graphql/client.ts
++++ b/lib/shared/src/sourcegraph-api/graphql/client.ts
+@@ -1656,42 +1656,8 @@ export class SourcegraphGraphQLAPIClient {
+         configOverride?: GraphQLAPIClientConfig
+     ): Promise<T | Error> {
+         // In standalone mode, always return mock responses for REST API calls to avoid server API calls
+         return this.getMockHTTPResponseForStandalone(queryName, urlPath) as T
+-
+-        const config =
+-            configOverride ??
+-            (await (async () => {
+-                if (!this.config) {
+-                    throw new Error('SourcegraphGraphQLAPIClient config not set')
+-                }
+-                const resolvedConfig = await firstValueFrom(this.config)
+-                signal?.throwIfAborted()
+-                return resolvedConfig
+-            })())
+-
+-        const headers = new Headers(config.configuration?.customHeaders as HeadersInit | undefined)
+-        if (config.clientState.anonymousUserID && !process.env.CODY_WEB_DONT_SET_SOME_HEADERS) {
+-            headers.set('X-Sourcegraph-Actor-Anonymous-UID', config.clientState.anonymousUserID)
+-        }
+-
+-        const url = new URL(urlPath, config.auth.serverEndpoint)
+-
+-        addTraceparent(headers)
+-        addCodyClientIdentificationHeaders(headers)
+-        setJSONAcceptContentTypeHeaders(headers)
+-
+-        try {
+-            await addAuthHeaders(config.auth, headers, url)
+-        } catch (error: any) {
+-            return error
+-        }
+-
+-        const { abortController, timeoutSignal } = dependentAbortControllerWithTimeout(signal)
+-        return wrapInActiveSpan(`httpapi.fetch${queryName ? `.${queryName}` : ''}`, () =>
+-            fetch(url, {
+-                method: method,
+-                body: body,
+-                headers,
+-                signal: abortController.signal,
+-            })
+-                .then(verifyResponseCode)
+-                .then(response => response.json() as T)
+-                .catch(catchHTTPError(url.href, timeoutSignal))
+-        )
+     }
+ }

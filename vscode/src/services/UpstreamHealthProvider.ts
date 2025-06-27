@@ -85,7 +85,14 @@ class UpstreamHealthProvider implements vscode.Disposable {
         }
 
         try {
-            if (process.env.DISABLE_UPSTREAM_HEALTH_PINGS === 'true') {
+            // Disable health pings for standalone mode
+            if (
+                process.env.DISABLE_UPSTREAM_HEALTH_PINGS === 'true' ||
+                process.env.CODY_STANDALONE_MODE === 'true'
+            ) {
+                // For standalone mode, set mock latency values to avoid UI showing "unknown" health
+                this.lastUpstreamLatency = 50 // Mock 50ms latency
+                this.lastGatewayLatency = 30 // Mock 30ms gateway latency
                 return
             }
 

@@ -53,6 +53,26 @@ class DefaultCodeCompletionsClient implements CodeCompletionsClient {
     ): Promise<CompletionResponseGenerator> {
         const { auth, configuration } = await currentResolvedConfig()
 
+        // In standalone mode, disable completions from Sourcegraph servers
+        if (process.env.CODY_STANDALONE_MODE === 'true') {
+            return tracer.startActiveSpan(
+                'POST (standalone-disabled)',
+                async function* (span): CompletionResponseGenerator {
+                    const result: CompletionResponseWithMetaData = {
+                        completionResponse: {
+                            completion: '',
+                            stopReason: CompletionStopReason.RequestFinished,
+                        },
+                        metadata: {
+                            isAborted: false,
+                        },
+                    }
+                    yield result
+                    return
+                }
+            )
+        }
+
         const query = new URLSearchParams(getClientInfoParams())
         const url = new URL(`/.api/completions/code?${query.toString()}`, auth.serverEndpoint)
         const log = autocompleteLifecycleOutputChannelLogger?.startCompletion(params, url.href)

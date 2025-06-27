@@ -54,6 +54,13 @@ export class OpenTelemetryService {
     // E.g. url endpoint may not match the endpoint for which headers were generated
     // `addAuthHeaders` function have internal guard against this, but it would be better to solve this issue on the architecture level
     constructor() {
+        // In standalone mode, disable OpenTelemetry to avoid server connections
+        if (process.env.CODY_STANDALONE_MODE === 'true') {
+            // Set up minimal no-op configuration
+            this.configSubscription = { unsubscribe: () => {} }
+            return
+        }
+
         const resource = new Resource({
             [ATTR_SERVICE_NAME]: 'cody-client',
             [ATTR_SERVICE_VERSION]: clientCapabilities().agentExtensionVersion,

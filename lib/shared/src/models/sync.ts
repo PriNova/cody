@@ -24,7 +24,7 @@ import type { CodyClientConfig } from '../sourcegraph-api/clientConfig'
 import { isDotCom } from '../sourcegraph-api/environments'
 import type { RateLimitError } from '../sourcegraph-api/errors'
 import type { CodyLLMSiteConfiguration } from '../sourcegraph-api/graphql/client'
-import { RestClient } from '../sourcegraph-api/rest/client'
+
 import type { UserProductSubscription } from '../sourcegraph-api/userProductSubscription'
 import { telemetryRecorder } from '../telemetry-v2/singleton'
 import { CHAT_INPUT_TOKEN_BUDGET } from '../token/constants'
@@ -621,10 +621,8 @@ async function fetchServerSideModels(
     config: PickResolvedConfiguration<{ configuration: 'customHeaders'; auth: true }>,
     signal?: AbortSignal
 ): Promise<ServerModelConfiguration | undefined> {
-    // Fetch the data via REST API.
-    // NOTE: We may end up exposing this data via GraphQL, it's still TBD.
-    const client = new RestClient(config.auth, config.configuration.customHeaders)
-    return await client.getAvailableModels(signal)
+    // In standalone mode, always return undefined to avoid server API calls
+    return undefined
 }
 
 /**

@@ -27,10 +27,6 @@ import {
     shareReplay,
 } from '@sourcegraph/cody-shared'
 
-import {
-    InvalidAccessTokenError,
-    isAvailabilityError,
-} from '@sourcegraph/cody-shared/src/sourcegraph-api/errors'
 import { type Subscription, map } from 'observable-fns'
 import type { LiteralUnion, ReadonlyDeep } from 'type-fest'
 import { isUserEligibleForAutoeditsFeature } from '../autoedits/create-autoedits-provider'
@@ -282,11 +278,8 @@ export class CodyStatusBar implements vscode.Disposable {
     ): Partial<StatusBarState> & Pick<StatusBarState, 'interact' | 'tooltip'> {
         const tags = new Set<InvisibleStatusBarTag>()
 
-        if (authStatus.authenticated) {
-            tags.add(InvisibleStatusBarTag.IsAuthenticated)
-        } else if (authStatus.error) {
-            tags.add(InvisibleStatusBarTag.HasErrors)
-        }
+        // In standalone mode, always consider authenticated
+        tags.add(InvisibleStatusBarTag.IsAuthenticated)
         if (errors.size > 0) {
             tags.add(InvisibleStatusBarTag.HasErrors)
         }
@@ -337,27 +330,7 @@ export class CodyStatusBar implements vscode.Disposable {
             }
         }
 
-        if (!authStatus.authenticated) {
-            if (isAvailabilityError(authStatus.error)) {
-                return {
-                    icon: 'disabled',
-                    tooltip: authStatus.error.message,
-                    style: authStatus.error instanceof InvalidAccessTokenError ? 'error' : 'warning',
-                    tags,
-                    interact: isAvailabilityError(authStatus.error)
-                        ? interactNetworkIssues
-                        : interactAuth,
-                }
-            }
-
-            return {
-                text: 'Sign In',
-                tooltip: 'Sign in to get started with Cody.',
-                style: 'warning',
-                tags,
-                interact: interactAuth,
-            }
-        }
+        // In standalone mode, skip auth status checks
 
         if (loaders.size > 0) {
             const isStarting = [...loaders.values()].some(loader => loader.kind === 'startup')
@@ -421,10 +394,6 @@ export class CodyStatusBar implements vscode.Disposable {
 
 async function interactAuth(abort: AbortSignal) {
     void vscode.commands.executeCommand('cody.chat.focus')
-}
-
-async function interactNetworkIssues(abort: AbortSignal) {
-    void vscode.commands.executeCommand('cody.debug.net.showOutputChannel')
 }
 
 function interactDefault({

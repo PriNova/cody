@@ -17,8 +17,14 @@ import { distinctUntilChanged, firstValueFrom } from '../../misc/observable'
 import { addTraceparent, wrapInActiveSpan } from '../../tracing'
 import { isError } from '../../utils'
 import { addCodyClientIdentificationHeaders } from '../client-name-version'
-import { NeedsAuthChallengeError, isAbortError, isNeedsAuthChallengeError } from '../errors'
+import {
+    NeedsAuthChallengeError,
+    NetworkError,
+    isAbortError,
+    isNeedsAuthChallengeError,
+} from '../errors'
 import { addAuthHeaders } from '../utils'
+
 import { type GraphQLResultCache, ObservableInvalidatedGraphQLResultCacheFactory } from './cache'
 import {
     BUILTIN_PROMPTS_QUERY,
@@ -68,7 +74,6 @@ import {
     SEARCH_ATTRIBUTION_QUERY,
     VIEWER_SETTINGS_QUERY,
 } from './queries'
-import { buildGraphQLUrl } from './url'
 
 export type BrowserOrNodeResponse = Response | NodeResponse
 
@@ -1574,49 +1579,79 @@ export class SourcegraphGraphQLAPIClient {
         variables: Record<string, any> = {},
         signal?: AbortSignal
     ): Promise<T | Error> {
-        if (!this.config) {
-            throw new Error('SourcegraphGraphQLAPIClient config not set')
-        }
-        const config = await firstValueFrom(this.config)
-        signal?.throwIfAborted()
-
-        const headers = new Headers(config.configuration?.customHeaders as HeadersInit | undefined)
-
-        if (config.clientState.anonymousUserID && !process.env.CODY_WEB_DONT_SET_SOME_HEADERS) {
-            headers.set('X-Sourcegraph-Actor-Anonymous-UID', config.clientState.anonymousUserID)
-        }
-
-        const url = new URL(
-            buildGraphQLUrl({
-                request: query,
-                baseUrl: config.auth.serverEndpoint,
-            })
-        )
-
-        addTraceparent(headers)
-        addCodyClientIdentificationHeaders(headers)
-        setJSONAcceptContentTypeHeaders(headers)
-
-        try {
-            await addAuthHeaders(config.auth, headers, url)
-        } catch (error: any) {
-            return error
-        }
-
+        // In standalone mode, always return mock responses for GraphQL queries to avoid server API calls
         const queryName = query.match(QUERY_TO_NAME_REGEXP)?.[1]
+        return this.getMockResponseForStandalone(queryName, query, variables) as T
+    }
 
-        const { abortController, timeoutSignal } = dependentAbortControllerWithTimeout(signal)
-        return wrapInActiveSpan(`graphql.fetch${queryName ? `.${queryName}` : ''}`, () =>
-            fetch(url, {
-                method: 'POST',
-                body: JSON.stringify({ query, variables }),
-                headers,
-                signal: abortController.signal,
-            })
-                .then(verifyResponseCode)
-                .then(response => response.json() as T)
-                .catch(catchHTTPError(url.href, timeoutSignal))
-        )
+    /**
+     * Return mock responses for GraphQL queries in standalone mode to avoid server API calls
+     */
+    private getMockResponseForStandalone(
+        queryName: string | undefined,
+        query: string,
+        variables: Record<string, any>
+    ): any {
+        // Mock responses for common queries in standalone mode
+        if (query.includes('currentUser') && query.includes('id')) {
+            return { data: { currentUser: { id: 'standalone-user-id' } } }
+        }
+
+        if (query.includes('site') && query.includes('version')) {
+            return { data: { site: { productVersion: '5.5.0' } } }
+        }
+
+        if (query.includes('site') && query.includes('isCodyEnabled')) {
+            return { data: { site: { isCodyEnabled: true } } }
+        }
+
+        if (query.includes('currentUser') && query.includes('codyProEnabled')) {
+            return { data: { currentUser: { codyProEnabled: false } } }
+        }
+
+        if (query.includes('currentUser') && query.includes('codySubscription')) {
+            return { data: { currentUser: { codySubscription: null } } }
+        }
+
+        if (query.includes('contextFilters')) {
+            return {
+                data: {
+                    site: {
+                        codyContextFilters: {
+                            raw: { include: [{ repoNamePattern: '.*' }], exclude: [] },
+                        },
+                    },
+                },
+            }
+        }
+
+        if (query.includes('codyLLMConfiguration')) {
+            return { data: { site: { codyLLMConfiguration: null } } }
+        }
+
+        // Default empty response for other queries
+        return { data: {} }
+    }
+
+    /**
+     * Return mock responses for HTTP REST API calls in standalone mode
+     */
+    private getMockHTTPResponseForStandalone(queryName: string, urlPath: string): any {
+        // Mock responses for REST API endpoints in standalone mode
+        if (urlPath.includes('/.api/modelconfig/supported-models.json')) {
+            return { models: [] } // Empty models list for standalone mode
+        }
+
+        if (urlPath.includes('/.api/client-config')) {
+            return {} // Empty client config for standalone mode
+        }
+
+        if (urlPath.includes('/.api/rules')) {
+            return { rules: [] } // Empty rules for standalone mode
+        }
+
+        // Default empty response for other REST endpoints
+        return {}
     }
 
     // Performs an authenticated request to our non-GraphQL HTTP / REST API.
@@ -1628,6 +1663,11 @@ export class SourcegraphGraphQLAPIClient {
         signal?: AbortSignal,
         configOverride?: GraphQLAPIClientConfig
     ): Promise<T | Error> {
+        // In standalone mode, return mock responses for REST API calls to avoid server API calls
+        if (process.env.CODY_STANDALONE_MODE === 'true') {
+            return this.getMockHTTPResponseForStandalone(queryName, urlPath) as T
+        }
+
         const config =
             configOverride ??
             (await (async () => {
@@ -1674,50 +1714,6 @@ export class SourcegraphGraphQLAPIClient {
 export function setJSONAcceptContentTypeHeaders(headers: Headers): void {
     headers.set('Accept', 'application/json')
     headers.set('Content-Type', 'application/json; charset=utf-8')
-}
-
-const DEFAULT_TIMEOUT_MSEC = 20000
-
-/**
- * Create an {@link AbortController} that aborts when the {@link signal} aborts or when the timeout
- * elapses.
- */
-function dependentAbortControllerWithTimeout(signal?: AbortSignal): {
-    abortController: AbortController
-    timeoutSignal: Pick<AbortSignal, 'aborted'>
-} {
-    const abortController = dependentAbortController(signal)
-
-    const timeoutSignal = AbortSignal.timeout(DEFAULT_TIMEOUT_MSEC)
-    onAbort(timeoutSignal, () =>
-        abortController.abort({
-            message: `timed out after ${DEFAULT_TIMEOUT_MSEC}ms`,
-        })
-    )
-    return { abortController, timeoutSignal }
-}
-
-function catchHTTPError(
-    url: string,
-    timeoutSignal: Pick<AbortSignal, 'aborted'>
-): (error: any) => Error {
-    return (error: any) => {
-        if (isNeedsAuthChallengeError(error)) {
-            return error
-        }
-
-        // Throw the plain AbortError for intentional aborts so we handle them with call
-        // flow, but treat timeout aborts as a network error (below) and include the
-        // URL.
-        if (isAbortError(error)) {
-            if (!timeoutSignal.aborted) {
-                throw error
-            }
-            error = `ETIMEDOUT: timed out after ${DEFAULT_TIMEOUT_MSEC}ms`
-        }
-        const code = `${(typeof error === 'object' && error ? (error as any).code : undefined) ?? ''} `
-        return new Error(`accessing Sourcegraph HTTP API: ${code}${error} (${url})`)
-    }
 }
 
 /**
@@ -1778,4 +1774,53 @@ function hasOutdatedAPIErrorMessages(error: Error): boolean {
         error.message.includes('Cannot query field') ||
         error.message.includes('Unexpected end of JSON input')
     )
+}
+
+const DEFAULT_TIMEOUT_MSEC = 20000
+
+/**
+ * Create an {@link AbortController} that aborts when the {@link signal} aborts or when the timeout
+ * elapses.
+ */
+function dependentAbortControllerWithTimeout(signal?: AbortSignal): {
+    abortController: AbortController
+    timeoutSignal: Pick<AbortSignal, 'aborted'>
+} {
+    const abortController = dependentAbortController(signal)
+
+    const timeoutSignal = AbortSignal.timeout(DEFAULT_TIMEOUT_MSEC)
+    onAbort(timeoutSignal, () =>
+        abortController.abort({
+            message: `timed out after ${DEFAULT_TIMEOUT_MSEC}ms`,
+        })
+    )
+    return { abortController, timeoutSignal }
+}
+
+function catchHTTPError(
+    url: string,
+    timeoutSignal: Pick<AbortSignal, 'aborted'>
+): (error: any) => Error {
+    return (error: any) => {
+        if (isNeedsAuthChallengeError(error)) {
+            return error
+        }
+
+        // Throw the plain AbortError for intentional aborts so we handle them with call
+        // flow, but treat timeout aborts as a network error (below) and include the
+        // URL to make the error easier to debug.
+        if (isAbortError(error) && !timeoutSignal.aborted) {
+            throw error
+        }
+
+        throw new NetworkError(
+            {
+                url,
+                status: 0,
+                statusText: error.message,
+            },
+            error.message,
+            undefined
+        )
+    }
 }
