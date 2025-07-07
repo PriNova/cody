@@ -1,7 +1,5 @@
-import { describe, expect, it } from 'vitest'
-
-import { NoOpTelemetryRecorderProvider } from '@sourcegraph/cody-shared'
 import type { TelemetryEventInput } from '@sourcegraph/telemetry'
+import { describe, expect, it } from 'vitest'
 
 import { splitSafeMetadata } from './telemetry-v2'
 
@@ -120,25 +118,7 @@ describe('splitSafeMetadata', () => {
         // This test just validates that the returned types of splitSafeMetadata
         // are accepted by telemetryRecorder.recordEvent
         const events: TelemetryEventInput[] = []
-        const telemetryRecorder = new NoOpTelemetryRecorderProvider([
-            {
-                processEvent: event => {
-                    events.push(event)
-                },
-            },
-        ]).getRecorder()
-        const { metadata, privateMetadata } = splitSafeMetadata({
-            number: 3,
-            float: 3.14,
-            true: true,
-            false: false,
-            string: 'string',
-            object: { key: 'value', safeVar: 3 },
-        })
-        telemetryRecorder.recordEvent('telemetry-vtwo.test', 'splitSafeMetadata', {
-            metadata,
-            privateMetadata,
-        })
+
         // Assert processed event
         expect(events).toHaveLength(1)
         expect(events[0]).toEqual({

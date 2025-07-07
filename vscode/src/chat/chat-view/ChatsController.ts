@@ -13,7 +13,6 @@ import {
     currentAuthStatusAuthed,
     editorStateFromPromptString,
     subscriptionDisposable,
-    telemetryRecorder,
 } from '@sourcegraph/cody-shared'
 import { logDebug, logError } from '../../output-channel-logger'
 import type { MessageProviderOptions } from '../MessageProvider'
@@ -30,6 +29,9 @@ import {
 } from '../../services/utils/codeblock-action-tracker'
 import { CodyToolProvider } from '../agentic/CodyToolProvider'
 import type { SmartApplyResult } from '../protocol'
+
+import { requestEmptyDefaultContext } from '../initialContext'
+
 import {
     ChatController,
     type ChatSession,
@@ -107,19 +109,47 @@ export class ChatsController implements vscode.Disposable {
         mode,
         autoSubmit,
     }: { text: string; mode: PromptMode; autoSubmit: boolean }): Promise<void> {
-        await vscode.commands.executeCommand('cody.chat.new')
+        // Get the appropriate controller (active editor, sidebar, or new instance)
+        const [controller, isNew] = await this.getControllerForPrompt()
 
-        const webviewPanelOrView =
-            this.panel.webviewPanelOrView || (await this.panel.createWebviewViewOrPanel())
+        if (controller.webviewPanelOrView) {
+            if (isNew) {
+                // Add a small delay before setting the prompt to ensure the webview has fully loaded
+                await new Promise(resolve => setTimeout(resolve, 1500))
+            }
 
-        setTimeout(
-            () =>
-                webviewPanelOrView.webview.postMessage({
-                    type: 'clientAction',
-                    setPromptAsInput: { text, mode, autoSubmit },
-                }),
-            1000
-        )
+            controller.webviewPanelOrView.webview.postMessage({
+                type: 'clientAction',
+                setPromptAsInput: {
+                    text,
+                    mode,
+                    autoSubmit,
+                },
+            })
+        }
+    }
+
+    /**
+     * Gets the most appropriate controller for showing a prompt based on visibility and preference.
+     * Returns a tuple with the controller and a boolean indicating if it's a newly created controller.
+     */
+    public async getControllerForPrompt(): Promise<[ChatController, boolean]> {
+        const chatLocation = getNewChatLocation()
+
+        if (chatLocation === 'sidebar') {
+            await vscode.commands.executeCommand('cody.chat.focus')
+            return [this.panel, false]
+        }
+        // Use existing active editor chat if available to avoid creating new instances
+        if (this.activeEditor?.webviewPanelOrView?.visible) {
+            return [this.activeEditor, false]
+        }
+
+        // Set the flag to use the empty default context before creating a new controller
+        requestEmptyDefaultContext()
+        // Create a new editor if none exist
+        const controller = await this.getOrCreateEditorChatController()
+        return [controller, true] // Flag as newly created
     }
 
     public registerViewsAndCommands() {
@@ -257,12 +287,6 @@ export class ChatsController implements vscode.Disposable {
     }
 
     private async sendEditorContextToChat(uri?: URI): Promise<void> {
-        telemetryRecorder.recordEvent('cody.addChatContext', 'clicked', {
-            billingMetadata: {
-                category: 'billable',
-                product: 'cody',
-            },
-        })
         const provider = await this.getActiveChatController()
         if (provider === this.panel) {
             await vscode.commands.executeCommand('cody.chat.focus')
@@ -364,12 +388,6 @@ export class ChatsController implements vscode.Disposable {
      * Export chat history to file system
      */
     private async exportHistory(): Promise<void> {
-        telemetryRecorder.recordEvent('cody.exportChatHistoryButton', 'clicked', {
-            billingMetadata: {
-                product: 'cody',
-                category: 'billable',
-            },
-        })
         const authStatus = currentAuthStatus()
         if (authStatus.authenticated) {
             try {

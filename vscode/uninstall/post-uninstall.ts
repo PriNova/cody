@@ -1,7 +1,5 @@
 import {
     CodyIDE,
-    MockServerTelemetryRecorderProvider,
-    TelemetryRecorderProvider,
     mockClientCapabilities,
     nextTick,
     setAuthStatusObservable,
@@ -39,17 +37,6 @@ async function main() {
                     telemetryClientName: `${CodyIDE.VSCode}.Cody`,
                 }
             )
-
-            const provider = process.env.CODY_TESTING
-                ? new MockServerTelemetryRecorderProvider(config)
-                : new TelemetryRecorderProvider(config)
-            const recorder = provider.getRecorder()
-            recorder.recordEvent('cody.extension', 'uninstalled', {
-                billingMetadata: {
-                    product: 'cody',
-                    category: 'billable',
-                },
-            })
 
             // cleanup the uninstaller config
             await deleteUninstallerConfig()

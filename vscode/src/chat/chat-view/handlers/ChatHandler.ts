@@ -44,7 +44,7 @@ export class ChatHandler implements AgentHandler {
             editorState,
             signal,
             chatBuilder,
-            recorder,
+
             span,
             model,
         }: AgentRequest,
@@ -77,7 +77,7 @@ export class ChatHandler implements AgentHandler {
         signal.throwIfAborted()
 
         const { explicitMentions, implicitMentions } = getCategorizedMentions(corpusContext)
-        const prompter = new DefaultPrompter(explicitMentions, implicitMentions, false)
+        const prompter = new DefaultPrompter(explicitMentions, implicitMentions)
 
         const versions = await currentSiteVersion()
         if (isError(versions)) {
@@ -85,8 +85,6 @@ export class ChatHandler implements AgentHandler {
             return
         }
         const { prompt } = await this.buildPrompt(prompter, chatBuilder, signal, versions.codyAPIVersion)
-
-        recorder.recordChatQuestionExecuted(corpusContext, { addMetadata: true, current: span })
 
         signal.throwIfAborted()
 

@@ -1,7 +1,6 @@
 import {
     type AuthStatus,
     type CodyIDE,
-    type TelemetryRecorder,
     isAuthError,
     isAvailabilityError,
     isDotCom,
@@ -18,7 +17,6 @@ import { ArrowLeftIcon, ArrowRightIcon, ChevronsUpDownIcon, LogInIcon, UsersIcon
 import { memo, useCallback, useMemo, useState } from 'react'
 import { Button } from './components/shadcn/ui/button'
 import { Form, FormControl, FormField, FormLabel, FormMessage } from './components/shadcn/ui/form'
-import { useTelemetryRecorder } from './utils/telemetry'
 
 interface LoginProps {
     simplifiedLoginRedirect: (method: AuthMethod) => void
@@ -48,7 +46,6 @@ export const AuthPage: React.FunctionComponent<React.PropsWithoutRef<LoginProps>
     authStatus,
     allowEndpointChange,
 }) => {
-    const telemetryRecorder = useTelemetryRecorder()
     const [isEnterpriseSignin, setIsEnterpriseSignin] = useState(!allowEndpointChange)
 
     // Extracted common button props and styles
@@ -78,15 +75,13 @@ export const AuthPage: React.FunctionComponent<React.PropsWithoutRef<LoginProps>
     // Memoized handler functions
     const handleEnterpriseSignin = useCallback(() => {
         setIsEnterpriseSignin(true)
-        telemetryRecorder.recordEvent('cody.auth.login', 'clicked')
-    }, [telemetryRecorder])
+    }, [])
 
     const handleProviderSignIn = useCallback(
         (provider: AuthMethod) => {
-            telemetryRecorder.recordEvent('cody.webview.auth', `simplifiedSignIn${provider}Click`)
             simplifiedLoginRedirect(provider)
         },
-        [telemetryRecorder, simplifiedLoginRedirect]
+        [simplifiedLoginRedirect]
     )
 
     const signInButtons = useMemo(
@@ -151,13 +146,12 @@ export const AuthPage: React.FunctionComponent<React.PropsWithoutRef<LoginProps>
                         authStatus={authStatus}
                         vscodeAPI={vscodeAPI}
                         className="tw-mt-8"
-                        telemetryRecorder={telemetryRecorder}
                         allowEndpointChange={allowEndpointChange}
                     />
                 </div>
             </section>
         ),
-        [authStatus, vscodeAPI, telemetryRecorder, allowEndpointChange]
+        [authStatus, vscodeAPI, allowEndpointChange]
     )
 
     return (
@@ -196,11 +190,7 @@ export const AuthPage: React.FunctionComponent<React.PropsWithoutRef<LoginProps>
                             </div>
                             <div className="tw-flex tw-flex-col tw-gap-6 tw-w-full">
                                 {uiKindIsWeb ? (
-                                    <WebLogin
-                                        telemetryRecorder={telemetryRecorder}
-                                        vscodeAPI={vscodeAPI}
-                                        isCodyWeb={uiKindIsWeb}
-                                    />
+                                    <WebLogin vscodeAPI={vscodeAPI} isCodyWeb={uiKindIsWeb} />
                                 ) : (
                                     <div className="tw-flex tw-flex-col tw-gap-6 tw-w-full">
                                         {signInButtons.github}
@@ -235,11 +225,9 @@ export const AuthPage: React.FunctionComponent<React.PropsWithoutRef<LoginProps>
 const WebLogin: React.FunctionComponent<
     React.PropsWithoutRef<{
         isCodyWeb: boolean
-        telemetryRecorder: TelemetryRecorder
         vscodeAPI: VSCodeWrapper
     }>
 > = ({ vscodeAPI, isCodyWeb }) => {
-    const telemetryRecorder = useTelemetryRecorder()
     return (
         <ol>
             <li>
@@ -257,7 +245,6 @@ const WebLogin: React.FunctionComponent<
                     <a
                         href="about:blank"
                         onClick={event => {
-                            telemetryRecorder.recordEvent('cody.webview.auth', 'clickSignIn')
                             vscodeAPI.postMessage({
                                 command: 'simplified-onboarding',
                                 onboardingKind: 'web-sign-in-token',
@@ -276,7 +263,6 @@ const WebLogin: React.FunctionComponent<
 
 interface ClientSignInFormProps {
     vscodeAPI: VSCodeWrapper
-    telemetryRecorder: TelemetryRecorder
     allowEndpointChange: boolean
     authStatus?: AuthStatus
     className?: string
@@ -286,7 +272,7 @@ interface ClientSignInFormProps {
  * The form allows users to input their Sourcegraph instance URL and access token manually.
  */
 const ClientSignInForm: React.FC<ClientSignInFormProps> = memo(
-    ({ className, authStatus, vscodeAPI, telemetryRecorder, allowEndpointChange }) => {
+    ({ className, authStatus, vscodeAPI, allowEndpointChange }) => {
         // Combine related state into a single object to reduce re-renders
         const [formState, setFormState] = useState({
             showAccessTokenField: false,
@@ -312,8 +298,7 @@ const ClientSignInForm: React.FC<ClientSignInFormProps> = memo(
                 ...prev,
                 showAccessTokenField: !prev.showAccessTokenField,
             }))
-            telemetryRecorder.recordEvent('cody.auth.login.token', 'clicked')
-        }, [telemetryRecorder])
+        }, [])
 
         const onSubmit = useCallback(
             (e?: React.FormEvent) => {

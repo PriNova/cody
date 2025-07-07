@@ -4,10 +4,9 @@ import { type FC, useCallback, useMemo, useState } from 'react'
 import type { Action, PromptsInput } from '@sourcegraph/cody-shared'
 
 import { useLocalStorage } from '../../components/hooks'
-import { useTelemetryRecorder } from '../../utils/telemetry'
+
 import { useConfig } from '../../utils/useConfig'
 import { useDebounce } from '../../utils/useDebounce'
-import type { PromptsFilterArgs } from '../promptFilter/PromptsFilter'
 import {
     Command,
     CommandInput,
@@ -20,17 +19,16 @@ import styles from './PromptList.module.css'
 import { usePromptsQuery } from './usePromptsQuery'
 import { commandRowValue } from './utils'
 
-const BUILT_IN_PROMPTS_CODE: Record<string, number> = {
-    'document-code': 1,
-    'explain-code': 2,
-    'find-code-smells': 3,
-    'generate-unit-tests': 4,
+export interface PromptsFilterArgs {
+    owner?: string
+    tags?: string[]
+    promoted?: boolean
+    core?: boolean
 }
-
 interface PromptListProps {
     showSearch: boolean
     showFirstNItems?: number
-    telemetryLocation: 'PromptSelectField' | 'PromptsTab' | 'WelcomeAreaPrompts'
+    telemetryLocation: 'PromptSelectField' | 'WelcomeAreaPrompts'
     showOnlyPromptInsertableCommands?: boolean
     showCommandOrigins?: boolean
     showPromptLibraryUnsupportedMessage?: boolean
@@ -48,14 +46,13 @@ interface PromptListProps {
  * A list of prompts from the Prompt Library. For backcompat, it also displays built-in commands and
  * custom commands (which are both deprecated in favor of the Prompt Library).
  *
- * It is used in the {@link PromptSelectField} in a popover and in {@link PromptsTab} as a list (not
- * in a popover).
+ * It is used in the {@link PromptSelectField} in a popover and in the welcome area.
  */
 export const PromptList: FC<PromptListProps> = props => {
     const {
         showSearch,
         showFirstNItems,
-        telemetryLocation,
+
         showOnlyPromptInsertableCommands,
         showPromptLibraryUnsupportedMessage = true,
         className,
@@ -69,12 +66,8 @@ export const PromptList: FC<PromptListProps> = props => {
     } = props
     const { clientCapabilities, authStatus } = useConfig()
     const endpointURL = new URL(authStatus.endpoint)
-    const telemetryRecorder = useTelemetryRecorder()
-    const [lastUsedActions = {}] = useLocalStorage<Record<string, number>>('last-used-actions-v2', {})
 
-    const telemetryPublicMetadata: Record<string, number> = {
-        [`in${telemetryLocation}`]: 1,
-    }
+    const [lastUsedActions = {}] = useLocalStorage<Record<string, number>>('last-used-actions-v2', {})
 
     const [query, setQuery] = useState('')
     const debouncedQuery = useDebounce(query, 250)
@@ -101,62 +94,9 @@ export const PromptList: FC<PromptListProps> = props => {
                 return
             }
 
-            const isPrompt = action.actionType === 'prompt'
-            const isBuiltinPrompt = isPrompt && action.builtin
-            const isPromptAutoSubmit = action.actionType === 'prompt' && action.autoSubmit
-            const isCommand = action.actionType === 'command'
-            const isBuiltInCommand = isCommand && action.type === 'default'
-
-            telemetryRecorder.recordEvent('cody.promptList', 'select', {
-                metadata: {
-                    isPrompt: isPrompt ? 1 : 0,
-                    isPromptAutoSubmit: isPromptAutoSubmit ? 1 : 0,
-                    isPromptBuiltin: isBuiltinPrompt ? 1 : 0,
-                    builtinPromptId: isBuiltinPrompt ? BUILT_IN_PROMPTS_CODE[action.name] ?? 0 : 0,
-                    isCommand: isCommand ? 1 : 0,
-                    isCommandBuiltin: isBuiltInCommand ? 1 : 0,
-                    isCommandCustom: !isBuiltInCommand ? 1 : 0,
-                    ...telemetryPublicMetadata,
-                },
-                privateMetadata: {
-                    nameWithOwner: isPrompt ? action.nameWithOwner : undefined,
-                    promptId: isPrompt ? action.id : undefined,
-                    promptName: isPrompt ? action.name : undefined,
-                },
-                billingMetadata: { product: 'cody', category: 'core' },
-            })
-
-            const prompts = result.actions.filter(action => action.actionType === 'prompt')
-            const commands = result.actions.filter(action => action.actionType === 'command')
-
-            telemetryRecorder.recordEvent('cody.promptList', 'query', {
-                metadata: {
-                    queryLength: debouncedQuery.length,
-                    resultCount: result.actions.length,
-                    resultCountPromptsOnly: prompts.length,
-                    resultCountCommandsOnly: commands.length,
-                    hasUsePromptsQueryError: error ? 1 : 0,
-                    supportsPrompts: 1,
-                    hasPromptsResultError: 0,
-                    ...telemetryPublicMetadata,
-                },
-                privateMetadata: {
-                    query: debouncedQuery,
-                    usePromptsQueryErrorMessage: error?.message,
-                },
-                billingMetadata: { product: 'cody', category: 'core' },
-            })
-
             parentOnSelect(action)
         },
-        [
-            result,
-            telemetryRecorder.recordEvent,
-            parentOnSelect,
-            telemetryPublicMetadata,
-            debouncedQuery,
-            error,
-        ]
+        [result, parentOnSelect]
     )
 
     const filteredActions = useCallback(
@@ -231,6 +171,7 @@ export const PromptList: FC<PromptListProps> = props => {
                 )}
                 {!recommendedOnly &&
                     result &&
+                    result.arePromptsSupported &&
                     sortedActions.filter(action => action.actionType === 'prompt').length === 0 && (
                         <CommandLoading className={itemPaddingClass}>
                             {result?.query === '' && !anyPromptFilterActive ? (

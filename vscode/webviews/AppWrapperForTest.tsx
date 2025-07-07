@@ -25,7 +25,6 @@ import { FIXTURE_TRANSCRIPT } from './chat/fixtures'
 import { FIXTURE_COMMANDS, makePromptsAPIWithData } from './components/promptList/fixtures'
 import { FIXTURE_PROMPTS } from './components/promptSelectField/fixtures'
 import { ComposedWrappers, type Wrapper } from './utils/composeWrappers'
-import { TelemetryRecorderContext } from './utils/telemetry'
 import { ConfigProvider } from './utils/useConfig'
 
 /**
@@ -35,12 +34,6 @@ export const AppWrapperForTest: FunctionComponent<{ children: ReactNode }> = ({ 
     const wrappers = useMemo<Wrapper[]>(
         () => [
             ...COMMON_WRAPPERS,
-            {
-                provider: TelemetryRecorderContext.Provider,
-                value: {
-                    recordEvent: () => {},
-                },
-            } satisfies Wrapper<ComponentProps<typeof TelemetryRecorderContext.Provider>['value']>,
             {
                 provider: ExtensionAPIProviderForTestsOnly,
                 value: {

@@ -19,9 +19,6 @@ import {
     scanForMentionTriggerInUserTextInput,
 } from '@sourcegraph/cody-shared'
 import * as vscode from 'vscode'
-
-import { telemetryRecorder } from '@sourcegraph/cody-shared'
-import { EventSourceTelemetryMetadataMapping } from '@sourcegraph/cody-shared/src/chat/transcript/messages'
 import { ACCOUNT_UPGRADE_URL } from '../../chat/protocol'
 import { executeDocCommand, executeTestEditCommand } from '../../commands/execute'
 import { getEditor } from '../../editor/active-editor'
@@ -87,13 +84,6 @@ export const getInput = async (
     if (!editor) {
         return null
     }
-
-    telemetryRecorder.recordEvent('cody.menu.edit', 'clicked', {
-        metadata: {
-            source: EventSourceTelemetryMetadataMapping[source],
-        },
-        privateMetadata: { source },
-    })
 
     const initialCursorPosition = editor.selection.active
     let activeRange = initialValues.initialExpandedRange || initialValues.initialRange
@@ -200,12 +190,6 @@ export const getInput = async (
                 if (!acceptedItem) {
                     return
                 }
-                telemetryRecorder.recordEvent('cody.fixup.input.model', 'selected', {
-                    billingMetadata: {
-                        product: 'cody',
-                        category: 'billable',
-                    },
-                })
 
                 if (acceptedItem.codyProOnly && !isCodyPro && !isEnterpriseUser) {
                     const option = await vscode.window.showInformationMessage(
@@ -255,12 +239,6 @@ export const getInput = async (
                 if (!acceptedItem) {
                     return
                 }
-                telemetryRecorder.recordEvent('cody.fixup.input.rangeSymbol', 'selected', {
-                    billingMetadata: {
-                        product: 'cody',
-                        category: 'billable',
-                    },
-                })
 
                 activeRangeItem = acceptedItem
                 const range =
@@ -303,13 +281,6 @@ export const getInput = async (
                     rangeSymbolsInput.render('')
                     return
                 }
-
-                telemetryRecorder.recordEvent('cody.fixup.input.range', 'selected', {
-                    billingMetadata: {
-                        product: 'cody',
-                        category: 'billable',
-                    },
-                })
 
                 activeRangeItem = acceptedItem
                 const range =

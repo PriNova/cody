@@ -5,15 +5,12 @@ import * as vscode from 'vscode'
 import {
     type AutocompleteContextSnippet,
     type AutocompleteContextSnippetMetadata,
-    type BillingCategory,
-    type BillingProduct,
     currentAuthStatusAuthed,
     displayPathWithoutWorkspaceFolderPrefix,
     isDotCom,
     isNetworkError,
-    telemetryRecorder,
 } from '@sourcegraph/cody-shared'
-import type { KnownString, TelemetryEventParameters } from '@sourcegraph/telemetry'
+import type { KnownString } from '@sourcegraph/telemetry'
 
 import { captureException, shouldErrorBeReported } from '../services/sentry/sentry'
 import { splitSafeMetadata } from '../services/telemetry-v2'
@@ -33,22 +30,17 @@ import {
     type AutocompletePipelineCountedStage,
     autocompleteStageCounterLogger,
 } from '../services/autocomplete-stage-counter-logger'
-import { type CompletionIntent, CompletionIntentTelemetryMetadataMapping } from '../tree-sitter/queries'
+import type { CompletionIntent } from '../tree-sitter/queries'
 
 import type { ContextSummary } from './context/context-mixer'
-import {
-    InlineCompletionsResultSource,
-    InlineCompletionsResultSourceTelemetryMetadataMapping,
-    TriggerKind,
-    TriggerKindTelemetryMetadataMapping,
-} from './get-inline-completions'
+import type { InlineCompletionsResultSource, TriggerKind } from './get-inline-completions'
 import type { RequestParams } from './request-manager'
 import * as statistics from './statistics'
+import { lines } from './text-processing'
 import type {
     InlineCompletionItemWithAnalytics,
     InlineCompletionResponseHeaders,
 } from './text-processing/process-inline-completions'
-import { lines } from './text-processing/utils'
 import type { InlineCompletionItem } from './types'
 
 // A completion ID is a unique identifier for a specific completion text displayed at a specific
@@ -198,9 +190,6 @@ interface SharedEventPayload extends InteractionIDPayload {
  * hasInteractionID helps extracting analytics interaction ID from parameters
  * that extend SharedEventPayload.
  */
-function hasInteractionID(params: any): params is InteractionIDPayload {
-    return 'id' in params
-}
 
 /** Emitted when a completion was suggested to the user and printed onto the screen */
 interface SuggestedEventPayload extends SharedEventPayload {
@@ -259,7 +248,7 @@ interface ErrorEventPayload {
 interface FormatEventPayload {
     // `formatCompletion` duration.
     duration: number
-    // Current document langauge ID
+    // Current document language ID
     languageId: string
     // Formatter name extracted from user settings JSON.
     formatter?: string
@@ -275,48 +264,33 @@ function logCompletionSuggestedEvent(
         ...params,
         inlineCompletionItemContext,
     })
-    writeCompletionEvent(
-        null,
-        'suggested',
-        {
-            version: 0,
-            metadata: {
-                ...metadata,
-                recordsPrivateMetadataTranscript:
-                    isDotComUser && inlineCompletionItemContext !== undefined ? 1 : 0,
-            },
-            privateMetadata,
+    writeCompletionEvent(null, 'suggested', {
+        version: 0,
+        metadata: {
+            ...metadata,
+            recordsPrivateMetadataTranscript:
+                isDotComUser && inlineCompletionItemContext !== undefined ? 1 : 0,
         },
-        params
-    )
+        privateMetadata,
+    })
 }
 function logCompletionAcceptedEvent(params: AcceptedEventPayload): void {
     // Use automatic splitting for now - make this manual as needed
     const { metadata, privateMetadata } = splitSafeMetadata(params)
-    writeCompletionEvent(
-        null,
-        'accepted',
-        {
-            version: 0,
-            metadata,
-            privateMetadata,
-        },
-        params
-    )
+    writeCompletionEvent(null, 'accepted', {
+        version: 0,
+        metadata,
+        privateMetadata,
+    })
 }
 function logCompletionPartiallyAcceptedEvent(params: PartiallyAcceptedEventPayload): void {
     // Use automatic splitting for now - make this manual as needed
     const { metadata, privateMetadata } = splitSafeMetadata(params)
-    writeCompletionEvent(
-        null,
-        'partiallyAccepted',
-        {
-            version: 0,
-            metadata,
-            privateMetadata,
-        },
-        params
-    )
+    writeCompletionEvent(null, 'partiallyAccepted', {
+        version: 0,
+        metadata,
+        privateMetadata,
+    })
 }
 
 function logSuggestionsDocumentDiffEvent(params: PersistencePresentEventPayload): void {
@@ -326,63 +300,48 @@ function logSuggestionsDocumentDiffEvent(params: PersistencePresentEventPayload)
     }
     // Use automatic splitting for now - make this manual as needed
     const { metadata, privateMetadata } = splitSafeMetadata(params)
-    writeCompletionEvent(
-        'persistence',
-        'generateDiff',
-        {
-            version: 0,
-            metadata: {
-                ...metadata,
-                recordsPrivateMetadataTranscript: params.diff !== undefined ? 1 : 0,
-            },
-            privateMetadata,
+    writeCompletionEvent('persistence', 'generateDiff', {
+        version: 0,
+        metadata: {
+            ...metadata,
+            recordsPrivateMetadataTranscript: params.diff !== undefined ? 1 : 0,
         },
-        params
-    )
+        privateMetadata,
+    })
 }
 
 function logCompletionPersistencePresentEvent(params: PersistencePresentEventPayload): void {
     // Use automatic splitting for now - make this manual as needed
     const { metadata, privateMetadata } = splitSafeMetadata(params)
-    writeCompletionEvent(
-        'persistence',
-        'present',
-        {
-            version: 0,
-            metadata,
-            privateMetadata,
-        },
-        params
-    )
+    writeCompletionEvent('persistence', 'present', {
+        version: 0,
+        metadata,
+        privateMetadata,
+    })
 }
 function logCompletionPersistenceRemovedEvent(params: PersistenceRemovedEventPayload): void {
     // Use automatic splitting for now - make this manual as needed
     const { metadata, privateMetadata } = splitSafeMetadata(params)
-    writeCompletionEvent(
-        'persistence',
-        'removed',
-        {
-            version: 0,
-            metadata,
-            privateMetadata,
-        },
-        params
-    )
+    writeCompletionEvent('persistence', 'removed', {
+        version: 0,
+        metadata,
+        privateMetadata,
+    })
 }
 function logCompletionNoResponseEvent(params: NoResponseEventPayload): void {
     // Use automatic splitting for now - make this manual as needed
     const { metadata, privateMetadata } = splitSafeMetadata(params)
-    writeCompletionEvent(null, 'noResponse', { version: 0, metadata, privateMetadata }, params)
+    writeCompletionEvent(null, 'noResponse', { version: 0, metadata, privateMetadata })
 }
 function logCompletionErrorEvent(params: ErrorEventPayload): void {
     // Use automatic splitting for now - make this manual as needed
     const { metadata, privateMetadata } = splitSafeMetadata(params)
-    writeCompletionEvent(null, 'error', { version: 0, metadata, privateMetadata }, params)
+    writeCompletionEvent(null, 'error', { version: 0, metadata, privateMetadata })
 }
 export function logCompletionFormatEvent(params: FormatEventPayload): void {
     // Use automatic splitting for now - make this manual as needed
     const { metadata, privateMetadata } = splitSafeMetadata(params)
-    writeCompletionEvent(null, 'format', { version: 0, metadata, privateMetadata }, params)
+    writeCompletionEvent(null, 'format', { version: 0, metadata, privateMetadata })
 }
 /**
  * The following events are added to ensure the logging bookkeeping works as expected in production
@@ -419,82 +378,14 @@ export function logCompletionBookkeepingEvent(
 function writeCompletionEvent<SubFeature extends string, Action extends string, LegacyParams extends {}>(
     subfeature: KnownString<SubFeature> | null,
     action: KnownString<Action>,
-    params?: TelemetryEventParameters<{ [key: string]: number }, BillingProduct, BillingCategory>,
     legacyParams?: LegacyParams
 ): void {
     /**
      * Extract interaction ID from the full legacy params for convenience
      */
-    if (params && hasInteractionID(legacyParams)) {
-        params.interactionID = legacyParams.id?.toString()
-    }
     /**
      * Helper function to convert privateMetadata string values to numerical based on 'telemetryMetadataMapping...' lookup. Enables data collection on `metadata`
      */
-    function mapEnumToMetadata<
-        V extends Record<string, string>,
-        // Do not allow number keys in `telemetryMetadataMapping`
-        K extends keyof V extends string ? string : never,
-    >(
-        value: string | undefined,
-        valueEnum: V,
-        metadataMapping: Record<V[K], number>
-    ): number | undefined {
-        if (value === undefined) return undefined
-        const enumKey = Object.keys(valueEnum).find(key => valueEnum[key] === value)
-        if (!enumKey) return undefined
-        const mappingValue = metadataMapping[enumKey as V[K]]
-        return typeof mappingValue === 'number' ? mappingValue : undefined
-    }
-
-    if (params?.metadata) {
-        const mappedTriggerKind = mapEnumToMetadata(
-            params.privateMetadata?.triggerKind,
-            TriggerKind,
-            TriggerKindTelemetryMetadataMapping
-        )
-
-        if (mappedTriggerKind !== undefined) {
-            params.metadata.triggerKind = mappedTriggerKind
-        }
-
-        const mappedSource = mapEnumToMetadata(
-            params.privateMetadata?.source,
-            InlineCompletionsResultSource,
-            InlineCompletionsResultSourceTelemetryMetadataMapping
-        )
-        if (mappedSource !== undefined) {
-            params.metadata.source = mappedSource
-        }
-
-        // for each completionsProviders, add it to metadata showing it's enabled
-        if (params.privateMetadata?.otherCompletionProviders) {
-            for (const key of params.privateMetadata.otherCompletionProviders) {
-                params.metadata[`otherCompletionProviders.${key}`] = 1
-            }
-        }
-
-        // Need to convert since CompletionIntent only refers to a type
-        const CompletionIntentEnum: Record<CompletionIntent, CompletionIntent> = Object.keys(
-            CompletionIntentTelemetryMetadataMapping
-        ).reduce(
-            (acc, key) => {
-                acc[key as CompletionIntent] = key as CompletionIntent
-                return acc
-            },
-            {} as Record<CompletionIntent, CompletionIntent>
-        )
-
-        const mappedCompletionIntent = mapEnumToMetadata(
-            params.privateMetadata?.completionIntent,
-            CompletionIntentEnum,
-            CompletionIntentTelemetryMetadataMapping
-        )
-        if (mappedCompletionIntent !== undefined) {
-            params.metadata.completionIntent = mappedCompletionIntent
-        }
-    }
-
     /**
      * New telemetry automatically adds extension context - we do not need to
      * include platform in the name of the event. However, we MUST prefix the
@@ -502,31 +393,6 @@ function writeCompletionEvent<SubFeature extends string, Action extends string, 
      *
      * We use an if/else statement here because the typechecker gets confused.
      */
-    if (subfeature) {
-        telemetryRecorder.recordEvent(`cody.completion.${subfeature}`, action, params)
-    } else {
-        // Add billing metadata to completion event params.
-        params =
-            action === 'suggested'
-                ? {
-                      ...params,
-                      billingMetadata: {
-                          product: 'cody',
-                          category: 'billable',
-                      },
-                  }
-                : action === 'partiallyAccepted' || action === 'accepted'
-                  ? {
-                        ...params,
-                        billingMetadata: {
-                            product: 'cody',
-                            category: 'core',
-                        },
-                    }
-                  : params
-
-        telemetryRecorder.recordEvent('cody.completion', action, params)
-    }
 }
 
 export interface CompletionBookkeepingEvent {

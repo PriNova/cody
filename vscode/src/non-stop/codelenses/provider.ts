@@ -1,6 +1,5 @@
 import * as vscode from 'vscode'
 
-import { telemetryRecorder } from '@sourcegraph/cody-shared'
 import { isRunningInsideAgent } from '../../jsonrpc/isRunningInsideAgent'
 import { ContentProvider } from '../FixupContentStore'
 import type { FixupFile } from '../FixupFile'
@@ -30,79 +29,49 @@ export class FixupCodeLenses implements vscode.CodeLensProvider, FixupControlApp
             vscode.languages.registerCodeLensProvider('*', this),
             vscode.workspace.registerTextDocumentContentProvider('cody-fixup', this.contentStore),
             vscode.commands.registerCommand('cody.fixup.codelens.cancel', id => {
-                telemetryRecorder.recordEvent('cody.fixup.codeLens', 'cancel', {
-                    billingMetadata: {
-                        product: 'cody',
-                        category: 'billable',
-                    },
-                })
+                // TODO: Add telemetry recording for cancel action
                 const task = this.controller.taskForId(id)
                 if (task) {
                     this.controller.cancel(task)
                 }
             }),
             vscode.commands.registerCommand('cody.fixup.codelens.diff', id => {
-                telemetryRecorder.recordEvent('cody.fixup.codeLens', 'diff', {
-                    billingMetadata: {
-                        product: 'cody',
-                        category: 'core',
-                    },
-                })
+                // TODO: Add telemetry recording for diff action
                 return this.diff(id)
             }),
             vscode.commands.registerCommand('cody.fixup.codelens.retry', async id => {
-                telemetryRecorder.recordEvent('cody.fixup.codeLens', 'retry')
+                // TODO: Add telemetry recording for retry action
                 const task = this.controller.taskForId(id)
                 return task ? this.controller.retry(task, 'code-lens') : Promise.resolve()
             }),
             vscode.commands.registerCommand('cody.fixup.codelens.undo', id => {
-                telemetryRecorder.recordEvent('cody.fixup.codeLens', 'undo', {
-                    billingMetadata: {
-                        product: 'cody',
-                        category: 'billable',
-                    },
-                })
+                // TODO: Add telemetry recording for undo action
                 const task = this.controller.taskForId(id)
                 return task ? this.controller.undo(task) : Promise.resolve()
             }),
             vscode.commands.registerCommand('cody.fixup.codelens.accept', id => {
-                telemetryRecorder.recordEvent('cody.fixup.codeLens', 'accept', {
-                    billingMetadata: {
-                        product: 'cody',
-                        category: 'core',
-                    },
-                })
+                // TODO: Add telemetry recording for accept action
                 const task = this.controller.taskForId(id)
                 if (task) {
                     this.controller.accept(task)
                 }
             }),
             vscode.commands.registerCommand('cody.fixup.codelens.acceptChange', (id, range) => {
-                telemetryRecorder.recordEvent('cody.fixup.codeLens', 'acceptChange', {
-                    billingMetadata: {
-                        product: 'cody',
-                        category: 'core',
-                    },
-                })
+                // TODO: Add telemetry recording for acceptChange action
                 const task = this.controller.taskForId(id)
                 if (task) {
                     this.controller.acceptChange(task, range)
                 }
             }),
             vscode.commands.registerCommand('cody.fixup.codelens.rejectChange', (id, range) => {
-                telemetryRecorder.recordEvent('cody.fixup.codeLens', 'rejectChange', {
-                    billingMetadata: {
-                        product: 'cody',
-                        category: 'billable',
-                    },
-                })
+                // TODO: Add telemetry recording for rejectChange action
                 const task = this.controller.taskForId(id)
                 if (task) {
                     this.controller.rejectChange(task, range)
                 }
             }),
             vscode.commands.registerCommand('cody.fixup.codelens.error', id => {
-                telemetryRecorder.recordEvent('cody.fixup.codeLens', 'showError')
+                // TODO: Add telemetry recording for showError action
                 return this.showError(id)
             }),
             vscode.commands.registerCommand('cody.fixup.cancelNearest', () => {

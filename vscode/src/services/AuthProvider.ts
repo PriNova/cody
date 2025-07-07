@@ -20,7 +20,6 @@ import {
     setAuthStatusObservable as setAuthStatusObservable_,
     startWith,
     switchMap,
-    telemetryRecorder,
     withLatestFrom,
 } from '@sourcegraph/cody-shared'
 import { normalizeServerEndpointURL } from '@sourcegraph/cody-shared/src/configuration/auth-resolver'
@@ -285,12 +284,7 @@ class AuthProvider implements vscode.Disposable {
             // User has authenticated before, noop
             return
         }
-        telemetryRecorder.recordEvent('cody.auth.login', 'firstEver', {
-            billingMetadata: {
-                product: 'cody',
-                category: 'billable',
-            },
-        })
+
         this.setHasAuthenticatedBefore()
     }
 
@@ -348,18 +342,14 @@ function reportAuthTelemetryEvent(authStatus: AuthStatus): void {
     if (authStatus.pendingValidation) {
         return // Not a valid event to report.
     }
-    let eventValue: 'disconnected' | 'connected' | 'failed'
+
     if (
         !authStatus.authenticated &&
         (isAvailabilityError(authStatus.error) || isInvalidAccessTokenError(authStatus.error))
     ) {
-        eventValue = 'failed'
     } else if (authStatus.authenticated) {
-        eventValue = 'connected'
     } else {
-        eventValue = 'disconnected'
     }
-    telemetryRecorder.recordEvent('cody.auth', eventValue)
 }
 function toCredentialsOnlyNormalized(
     config: ResolvedConfiguration | ResolvedConfigurationCredentialsOnly

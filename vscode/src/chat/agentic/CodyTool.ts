@@ -6,6 +6,7 @@ import {
     type ContextMentionProviderMetadata,
     ProcessType,
     PromptString,
+    UIToolStatus,
     currentOpenCtxController,
     firstValueFrom,
     logDebug,
@@ -13,38 +14,23 @@ import {
     pendingOperation,
     ps,
 } from '@sourcegraph/cody-shared'
+import type { McpTool } from '@sourcegraph/cody-shared/src/llm-providers/mcp/types'
 import * as uuid from 'uuid'
 import { URI } from 'vscode-uri'
 import { getContextFromRelativePath } from '../../commands/context/file-path'
 import { getContextFileFromShell } from '../../commands/context/shell'
 import { type ContextRetriever, toStructuredMentions } from '../chat-view/ContextRetriever'
+import { MCPManager } from '../chat-view/tools/MCPManager'
 import { getChatContextItemsForMention } from '../context/chatContext'
 import { getCorpusContextItemsForEditorState } from '../initialContext'
 import { CodyChatMemory } from './CodyChatMemory'
-import type { ToolStatusCallback } from './CodyToolProvider'
 import { RawTextProcessor } from './DeepCody'
-
-/**
- * Configuration interface for CodyTool instances.
- */
-export interface CodyToolConfig {
-    // The title of the tool. For UI display purposes.
-    title: string
-    tags: {
-        tag: PromptString
-        subTag: PromptString
-    }
-    prompt: {
-        instruction: PromptString
-        placeholder: PromptString
-        examples: PromptString[]
-    }
-}
+import type { CodyToolConfig, ICodyTool, ToolStatusCallback } from './types'
 
 /**
  * Abstract base class for Cody tools.
  */
-export abstract class CodyTool {
+export abstract class CodyTool implements ICodyTool {
     protected readonly performedQueries = new Set<string>()
     constructor(public readonly config: CodyToolConfig) {}
 
@@ -410,6 +396,153 @@ class MemoryTool extends CodyTool {
             CodyChatMemory.load(memory)
             logDebug('Cody Memory', 'added', { verbose: memory })
         }
+    }
+}
+
+/**
+ * McpToolImpl implements a CodyTool that interfaces with Model Context Protocol tools.
+ * It handles the execution of MCP tools and formats their results for display in the UI.
+ */
+export class McpToolImpl extends CodyTool {
+    constructor(
+        toolConfig: CodyToolConfig,
+        private tool: McpTool,
+        private toolName: string,
+        private serverName: string
+    ) {
+        super(toolConfig)
+    }
+
+    public async execute(span: Span, queries: string[]): Promise<ContextItem[]> {
+        span.addEvent('executeMcpTool')
+        if (!queries.length) {
+            return []
+        }
+
+        try {
+            // Parse queries into args object
+            const args = this.parseQueryToArgs(queries)
+            // Execute the tool and format results
+            return await this.executeMcpToolAndFormatResults(args, this.serverName)
+        } catch (error) {
+            return this.handleMcpToolError(error)
+        }
+    }
+
+    private async executeMcpToolAndFormatResults(
+        args: Record<string, unknown>,
+        serverName: string
+    ): Promise<ContextItem[]> {
+        // Get the instance and execute the tool
+        const mcpInstance = MCPManager.instance
+        if (!mcpInstance) {
+            throw new Error('MCP Manager instance not available')
+        }
+
+        // Use the MCPManager's executeTool method which properly delegates to serverManager
+        const result = await mcpInstance.executeTool(serverName, this.tool.name, args)
+
+        const prefix = `${this.tool.name} tool was executed with ${JSON.stringify(args)} and `
+
+        const statusReport =
+            result.status !== UIToolStatus.Error
+                ? `completed: ${result?.content || 'invoked'}`
+                : `failed: ${result.content}`
+
+        return [
+            ...(result.context ?? []),
+            {
+                type: 'file',
+                content: prefix + statusReport,
+                uri: URI.parse(`mcp://${this.tool.name}-result`),
+                source: ContextItemSource.Agentic,
+                title: this.toolName,
+            },
+        ]
+    }
+
+    private handleMcpToolError(error: unknown): ContextItem[] {
+        const displayToolName = this.toolName || this.tool.name
+        logDebug('CodyToolProvider', `Error executing ${displayToolName}`, {
+            verbose: error,
+        })
+
+        const errorStr = error instanceof Error ? error.message : String(error)
+
+        return [
+            {
+                type: 'file',
+                content: `Error executing MCP tool ${this.tool.name}: ${errorStr}`,
+                uri: URI.parse(`mcp://$${displayToolName}-error`),
+                source: ContextItemSource.Agentic,
+                title: displayToolName,
+            },
+        ]
+    }
+
+    /**
+     * Parse query strings into args object for MCP tool execution
+     */
+    private parseQueryToArgs(queries: string[]): Record<string, unknown> {
+        // Extract parameter names from input_schema if available
+        const inputSchema = this.tool.input_schema
+        const paramNames = Object.keys(inputSchema)
+        const args: Record<string, unknown> = {}
+
+        if (paramNames.length > 0) {
+            // Map each query to each parameter name in order
+            for (let i = 0; i < queries.length && i < paramNames.length; i++) {
+                try {
+                    // First try to parse as a direct JSON object
+                    let parsedValue: unknown
+                    try {
+                        parsedValue = JSON.parse(queries[i])
+                    } catch (e) {
+                        // If direct parsing fails, treat as a string
+                        parsedValue = queries[i]
+                    }
+
+                    // If the parsed value is an object and this is the first parameter,
+                    // and we're dealing with an object schema, spread its properties
+                    if (
+                        i === 0 &&
+                        typeof parsedValue === 'object' &&
+                        parsedValue !== null &&
+                        inputSchema.type === 'object'
+                    ) {
+                        Object.assign(args, parsedValue)
+                    } else {
+                        // Otherwise assign to the parameter directly
+                        args[paramNames[i]] = parsedValue
+                    }
+                } catch (e) {
+                    // Fallback to using the original string
+                    args[paramNames[i]] = queries[i]
+                }
+            }
+        } else if (queries.length > 0) {
+            // Fallback to using 'query' as the parameter name
+            try {
+                // First try to parse as JSON
+                try {
+                    const parsedValue = JSON.parse(queries[0])
+
+                    // If it's an object, use its properties directly for a more flexible interface
+                    if (typeof parsedValue === 'object' && parsedValue !== null) {
+                        Object.assign(args, parsedValue)
+                    } else {
+                        args.query = parsedValue
+                    }
+                } catch (e) {
+                    // If parsing fails, use the original string
+                    args.query = queries[0]
+                }
+            } catch (e) {
+                args.query = queries[0]
+            }
+        }
+
+        return args
     }
 }
 

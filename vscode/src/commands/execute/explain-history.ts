@@ -5,7 +5,6 @@ import {
     logDebug,
     logError,
     ps,
-    telemetryRecorder,
     wrapInActiveSpan,
 } from '@sourcegraph/cody-shared'
 import * as vscode from 'vscode'
@@ -73,18 +72,6 @@ export async function executeExplainHistoryCommand(
     return wrapInActiveSpan('command.explain-history', async span => {
         span.setAttribute('sampled', true)
         logDebug('executeExplainHistoryCommand', 'executing', args)
-        telemetryRecorder.recordEvent('cody.command.explain-history', 'executed', {
-            interactionID: args?.requestID,
-            privateMetadata: {
-                requestID: args?.requestID,
-                source: args?.source,
-                traceId: span.spanContext().traceId,
-            },
-            billingMetadata: {
-                product: 'cody',
-                category: 'core',
-            },
-        })
 
         const sessionArgs = await explainHistoryCommand(span, commandsProvider, args)
 

@@ -16,7 +16,6 @@ import {
     siteVersion,
     skipPendingOperation,
     subscriptionDisposable,
-    telemetryRecorder,
     wrapInActiveSpan,
 } from '@sourcegraph/cody-shared'
 
@@ -201,19 +200,8 @@ export class SmartApplyManager implements vscode.Disposable {
         const selectionTimeTakenMs = performance.now() - selectionStartTime
 
         if (!selection) {
-            telemetryRecorder.recordEvent('cody.smart-apply.selection', 'not-found', {
-                billingMetadata: { product: 'cody', category: 'billable' },
-            })
-
             return null
         }
-
-        telemetryRecorder.recordEvent('cody.smart-apply', 'selected', {
-            metadata: {
-                [selection.type]: 1,
-            },
-            billingMetadata: { product: 'cody', category: 'billable' },
-        })
 
         const task = await this.options.editManager.createEditTask({
             configuration: {
@@ -272,13 +260,6 @@ ${replacementCode}`,
                 }
 
                 const model = await this.options.editManager.getEditModel(configuration)
-
-                telemetryRecorder.recordEvent('cody.command.smart-apply', 'executed', {
-                    billingMetadata: {
-                        product: 'cody',
-                        category: 'core',
-                    },
-                })
 
                 const editor = await vscode.window.showTextDocument(document.uri)
 
@@ -431,7 +412,6 @@ ${replacementCode}`,
             return
         }
 
-        this.options.editManager.logExecutedTaskEvent(task)
         const provider = this.options.editManager.getProviderForTask(task)
         await this.measureAndLogEditOperation(task.id, () => provider.applyEdit(finalReplacement))
     }

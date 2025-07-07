@@ -13,7 +13,6 @@ import {
     siteVersion,
     skipPendingOperation,
     subscriptionDisposable,
-    telemetryRecorder,
 } from '@sourcegraph/cody-shared'
 
 import { isUriIgnoredByContextFilterWithNotification } from '../cody-ignore/context-filter'
@@ -22,9 +21,8 @@ import type { VSCodeEditor } from '../editor/vscode-editor'
 import type { CreateTaskOptions, FixupController } from '../non-stop/FixupController'
 import type { FixupTask } from '../non-stop/FixupTask'
 import { ACTIVE_TASK_STATES } from '../non-stop/codelenses/constants'
-import { splitSafeMetadata } from '../services/telemetry-v2'
 
-import { EditLoggingFeatureFlagManager, getEditLoggingContext } from './edit-context-logging'
+import { EditLoggingFeatureFlagManager } from './edit-context-logging'
 import type { EditGuardrails } from './edit-guardrails'
 import type { ExecuteEditArguments, ExecuteEditResult } from './execute'
 import { EditProvider } from './provider'
@@ -248,47 +246,6 @@ export class EditManager implements vscode.Disposable {
         return task
     }
 
-    public logExecutedTaskEvent(task: FixupTask): void {
-        const { intent, telemetryMetadata, mode, source, document, selectionRange, model } = task
-
-        const isDocCommand = intent === 'doc' ? 'doc' : undefined
-        const isUnitTestCommand = intent === 'test' ? 'test' : undefined
-        const isFixCommand = intent === 'fix' ? 'fix' : undefined
-        const eventName = isDocCommand ?? isUnitTestCommand ?? isFixCommand ?? 'edit'
-
-        const editContext = getEditLoggingContext({
-            isFeatureFlagEnabledForLogging:
-                this.editLoggingFeatureFlagManager.isEditContextDataCollectionFlagEnabled(),
-            instruction: task.instruction.toString(),
-            document,
-            selectionRange,
-        })
-
-        const legacyMetadata = {
-            intent,
-            mode,
-            source,
-            ...telemetryMetadata,
-            editContext,
-        }
-        const { metadata, privateMetadata } = splitSafeMetadata(legacyMetadata)
-
-        telemetryRecorder.recordEvent(`cody.command.${eventName}`, 'executed', {
-            metadata: {
-                ...metadata,
-                recordsPrivateMetadataTranscript: editContext === undefined ? 0 : 1,
-            },
-            privateMetadata: {
-                ...privateMetadata,
-                model,
-            },
-            billingMetadata: {
-                product: 'cody',
-                category: 'core',
-            },
-        })
-    }
-
     public async startStreamingEditTask({
         task,
         editor = getEditor(),
@@ -306,7 +263,6 @@ export class EditManager implements vscode.Disposable {
             )
         }
 
-        this.logExecutedTaskEvent(task)
         try {
             this.options.fixupController.startDecorator(task)
             const provider = this.getProviderForTask(task)

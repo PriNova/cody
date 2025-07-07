@@ -23,7 +23,6 @@ import { type GraphQLResultCache, ObservableInvalidatedGraphQLResultCacheFactory
 import {
     BUILTIN_PROMPTS_QUERY,
     CHANGE_PROMPT_VISIBILITY,
-    CHAT_INTENT_QUERY,
     CODE_SEARCH_ENABLED_QUERY,
     CONTEXT_FILTERS_QUERY,
     CONTEXT_SEARCH_EVAL_DEBUG_QUERY,
@@ -52,9 +51,9 @@ import {
     GET_REMOTE_FILE_QUERY,
     GET_URL_CONTENT_QUERY,
     HIGHLIGHTED_FILE_QUERY,
-    LEGACY_CHAT_INTENT_QUERY,
     LEGACY_CONTEXT_SEARCH_QUERY,
     LEGACY_PROMPTS_QUERY_5_8,
+    LEGACY_PROMPTS_QUERY_6_3,
     NLS_SEARCH_QUERY,
     PACKAGE_LIST_QUERY,
     PROMPTS_QUERY,
@@ -390,18 +389,6 @@ export interface SearchAttributionResponse {
         nodes: { repositoryName: string }[]
     }
 }
-
-interface ChatIntentResponse {
-    chatIntent: {
-        intent: string
-        score: number
-        allScores?: {
-            intent: string
-            score: number
-        }[]
-    }
-}
-
 interface ContextSearchResponse {
     getCodyContext: {
         blob: {
@@ -455,15 +442,6 @@ interface Position {
 export interface Range {
     start: Position
     end: Position
-}
-
-export interface ChatIntentResult {
-    intent: string
-    score: number
-    allScores?: {
-        intent: string
-        score: number
-    }[]
 }
 
 /**
@@ -1098,23 +1076,6 @@ export class SourcegraphGraphQLAPIClient {
         return isError(result) ? null : result
     }
 
-    /** Experimental API */
-    public async chatIntent(interactionID: string, query: string): Promise<ChatIntentResult | Error> {
-        const hasAllScoresField = await this.isValidSiteVersion({
-            minimumVersion: '5.9.0',
-            insider: true,
-        })
-
-        const response = await this.fetchSourcegraphAPI<APIResponse<ChatIntentResponse>>(
-            hasAllScoresField ? CHAT_INTENT_QUERY : LEGACY_CHAT_INTENT_QUERY,
-            {
-                query: query,
-                interactionId: interactionID,
-            }
-        )
-        return extractDataOrError(response, data => data.chatIntent)
-    }
-
     /**
      * Checks if the current site version is valid based on the given criteria.
      *
@@ -1135,7 +1096,11 @@ export class SourcegraphGraphQLAPIClient {
 
         const isInsiderBuild = version.length > 12 || version.includes('dev')
 
-        return (insider && isInsiderBuild) || semver.gte(version, minimumVersion)
+        if (isInsiderBuild) {
+            return insider
+        }
+
+        return semver.gte(version, minimumVersion)
     }
 
     public async contextSearch({
@@ -1351,29 +1316,44 @@ export class SourcegraphGraphQLAPIClient {
         includeViewerDrafts?: boolean
         builtinOnly?: boolean
     }): Promise<Prompt[]> {
-        const hasIncludeViewerDraftsArg = await this.isValidSiteVersion({
-            minimumVersion: '5.9.0',
-        })
-        const hasPromptTagsField = await this.isValidSiteVersion({
-            minimumVersion: '5.11.0',
-            insider: true,
-        })
+        const [hasIncludeViewerDraftsArg, hasPromptTagsField, hasOrderByRelevance] = await Promise.all([
+            this.isValidSiteVersion({
+                minimumVersion: '5.9.0',
+            }),
+            this.isValidSiteVersion({
+                minimumVersion: '5.11.0',
+            }),
+            this.isValidSiteVersion({
+                minimumVersion: '6.3.1',
+            }),
+        ])
+
+        const gqlQuery = hasOrderByRelevance
+            ? PROMPTS_QUERY
+            : hasIncludeViewerDraftsArg
+              ? LEGACY_PROMPTS_QUERY_6_3
+              : LEGACY_PROMPTS_QUERY_5_8
+
+        const input = {
+            query,
+            first: first ?? 100,
+            recommendedOnly: recommendedOnly,
+            tags: hasPromptTagsField ? tags : undefined,
+            owner,
+            includeViewerDrafts: includeViewerDrafts ?? true,
+            builtinOnly,
+            orderBy: hasOrderByRelevance ? PromptsOrderBy.PROMPT_RELEVANCE : undefined,
+            orderByMultiple: hasOrderByRelevance
+                ? undefined
+                : orderByMultiple || [
+                      PromptsOrderBy.PROMPT_RECOMMENDED,
+                      PromptsOrderBy.PROMPT_UPDATED_AT,
+                  ],
+        }
 
         const response = await this.fetchSourcegraphAPI<APIResponse<{ prompts: { nodes: Prompt[] } }>>(
-            hasIncludeViewerDraftsArg ? PROMPTS_QUERY : LEGACY_PROMPTS_QUERY_5_8,
-            {
-                query,
-                first: first ?? 100,
-                recommendedOnly: recommendedOnly,
-                orderByMultiple: orderByMultiple || [
-                    PromptsOrderBy.PROMPT_RECOMMENDED,
-                    PromptsOrderBy.PROMPT_UPDATED_AT,
-                ],
-                tags: hasPromptTagsField ? tags : undefined,
-                owner,
-                includeViewerDrafts: includeViewerDrafts ?? true,
-                builtinOnly,
-            },
+            gqlQuery,
+            input,
             signal
         )
         const result = extractDataOrError(response, data => data.prompts.nodes)

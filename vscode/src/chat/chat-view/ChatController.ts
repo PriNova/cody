@@ -1,9 +1,6 @@
 import {
     type AuthCredentials,
     type AuthStatus,
-    type BillingCategory,
-    type BillingProduct,
-    CHAT_OUTPUT_TOKEN_BUDGET,
     type ChatClient,
     type ChatMessage,
     type ChatModel,
@@ -68,9 +65,7 @@ import {
     startWith,
     subscriptionDisposable,
     switchMap,
-    telemetryRecorder,
     tracer,
-    truncatePromptString,
     userProductSubscription,
     wrapInActiveSpan,
 } from '@sourcegraph/cody-shared'
@@ -83,7 +78,6 @@ import { ChatHistoryType } from '@sourcegraph/cody-shared/src/chat/transcript'
 import type { SubMessage } from '@sourcegraph/cody-shared/src/chat/transcript/messages'
 import { resolveAuth } from '@sourcegraph/cody-shared/src/configuration/auth-resolver'
 import type { McpServer } from '@sourcegraph/cody-shared/src/llm-providers/mcp/types'
-import type { TelemetryEventParameters } from '@sourcegraph/telemetry'
 import { Observable, Subject, map } from 'observable-fns'
 import type { URI } from 'vscode-uri'
 import { View } from '../../../webviews/tabs/types'
@@ -123,8 +117,10 @@ import {
 import { openExternalLinks } from '../../services/utils/workspace-action'
 import { TestSupport } from '../../test-support'
 import type { MessageErrorType } from '../MessageProvider'
+import { DeepCodyAgent } from '../agentic/DeepCody'
+import { toolboxManager } from '../agentic/ToolboxManager'
 import { getMentionMenuData } from '../context/chatContext'
-import { observeDefaultContext } from '../initialContext'
+import { getEmptyOrDefaultContextObservable } from '../initialContext'
 import type {
     ConfigurationSubsetForWebview,
     ExtensionMessage,
@@ -132,16 +128,14 @@ import type {
     SmartApplyResult,
     WebviewMessage,
 } from '../protocol'
-import { countGeneratedCode } from '../utils'
 import { ChatBuilder, prepareChatMessage } from './ChatBuilder'
 import { chatHistory } from './ChatHistoryManager'
 import { CodyChatEditorViewType } from './ChatsController'
 import { CodeBlockRegenerator, type RegenerateRequestParams } from './CodeBlockRegenerator'
 import type { ContextRetriever } from './ContextRetriever'
 import { InitDoer } from './InitDoer'
-import { getChatPanelTitle, isAgentTesting } from './chat-helpers'
-import { OmniboxTelemetry } from './handlers/OmniboxTelemetry'
-import { getAgent, getAgentName } from './handlers/registry'
+import { getChatPanelTitle, isCodyTesting } from './chat-helpers'
+import { getAgent } from './handlers/registry'
 import { getPromptsMigrationInfo, startPromptsMigration } from './prompts-migration'
 import { MCPManager } from './tools/MCPManager'
 
@@ -322,7 +316,7 @@ export class ChatController implements vscode.Disposable, vscode.WebviewViewProv
                 await handleCodeFromInsertAtCursor(message.text)
                 break
             case 'copy':
-                await handleCopiedCode(message.text, message.eventType === 'Button')
+                await handleCopiedCode(message.text, message.eventType)
                 break
             case 'smartApplyPrefetch':
             case 'smartApplySubmit':
@@ -425,27 +419,83 @@ export class ChatController implements vscode.Disposable, vscode.WebviewViewProv
                 }
                 break
             case 'command':
-                vscode.commands.executeCommand(message.id, message.arg)
+                vscode.commands.executeCommand(message.id, message.arg ?? message.args)
                 break
+            case 'mcp': {
+                const mcpManager = MCPManager.instance
+                if (!mcpManager) {
+                    logDebug('ChatController', 'MCP Manager is not initialized')
+                    break
+                }
+                const serverName = message.name
+                try {
+                    // Special case for updateServer without name (to refresh server list)
+                    if (message.type === 'updateServer' && !serverName) {
+                        mcpManager.refreshServers()
+                        break
+                    }
+                    // All other operations require a server name
+                    if (!serverName) {
+                        break
+                    }
+                    switch (message.type) {
+                        case 'addServer': {
+                            if (!message.config) {
+                                break
+                            }
+                            await mcpManager.addServer(serverName, message.config)
+                            // Send specific message to the UI about the new server
+                            const newServer = mcpManager.getServers().find(s => s.name === serverName)
+                            if (newServer) {
+                                void this.postMessage({
+                                    type: 'clientAction',
+                                    mcpServerChanged: {
+                                        name: newServer.name,
+                                        server: newServer,
+                                    },
+                                })
+                            }
+                            break
+                        }
+                        case 'updateServer':
+                            if (message.config) {
+                                await mcpManager.updateServer(serverName, message.config)
+                            } else if (message.toolName) {
+                                const isDisabled = message.toolDisabled === true
+                                await mcpManager.setToolState(serverName, message.toolName, isDisabled)
+                            }
+                            break
+                        case 'removeServer': {
+                            await mcpManager.deleteServer(serverName)
+                            this.postMessage({
+                                type: 'clientAction',
+                                mcpServerChanged: {
+                                    name: serverName,
+                                    server: null,
+                                },
+                            })
+                            break
+                        }
+                        default:
+                            logDebug('ChatController', `Unknown MCP operation: ${message.type}`)
+                    }
+                } catch (error) {
+                    const errorMessage = error instanceof Error ? error.message : String(error)
+                    logDebug('ChatController', `Failed to ${message.type} server`, errorMessage)
+
+                    void this.postMessage({
+                        type: 'clientAction',
+                        mcpServerError: {
+                            name: 'name' in message ? serverName : '',
+                            error: errorMessage,
+                        },
+                        mcpServerChanged: null,
+                    })
+                }
+                break
+            }
+
             case 'recordEvent':
-                telemetryRecorder.recordEvent(
-                    // 👷 HACK: We have no control over what gets sent over JSON RPC,
-                    // so we depend on client implementations to give type guidance
-                    // to ensure that we don't accidentally share arbitrary,
-                    // potentially sensitive string values. In this RPC handler,
-                    // when passing the provided event to the TelemetryRecorder
-                    // implementation, we forcibly cast all the inputs below
-                    // (feature, action, parameters) into known types (strings
-                    // 'feature', 'action', 'key') so that the recorder will accept
-                    // it. DO NOT do this elsewhere!
-                    message.feature as 'feature',
-                    message.action as 'action',
-                    message.parameters as TelemetryEventParameters<
-                        { key: number },
-                        BillingProduct,
-                        BillingCategory
-                    >
-                )
                 break
             case 'auth': {
                 if (message.authKind === 'refresh') {
@@ -464,15 +514,7 @@ export class ChatController implements vscode.Disposable, vscode.WebviewViewProv
                             credentials,
                             'store-if-valid'
                         )
-                        telemetryRecorder.recordEvent('cody.auth.fromTokenReceiver.web', 'succeeded', {
-                            metadata: {
-                                success: authStatus.authenticated ? 1 : 0,
-                            },
-                            billingMetadata: {
-                                product: 'cody',
-                                category: 'billable',
-                            },
-                        })
+
                         if (!authStatus.authenticated) {
                             void vscode.window.showErrorMessage(
                                 'Authentication failed. Please check your token and try again.'
@@ -737,7 +779,6 @@ export class ChatController implements vscode.Disposable, vscode.WebviewViewProv
         manuallySelectedIntent?: ChatMessage['intent'] | undefined | null
         traceparent?: string | undefined | null
         model?: string | undefined
-        chatAgent?: string | undefined
     }): Promise<void> {
         return context.with(extractContextFromTraceparent(traceparent), () => {
             return tracer.startActiveSpan('chat.handleUserMessage', async (span): Promise<void> => {
@@ -755,13 +796,11 @@ export class ChatController implements vscode.Disposable, vscode.WebviewViewProv
 
                 this.chatBuilder.setSelectedModel(model)
 
-                const chatAgent = getAgentName(manuallySelectedIntent, model)
-
                 this.chatBuilder.addHumanMessage({
                     text: inputText,
                     editorState,
                     intent: manuallySelectedIntent,
-                    agent: chatAgent,
+                    agent: toolboxManager.isAgenticChatEnabled() ? DeepCodyAgent.id : undefined,
                 })
 
                 this.setCustomChatTitle(requestID, inputText, signal)
@@ -781,7 +820,6 @@ export class ChatController implements vscode.Disposable, vscode.WebviewViewProv
                         command,
                         manuallySelectedIntent,
                         model,
-                        chatAgent,
                     },
                     span
                 )
@@ -810,19 +848,6 @@ export class ChatController implements vscode.Disposable, vscode.WebviewViewProv
         span.addEvent('ChatController.sendChat')
         signal.throwIfAborted()
 
-        const recorder = await OmniboxTelemetry.create({
-            requestID,
-            chatModel: model,
-            source,
-            command,
-            sessionID: this.chatBuilder.sessionID,
-            traceId: span.spanContext().traceId,
-            promptText: inputText,
-        })
-        recorder.recordChatQuestionSubmitted(mentions)
-
-        signal.throwIfAborted()
-
         this.postEmptyMessageInProgress(model)
 
         const agent = getAgent(model, manuallySelectedIntent, {
@@ -832,10 +857,6 @@ export class ChatController implements vscode.Disposable, vscode.WebviewViewProv
         })
 
         this.setFrequentlyUsedContextItemsToStorage(mentions)
-
-        recorder.setIntentInfo({
-            userSpecifiedIntent: manuallySelectedIntent ?? 'chat',
-        })
 
         this.postEmptyMessageInProgress(model)
         let messageInProgress: ChatMessage = { speaker: 'assistant', model }
@@ -849,7 +870,7 @@ export class ChatController implements vscode.Disposable, vscode.WebviewViewProv
                     signal,
                     chatBuilder: this.chatBuilder,
                     span,
-                    recorder,
+
                     model,
                 },
                 {
@@ -1211,13 +1232,6 @@ export class ChatController implements vscode.Disposable, vscode.WebviewViewProv
     }): Promise<void> {
         const abortSignal = this.startNewSubmitOrEditOperation()
 
-        telemetryRecorder.recordEvent('cody.editChatButton', 'clicked', {
-            billingMetadata: {
-                product: 'cody',
-                category: 'billable',
-            },
-        })
-
         try {
             const humanMessage = index ?? this.chatBuilder.getLastSpeakerMessageIndex('human')
             if (humanMessage === undefined) {
@@ -1256,13 +1270,6 @@ export class ChatController implements vscode.Disposable, vscode.WebviewViewProv
         index: number
     }): Promise<void> {
         const abort = this.startNewSubmitOrEditOperation()
-
-        telemetryRecorder.recordEvent('cody.regenerateCodeBlock', 'clicked', {
-            billingMetadata: {
-                product: 'cody',
-                category: 'billable',
-            },
-        })
 
         // TODO: Add trace spans around this operation
 
@@ -1315,12 +1322,6 @@ export class ChatController implements vscode.Disposable, vscode.WebviewViewProv
         this.cancelSubmitOrEditOperation()
         // Notify the webview there is no message in progress.
         this.postViewTranscript()
-        telemetryRecorder.recordEvent('cody.sidebar.abortButton', 'clicked', {
-            billingMetadata: {
-                category: 'billable',
-                product: 'cody',
-            },
-        })
     }
 
     public async addContextItemsToLastHumanInput(
@@ -1474,7 +1475,7 @@ export class ChatController implements vscode.Disposable, vscode.WebviewViewProv
             const model = (speeds.find(m => m.id.includes('flash-lite')) || speeds?.[0])?.id
             const messages = this.chatBuilder.getMessages()
             // Returns early if this is not the first message or if this is a testing session.
-            if (messages.length > 1 || !model || isAgentTesting) {
+            if (messages.length > 1 || !model || isCodyTesting) {
                 return
             }
             const prompt = ps`${getDefaultSystemPrompt()} Your task is to generate a concise title (in about 10 words without quotation) for <codyUserInput>${inputText}</codyUserInput>.
@@ -1501,21 +1502,6 @@ export class ChatController implements vscode.Disposable, vscode.WebviewViewProv
             } catch (error) {
                 logDebug('ChatController', 'setCustomChatTitle', { verbose: error })
             }
-            telemetryRecorder.recordEvent('cody.chat.customTitle', 'generated', {
-                privateMetadata: {
-                    requestID,
-                    model: model,
-                    traceId: span.spanContext().traceId,
-                },
-                metadata: {
-                    titleLength: title.length,
-                    inputLength: inputText.length,
-                },
-                billingMetadata: {
-                    product: 'cody',
-                    category: 'billable',
-                },
-            })
         })
     }
 
@@ -1569,35 +1555,6 @@ export class ChatController implements vscode.Disposable, vscode.WebviewViewProv
         this.chatBuilder.addBotMessage({ text: messageText, didYouMeanQuery }, model)
         void this.saveSession()
         this.postViewTranscript()
-
-        const authStatus = currentAuthStatus()
-
-        // Count code generated from response
-        const generatedCode = countGeneratedCode(messageText.toString())
-        const responseEventAction = generatedCode.charCount > 0 ? 'hasCode' : 'noCode'
-        telemetryRecorder.recordEvent('cody.chatResponse', responseEventAction, {
-            version: 2, // increment for major changes to this event
-            interactionID: requestID,
-            metadata: {
-                ...generatedCode,
-                // Flag indicating this is a transcript event to go through ML data pipeline. Only for dotcom users
-                // See https://github.com/sourcegraph/sourcegraph/pull/59524
-                recordsPrivateMetadataTranscript: isDotCom(authStatus) ? 1 : 0,
-            },
-            privateMetadata: {
-                // 🚨 SECURITY: chat transcripts are to be included only for DotCom users AND for V2 telemetry
-                // V2 telemetry exports privateMetadata only for DotCom users
-                // the condition below is an aditional safegaurd measure
-                responseText:
-                    isDotCom(authStatus) &&
-                    (await truncatePromptString(messageText, CHAT_OUTPUT_TOKEN_BUDGET)),
-                chatModel: model,
-            },
-            billingMetadata: {
-                product: 'cody',
-                category: 'billable',
-            },
-        })
     }
 
     // #endregion
@@ -1667,10 +1624,6 @@ export class ChatController implements vscode.Disposable, vscode.WebviewViewProv
         await vscode.commands.executeCommand('cody.chat.moveToEditor')
         // Restore the old session in the current window
         this.restoreSession(sessionID)
-
-        telemetryRecorder.recordEvent('cody.duplicateSession', 'clicked', {
-            billingMetadata: { product: 'cody', category: 'billable' },
-        })
     }
 
     public clearAndRestartSession(chatMessages?: ChatMessage[]): void {
@@ -1783,7 +1736,7 @@ export class ChatController implements vscode.Disposable, vscode.WebviewViewProv
         )
 
         // Listen for API calls from the webview.
-        const defaultContext = observeDefaultContext({
+        const defaultContext = getEmptyOrDefaultContextObservable({
             chatBuilder: this.chatBuilder.changes,
         }).pipe(shareReplay())
 
@@ -1882,19 +1835,20 @@ export class ChatController implements vscode.Disposable, vscode.WebviewViewProv
                         ),
                     // Existing tools endpoint - update to include MCP tools
                     mcpSettings: () => {
-                        return Observable.of(true).pipe(
-                            // Simplify the flow with map and distinctUntilChanged
-                            distinctUntilChanged(),
-                            startWith(null),
-                            // When disabled, return an empty array
-                            switchMap(experimentalAgentMode => {
-                                if (!experimentalAgentMode) {
-                                    return Observable.of([] as McpServer[])
-                                }
-                                // When enabled, get servers from the manager
-                                return MCPManager.observable
-                            })
-                        )
+                        return featureFlagProvider
+                            .evaluatedFeatureFlag(FeatureFlag.AgenticChatWithMCP)
+                            .pipe(
+                                distinctUntilChanged(),
+                                startWith(null),
+                                // When disabled, return null
+                                switchMap(experimentalAgentMode => {
+                                    if (!experimentalAgentMode) {
+                                        return Observable.of(null as McpServer[] | null)
+                                    }
+                                    // When enabled, get servers from the manager
+                                    return MCPManager.observable
+                                })
+                            )
                     },
                 }
             )

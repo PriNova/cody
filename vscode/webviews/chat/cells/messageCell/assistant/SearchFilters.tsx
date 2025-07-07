@@ -12,9 +12,7 @@ import {
     XIcon,
 } from 'lucide-react'
 import { useCallback, useMemo } from 'react'
-import { TELEMETRY_SEARCH_FILTER } from '../../../../../src/telemetry/onebox'
 import { Tooltip, TooltipContent, TooltipTrigger } from '../../../../components/shadcn/ui/tooltip'
-import { useTelemetryRecorder } from '../../../../utils/telemetry'
 import { RepositorySelector } from './RepositorySelector'
 import styles from './SearchFilters.module.css'
 export interface SearchFiltersProps {
@@ -55,7 +53,6 @@ export const SearchFilters = ({
     selectedFilters,
     onSelectedFiltersUpdate,
 }: SearchFiltersProps) => {
-    const telemetryRecorder = useTelemetryRecorder()
     const filterGroups = useMemo(() => {
         // Use filters available from search response, if not display previous selection
         const availableFilters = filters.length > 0 ? [...filters] : [...selectedFilters]
@@ -74,14 +71,6 @@ export const SearchFilters = ({
     }, [filters, selectedFilters])
     const onFilterSelect = useCallback(
         (filter: NLSSearchDynamicFilter) => {
-            telemetryRecorder.recordEvent('onebox.filter', 'clicked', {
-                metadata: {
-                    filterType: getTelemetryFilterType(filter),
-                },
-                privateMetadata: { value: filter.value },
-                billingMetadata: { product: 'cody', category: 'billable' },
-            })
-
             // If the filter is NOT a repo filter, we want to replace
             // any existing filters of the same kind with the new one.
             // For repo filters, we support multiple repo selection.
@@ -92,7 +81,7 @@ export const SearchFilters = ({
 
             onSelectedFiltersUpdate([...updatedFilters, filter])
         },
-        [selectedFilters, onSelectedFiltersUpdate, telemetryRecorder]
+        [selectedFilters, onSelectedFiltersUpdate]
     )
     const onFilterDeselect = useCallback(
         (filter: NLSSearchDynamicFilter) => {
@@ -235,21 +224,6 @@ const SearchFilter = ({
 
 const isFilterEqual = (a: NLSSearchDynamicFilter, b: NLSSearchDynamicFilter) =>
     a.kind === b.kind && a.value === b.value
-
-function getTelemetryFilterType(filter: NLSSearchDynamicFilter): number {
-    switch (filter.kind) {
-        case 'lang':
-            return TELEMETRY_SEARCH_FILTER.LANGUAGE
-        case 'type':
-            return TELEMETRY_SEARCH_FILTER.TYPE
-        case 'repo':
-            return TELEMETRY_SEARCH_FILTER.REPO
-        case 'file':
-            return TELEMETRY_SEARCH_FILTER.FILE
-        default:
-            return TELEMETRY_SEARCH_FILTER.UNKNOWN
-    }
-}
 
 const FILTER_ICONS = {
     // Base types

@@ -1,4 +1,10 @@
-import { type AuthenticatedAuthStatus, CodyIDE, isDotCom } from '@sourcegraph/cody-shared'
+import {
+    type AuthenticatedAuthStatus,
+    CodyIDE,
+    FeatureFlag,
+    isDotCom,
+    isWorkspaceInstance,
+} from '@sourcegraph/cody-shared'
 import {
     ArrowLeftRightIcon,
     BookOpenText,
@@ -11,6 +17,7 @@ import {
     ExternalLinkIcon,
     LogOutIcon,
     PlusIcon,
+    ServerIcon,
     Settings2Icon,
     UserCircleIcon,
     ZapIcon,
@@ -19,14 +26,17 @@ import { useCallback, useState } from 'react'
 import { URI } from 'vscode-uri'
 import {
     ACCOUNT_USAGE_URL,
+    CODY_DOC_QUICKSTART_URL,
     CODY_PRO_SUBSCRIPTION_URL,
     ENTERPRISE_STARTER_LEARN_MORE_URL,
     ENTERPRISE_STARTER_PRICING_URL,
     isSourcegraphToken,
 } from '../../src/chat/protocol'
 import { SourcegraphLogo } from '../icons/SourcegraphLogo'
+import { View } from '../tabs'
 import { getVSCodeAPI } from '../utils/VSCodeApi'
-import { useTelemetryRecorder } from '../utils/telemetry'
+
+import { useFeatureFlag } from '../utils/useFeatureFlags'
 import { UserAvatar } from './UserAvatar'
 import { Badge } from './shadcn/ui/badge'
 import { Button } from './shadcn/ui/button'
@@ -47,6 +57,7 @@ interface UserMenuProps {
     // Whether to show the Sourcegraph Teams upgrade CTA or not.
     isWorkspacesUpgradeCtaEnabled?: boolean
     IDE: CodyIDE
+    setTabView: (tab: View) => void
 }
 
 type MenuView = 'main' | 'switch' | 'add' | 'remove' | 'debug' | 'help'
@@ -61,10 +72,20 @@ export const UserMenu: React.FunctionComponent<UserMenuProps> = ({
     __storybook__open,
     isWorkspacesUpgradeCtaEnabled,
     IDE,
+    setTabView,
 }) => {
-    const telemetryRecorder = useTelemetryRecorder()
     const { displayName, username, primaryEmail, endpoint } = authStatus
     const isDotComUser = isDotCom(endpoint)
+    const isWorkspaceUser = isWorkspaceInstance(endpoint)
+    const isMcpEnabled = useFeatureFlag(FeatureFlag.AgenticChatWithMCP)
+
+    const userType = isDotComUser
+        ? isProUser
+            ? 'Pro'
+            : 'Free'
+        : isWorkspaceUser
+          ? 'Enterprise Starter'
+          : 'Enterprise'
 
     const [userMenuView, setUserMenuView] = useState<MenuView>('main')
 
@@ -90,21 +111,12 @@ export const UserMenu: React.FunctionComponent<UserMenuProps> = ({
                 endpoint: addFormData.endpoint,
                 value: addFormData.accessToken,
             })
-            onOpenChange(false)
+
             setUserMenuView('main')
             setEndpointToRemove(null)
             setAddFormData({ endpoint: '', accessToken: '' })
         },
         [addFormData]
-    )
-
-    const onOpenChange = useCallback(
-        (open: boolean): void => {
-            if (open) {
-                telemetryRecorder.recordEvent('cody.userMenu', 'open', {})
-            }
-        },
-        [telemetryRecorder.recordEvent]
     )
 
     const onKeyDown = useCallback(
@@ -125,12 +137,6 @@ export const UserMenu: React.FunctionComponent<UserMenuProps> = ({
     const onSignOutClick = useCallback(
         (selectedEndpoint: string): void => {
             if (endpointHistory.some(e => e === selectedEndpoint)) {
-                telemetryRecorder.recordEvent('cody.auth.logout', 'clicked', {
-                    billingMetadata: {
-                        product: 'cody',
-                        category: 'billable',
-                    },
-                })
                 getVSCodeAPI().postMessage({
                     command: 'auth',
                     authKind: 'signout',
@@ -141,7 +147,7 @@ export const UserMenu: React.FunctionComponent<UserMenuProps> = ({
             setUserMenuView('main')
             setAddFormData({ endpoint: '', accessToken: '' })
         },
-        [telemetryRecorder, endpointHistory]
+        [endpointHistory]
     )
 
     return (
@@ -326,11 +332,6 @@ export const UserMenu: React.FunctionComponent<UserMenuProps> = ({
                                     target="_blank"
                                     rel="noreferrer"
                                     onSelect={() => {
-                                        telemetryRecorder.recordEvent(
-                                            'cody.userMenu.helpLink',
-                                            'open',
-                                            {}
-                                        )
                                         close()
                                     }}
                                 >
@@ -478,11 +479,11 @@ export const UserMenu: React.FunctionComponent<UserMenuProps> = ({
                                             </p>
                                         </div>
                                         <Badge
-                                            variant={isProUser ? 'cody' : 'secondary'}
-                                            className="tw-opacity-85 tw-text-xs tw-h-fit tw-self-center"
+                                            variant={'secondary'}
+                                            className="tw-opacity-85 tw-text-xs tw-h-fit tw-self-center tw-flex-shrink-0"
                                             title={endpoint}
                                         >
-                                            {isDotComUser ? (isProUser ? 'Pro' : 'Free') : 'Enterprise'}
+                                            {userType}
                                         </Badge>
                                     </div>
                                 </CommandItem>
@@ -495,11 +496,6 @@ export const UserMenu: React.FunctionComponent<UserMenuProps> = ({
                                         target="_blank"
                                         rel="noreferrer"
                                         onSelect={() => {
-                                            telemetryRecorder.recordEvent(
-                                                'cody.userMenu.upgradeToProLink',
-                                                'open',
-                                                {}
-                                            )
                                             close()
                                         }}
                                     >
@@ -525,6 +521,7 @@ export const UserMenu: React.FunctionComponent<UserMenuProps> = ({
                                             />
                                         </svg>
                                         <span className="tw-flex-grow">Upgrade to Pro</span>
+                                        <ExternalLinkIcon size={16} strokeWidth={1.25} />
                                     </CommandLink>
                                 )}
                                 {isDotComUser && (
@@ -555,6 +552,17 @@ export const UserMenu: React.FunctionComponent<UserMenuProps> = ({
                                         <ExternalLinkIcon size={16} strokeWidth={1.25} />
                                     </CommandItem>
                                 )}
+                                {isMcpEnabled && (
+                                    <CommandItem
+                                        onSelect={() => {
+                                            setTabView(View.Mcp)
+                                            close()
+                                        }}
+                                    >
+                                        <ServerIcon size={16} strokeWidth={1.25} className="tw-mr-2" />
+                                        <span className="tw-flex-grow">MCP Settings</span>
+                                    </CommandItem>
+                                )}
                                 <CommandItem
                                     onSelect={() => {
                                         getVSCodeAPI().postMessage({
@@ -573,11 +581,6 @@ export const UserMenu: React.FunctionComponent<UserMenuProps> = ({
                                         target="_blank"
                                         rel="noreferrer"
                                         onSelect={() => {
-                                            telemetryRecorder.recordEvent(
-                                                'cody.userMenu.exploreEnterprisePlanLink',
-                                                'open',
-                                                {}
-                                            )
                                             close()
                                         }}
                                     >
@@ -590,18 +593,18 @@ export const UserMenu: React.FunctionComponent<UserMenuProps> = ({
 
                             <CommandGroup>
                                 {IDE === CodyIDE.VSCode && (
-                                    <CommandItem
+                                    <CommandLink
+                                        href={CODY_DOC_QUICKSTART_URL.toString()}
+                                        target="_blank"
+                                        rel="noreferrer"
                                         onSelect={() => {
-                                            getVSCodeAPI().postMessage({
-                                                command: 'command',
-                                                id: 'cody.welcome',
-                                            })
                                             close()
                                         }}
                                     >
                                         <BookOpenText size={16} strokeWidth={1.25} className="tw-mr-2" />
                                         <span className="tw-flex-grow">Getting Started Guide</span>
-                                    </CommandItem>
+                                        <ExternalLinkIcon size={16} strokeWidth={1.25} />
+                                    </CommandLink>
                                 )}
 
                                 {IDE === CodyIDE.VSCode && (
@@ -640,7 +643,7 @@ export const UserMenu: React.FunctionComponent<UserMenuProps> = ({
                     )}
                 </Command>
             )}
-            popoverRootProps={{ onOpenChange }}
+            popoverRootProps={{}}
             popoverContentProps={{
                 className: '!tw-p-2 tw-mr-6',
                 onKeyDown: onKeyDown,

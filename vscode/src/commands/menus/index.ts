@@ -4,7 +4,6 @@ import { commands, window } from 'vscode'
 import { CommandMenuOption, CustomCommandConfigMenuItems } from './items/menu'
 
 import { CustomCommandType } from '@sourcegraph/cody-shared'
-import { telemetryRecorder } from '@sourcegraph/cody-shared'
 import { CodyCommandMenuItems as defaultCommands } from '..'
 import { executeEdit } from '../../edit/execute'
 import { executeChat } from '../execute/ask'
@@ -22,16 +21,6 @@ export async function showCommandMenu(
     const items: CommandMenuItem[] = []
     const configOption = CommandMenuOption.config
     const addOption = CommandMenuOption.add
-
-    // Log Command Menu opened event
-    const source = args?.source
-    telemetryRecorder.recordEvent(`cody.menu.command.${type}`, 'clicked', {
-        privateMetadata: { source },
-        billingMetadata: {
-            product: 'cody',
-            category: 'billable',
-        },
-    })
 
     // Add items to menus accordingly:
     // 1. default: contains default commands and custom commands
@@ -216,12 +205,6 @@ function normalize(input: string): string {
 export async function showNewCustomCommandMenu(
     commands: string[]
 ): Promise<CustomCommandsBuilder | null> {
-    telemetryRecorder.recordEvent('cody.menu.custom.build', 'clicked', {
-        billingMetadata: {
-            product: 'cody',
-            category: 'billable',
-        },
-    })
     const builder = new CustomCommandsBuilderMenu()
     return builder.start(commands)
 }

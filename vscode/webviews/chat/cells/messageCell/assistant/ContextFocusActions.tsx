@@ -1,10 +1,9 @@
 import { isDefined } from '@sourcegraph/cody-shared'
 import clsx from 'clsx'
-import { type FunctionComponent, useCallback, useMemo } from 'react'
+import { type FunctionComponent, useMemo } from 'react'
 import { Button } from '../../../../components/shadcn/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '../../../../components/shadcn/ui/tooltip'
 import { getVSCodeAPI } from '../../../../utils/VSCodeApi'
-import { useTelemetryRecorder } from '../../../../utils/telemetry'
 import type {
     HumanMessageInitialContextInfo as InitialContextInfo,
     PriorHumanMessageInfo,
@@ -15,30 +14,6 @@ export const ContextFocusActions: FunctionComponent<{
     longResponseTime?: boolean
     className?: string
 }> = ({ humanMessage, longResponseTime, className }) => {
-    const telemetryRecorder = useTelemetryRecorder()
-
-    const initialContextEventMetadata: Record<string, number> = {
-        hasInitialContextRepositories: humanMessage.hasInitialContext.repositories ? 1 : 0,
-        hasInitialContextFiles: humanMessage.hasInitialContext.files ? 1 : 0,
-    }
-
-    const logRerunWithDifferentContext = useCallback(
-        (rerunWith: InitialContextInfo): void => {
-            telemetryRecorder.recordEvent('cody.contextSelection', 'rerunWithDifferentContext', {
-                metadata: {
-                    ...initialContextEventMetadata,
-                    rerunWithInitialContextRepositories: rerunWith.repositories ? 1 : 0,
-                    rerunWithInitialContextFiles: rerunWith.files ? 1 : 0,
-                },
-                billingMetadata: {
-                    product: 'cody',
-                    category: 'billable',
-                },
-            })
-        },
-        [telemetryRecorder, initialContextEventMetadata]
-    )
-
     const actions = useMemo(
         () =>
             (
@@ -52,7 +27,7 @@ export const ContextFocusActions: FunctionComponent<{
                                       repositories: false,
                                       files: false,
                                   }
-                                  logRerunWithDifferentContext(options)
+
                                   humanMessage.rerunWithDifferentContext(options)
                               },
                           }
@@ -66,7 +41,7 @@ export const ContextFocusActions: FunctionComponent<{
                                       repositories: false,
                                       files: true,
                                   }
-                                  logRerunWithDifferentContext(options)
+
                                   humanMessage.rerunWithDifferentContext(options)
                               },
                           }
@@ -87,13 +62,6 @@ export const ContextFocusActions: FunctionComponent<{
                               label: 'Add context...',
                               tooltip: 'Add relevant content to improve the response',
                               onClick: () => {
-                                  telemetryRecorder.recordEvent('cody.contextSelection', 'addFile', {
-                                      metadata: initialContextEventMetadata,
-                                      billingMetadata: {
-                                          product: 'cody',
-                                          category: 'core',
-                                      },
-                                  })
                                   humanMessage.appendAtMention()
                               },
                           },
@@ -101,13 +69,7 @@ export const ContextFocusActions: FunctionComponent<{
             )
                 .flat()
                 .filter(isDefined),
-        [
-            humanMessage,
-            telemetryRecorder,
-            logRerunWithDifferentContext,
-            initialContextEventMetadata,
-            longResponseTime,
-        ]
+        [humanMessage, longResponseTime]
     )
     return actions.length > 0 ? (
         <menu

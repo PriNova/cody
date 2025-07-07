@@ -2,35 +2,22 @@ import * as vscode from 'vscode'
 
 import {
     type ContextItem,
-    DEFAULT_EVENT_SOURCE,
     type EditModel,
     type EventSource,
-    EventSourceTelemetryMetadataMapping,
     type PromptString,
     type Rule,
     currentAuthStatus,
     displayPathBasename,
-    telemetryRecorder,
 } from '@sourcegraph/cody-shared'
 
 import type { SmartApplyResult } from '../chat/protocol'
-import { PersistenceTracker } from '../common/persistence-tracker'
-import { lines } from '../completions/text-processing'
 import { executeEdit } from '../edit/execute'
 import { type QuickPickInput, getInput } from '../edit/input/get-input'
-import {
-    type EditIntent,
-    EditIntentTelemetryMetadataMapping,
-    type EditMode,
-    EditModeTelemetryMetadataMapping,
-} from '../edit/types'
+import type { EditIntent, EditMode } from '../edit/types'
 import { getOverriddenModelForIntent } from '../edit/utils/edit-models'
 import type { ExtensionClient } from '../extension-client'
 import { isRunningInsideAgent } from '../jsonrpc/isRunningInsideAgent'
 import { logDebug } from '../output-channel-logger'
-import { charactersLogger } from '../services/CharactersLogger'
-import { splitSafeMetadata } from '../services/telemetry-v2'
-import { countCode } from '../services/utils/code-count'
 
 import { isStreamedIntent } from '../edit/utils/edit-intent'
 import { FixupDocumentEditObserver } from './FixupDocumentEditObserver'
@@ -45,7 +32,6 @@ import {
 import { TERMINAL_EDIT_STATES } from './codelenses/constants'
 import { FixupDecorator } from './decorations/FixupDecorator'
 import { type Edit, computeDiff, makeDiffEditBuilderCompatible } from './line-diff'
-import { trackRejection } from './rejection-tracker'
 import type { FixupActor, FixupFileCollection, FixupTextChanged } from './roles'
 import { CodyTaskState } from './state'
 import { expandRangeToInsertedText, getMinimumDistanceToRangeBoundary } from './utils'
@@ -77,7 +63,7 @@ export class FixupController
     private readonly editObserver: FixupDocumentEditObserver
     private readonly decorator = new FixupDecorator()
     private readonly controlApplicator
-    private readonly persistenceTracker = new PersistenceTracker(vscode.workspace)
+
     /**
      * The event that fires when the user clicks the undo button on a code lens.
      * Used to help track the Edit rejection rate.
@@ -281,39 +267,7 @@ export class FixupController
         task.diff = undefined
         const editOk = await this.revertToOriginal(task, editor.edit)
 
-        const legacyMetadata = {
-            intent: EditIntentTelemetryMetadataMapping[task.intent] || task.intent,
-            mode: EditModeTelemetryMetadataMapping[task.mode] || task.mode,
-            source:
-                EventSourceTelemetryMetadataMapping[task.source || DEFAULT_EVENT_SOURCE] || task.source,
-            ...this.countEditInsertions(task),
-            ...task.telemetryMetadata,
-        }
-
         this.setTaskState(task, editOk ? CodyTaskState.Finished : CodyTaskState.Error)
-
-        const { metadata, privateMetadata } = splitSafeMetadata(legacyMetadata)
-        if (!editOk) {
-            telemetryRecorder.recordEvent('cody.fixup.revert', 'failed', {
-                metadata,
-                privateMetadata: {
-                    ...privateMetadata,
-                    model: task.model,
-                },
-            })
-        } else {
-            telemetryRecorder.recordEvent('cody.fixup.reverted', 'clicked', {
-                metadata,
-                privateMetadata: {
-                    ...privateMetadata,
-                    model: task.model,
-                },
-                billingMetadata: {
-                    category: 'billable',
-                    product: 'cody',
-                },
-            })
-        }
     }
 
     /**
@@ -600,65 +554,8 @@ export class FixupController
         return task.diff
     }
 
-    private countEditInsertions(task: FixupTask): { lineCount: number; charCount: number } {
-        if (!task.replacement) {
-            return { lineCount: 0, charCount: 0 }
-        }
-
-        if (task.mode === 'insert') {
-            return countCode(task.replacement)
-        }
-
-        if (!task.diff) {
-            return { lineCount: 0, charCount: 0 }
-        }
-
-        const countedLines = new Set<number>()
-        let charCount = 0
-        for (const edit of task.diff) {
-            if (edit.type !== 'insertion') {
-                continue
-            }
-            charCount += edit.text.length
-            for (let line = edit.range.start.line; line <= edit.range.end.line; line++) {
-                countedLines.add(line)
-            }
-        }
-
-        return { lineCount: countedLines.size, charCount }
-    }
-
     private logTaskCompletion(task: FixupTask, document: vscode.TextDocument, editOk: boolean): void {
-        const charactersLoggerMetadata = charactersLogger.getChangeEventMetadataForCodyCodeGenEvents({
-            document,
-            contentChanges: task.getContentChanges(),
-            reason: undefined,
-        })
-
-        const originalCodeCounts = countCode(task.original)
-
-        const legacyMetadata = {
-            taskId: task.id,
-            intent: EditIntentTelemetryMetadataMapping[task.intent] || task.intent,
-            mode: EditModeTelemetryMetadataMapping[task.mode] || task.mode,
-            source:
-                EventSourceTelemetryMetadataMapping[task.source || DEFAULT_EVENT_SOURCE] || task.source,
-            originalCharCount: originalCodeCounts.charCount,
-            originalLineCount: originalCodeCounts.lineCount,
-            languageId: document.languageId,
-            model: task.model,
-            latency: performance.now() - task.createdAt,
-            ...this.countEditInsertions(task),
-            ...task.telemetryMetadata,
-            ...charactersLoggerMetadata,
-        }
-        const { metadata, privateMetadata } = splitSafeMetadata(legacyMetadata)
         if (!editOk) {
-            telemetryRecorder.recordEvent('cody.fixup.apply', 'failed', {
-                metadata,
-                privateMetadata,
-            })
-
             // TODO: Try to recover, for example by respinning
             void vscode.window.showWarningMessage('edit did not apply')
             return
@@ -667,80 +564,6 @@ export class FixupController
         if (!task.replacement) {
             return
         }
-
-        telemetryRecorder.recordEvent('cody.fixup.apply', 'succeeded', {
-            metadata,
-            privateMetadata,
-            billingMetadata: {
-                category: 'core',
-                product: 'cody',
-            },
-        })
-
-        /**
-         * Default the tracked range to the `selectionRange`.
-         * Note: This is imperfect because an Edit doesn't necessarily change all characters in a `selectionRange`.
-         * We should try to chunk actual _changes_ and track these individually.
-         * Issue: https://github.com/sourcegraph/cody/issues/3513
-         */
-        let trackedRange = task.selectionRange
-
-        if (task.mode === 'insert') {
-            const textLines = lines(task.replacement)
-            trackedRange = new vscode.Range(
-                task.insertionPoint,
-                new vscode.Position(
-                    task.insertionPoint.line + textLines.length - 1,
-                    textLines.length > 1
-                        ? textLines.at(-1)!.length
-                        : task.insertionPoint.character + textLines[0].length
-                )
-            )
-        }
-
-        this.persistenceTracker.track({
-            id: task.id,
-            insertedAt: Date.now(),
-            insertText: task.replacement,
-            insertRange: trackedRange,
-            document,
-            metadata: legacyMetadata,
-            logger: {
-                onPresent: ({ metadata, ...event }) => {
-                    const safeMetadata = splitSafeMetadata({ ...event, ...metadata })
-                    telemetryRecorder.recordEvent('cody.fixup.persistence', 'present', safeMetadata)
-                },
-                onRemoved: ({ metadata, ...event }) => {
-                    const safeMetadata = splitSafeMetadata({ ...event, ...metadata })
-                    telemetryRecorder.recordEvent('cody.fixup.persistence', 'present', safeMetadata)
-                },
-            },
-        })
-
-        const logAcceptance = (acceptance: 'rejected' | 'accepted') => {
-            telemetryRecorder.recordEvent('cody.fixup.user', acceptance, {
-                metadata,
-                privateMetadata,
-                billingMetadata: {
-                    category: acceptance === 'rejected' ? 'billable' : 'core',
-                    product: 'cody',
-                },
-            })
-        }
-
-        trackRejection(
-            document,
-            vscode.workspace,
-            {
-                onAccepted: () => logAcceptance('accepted'),
-                onRejected: () => logAcceptance('rejected'),
-            },
-            {
-                id: task.id,
-                intent: task.intent,
-                undoEvent: this.undoCommandEvent,
-            }
-        )
     }
 
     private async streamTask(task: FixupTask, state: 'streaming' | 'complete'): Promise<void> {

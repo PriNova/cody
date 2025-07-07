@@ -19,7 +19,6 @@ import { displayPath, displayPathWithLines } from '../editor/displayPath'
 import { getEditorInsertSpaces, getEditorTabSize } from '../editor/utils'
 import { logDebug } from '../logger'
 import { type Rule, ruleTitle } from '../rules/rules'
-import { telemetryRecorder } from '../telemetry-v2/singleton'
 
 // This module is designed to encourage, and to some degree enforce, safe
 // handling of file content that gets constructed into prompts. It works this
@@ -82,12 +81,6 @@ export class PromptString {
                     `${reference} is ignored by the current context filters. Reason: ${reason}`,
                     { verbose: contextFilter.toDebugObject() }
                 )
-                telemetryRecorder.recordEvent('contextFilters.promptString', 'illegalReference', {
-                    privateMetadata: {
-                        scheme: reference.scheme,
-                        reason,
-                    },
-                })
             }
         }
 
