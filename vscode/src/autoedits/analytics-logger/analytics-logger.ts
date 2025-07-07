@@ -3,23 +3,13 @@ import { LRUCache } from 'lru-cache'
 import * as uuid from 'uuid'
 import type * as vscode from 'vscode'
 
-import {
-    type BillingCategory,
-    type BillingProduct,
-    type CodeToReplaceData,
-    type DocumentContext,
-    isDotComAuthed,
-    isNetworkError,
-    telemetryRecorder,
-} from '@sourcegraph/cody-shared'
-import type { TelemetryEventParameters } from '@sourcegraph/telemetry'
+import { type CodeToReplaceData, type DocumentContext, isDotComAuthed } from '@sourcegraph/cody-shared'
 import { convertAutocompleteContextSnippetForTelemetry } from '../../../src/completions/analytics-logger'
 import { getOtherCompletionProvider } from '../../completions/analytics-logger'
 import { lines } from '../../completions/text-processing'
 import { charactersLogger } from '../../services/CharactersLogger'
 import { upstreamHealthProvider } from '../../services/UpstreamHealthProvider'
 import { captureException, shouldErrorBeReported } from '../../services/sentry/sentry'
-import { splitSafeMetadata } from '../../services/telemetry-v2'
 import type { AutoeditsPrompt, PartialModelResponse, SuccessModelResponse } from '../adapters/base'
 import { autoeditsOutputChannelLogger } from '../output-channel-logger'
 import type { DecorationInfo } from '../renderer/decorators/base'
@@ -66,11 +56,6 @@ type AutoeditEventAction =
     | 'error'
     | 'feedback-submitted'
     | `invalidTransitionTo${Capitalize<Phase>}`
-
-const AUTOEDIT_EVENT_BILLING_CATEGORY: Partial<Record<AutoeditEventAction, BillingCategory>> = {
-    accepted: 'core',
-    suggested: 'billable',
-}
 
 /**
  * Specialized string type for referencing error messages in our rate-limiting map.
@@ -477,7 +462,7 @@ export class AutoeditAnalyticsLogger {
         action: AutoeditEventAction,
         state: AcceptedState | RejectedState | DiscardedState
     ): void {
-        const { suggestionLoggedAt, payload } = state
+        const { suggestionLoggedAt } = state
 
         if (action === 'suggested' && suggestionLoggedAt) {
             return
@@ -486,58 +471,20 @@ export class AutoeditAnalyticsLogger {
         // Update the request state to mark the suggestion as logged.
         state.suggestionLoggedAt = getTimeNowInMillis()
 
-        const { metadata, privateMetadata } = splitSafeMetadata(payload)
-        const billingCategory = AUTOEDIT_EVENT_BILLING_CATEGORY[action]
-
         this.writeAutoeditEvent({
             action,
             logDebugArgs: terminalStateToLogDebugArgs(action, state),
-            telemetryParams: {
-                version: 0,
-                // Extract `id` from payload into the first-class `interactionId` field.
-                interactionID: 'id' in payload ? payload.id : undefined,
-                metadata: {
-                    ...metadata,
-                    recordsPrivateMetadataTranscript: 'prediction' in privateMetadata ? 1 : 0,
-                },
-                privateMetadata,
-                ...(billingCategory && {
-                    billingMetadata: {
-                        product: 'cody',
-                        category: billingCategory,
-                    },
-                }),
-            },
         })
     }
 
     private writeAutoeditEvent({
         action,
         logDebugArgs,
-        telemetryParams,
     }: {
         action: AutoeditEventAction
         logDebugArgs: readonly [string, ...unknown[]]
-        telemetryParams?: TelemetryEventParameters<
-            { [key: string]: number },
-            BillingProduct,
-            BillingCategory
-        >
     }): void {
         autoeditsOutputChannelLogger.logDebug('writeAutoeditEvent', action, ...logDebugArgs)
-        // do not log discared until the bug is fixed with it overfiring.
-        if (action !== 'discarded') {
-            telemetryRecorder.recordEvent('cody.autoedit', action, {
-                ...telemetryParams,
-                billingMetadata:
-                    action === 'accepted' || action === 'suggested'
-                        ? {
-                              product: 'cody',
-                              category: action === 'accepted' ? 'core' : 'billable',
-                          }
-                        : undefined,
-            })
-        }
     }
     /**
      * Rate-limited error logging, capturing exceptions with Sentry and grouping repeated logs.
@@ -549,7 +496,6 @@ export class AutoeditAnalyticsLogger {
         captureException(error)
 
         const messageKey = error.message as AutoeditErrorMessage
-        const traceId = isNetworkError(error) ? error.traceId : undefined
 
         const currentCount = this.errorCounts.get(messageKey) ?? 0
         const logDebugArgs = [error.name, { verbose: { message: error.message } }] as const
@@ -557,11 +503,6 @@ export class AutoeditAnalyticsLogger {
             this.writeAutoeditEvent({
                 action: 'error',
                 logDebugArgs,
-                telemetryParams: {
-                    version: 0,
-                    metadata: { count: 1 },
-                    privateMetadata: { message: error.message, traceId },
-                },
             })
 
             // After the interval, flush repeated errors
@@ -571,11 +512,6 @@ export class AutoeditAnalyticsLogger {
                     this.writeAutoeditEvent({
                         action: 'error',
                         logDebugArgs,
-                        telemetryParams: {
-                            version: 0,
-                            metadata: { count: finalCount },
-                            privateMetadata: { message: error.message, traceId },
-                        },
                     })
                 }
                 this.errorCounts.set(messageKey, 0)
@@ -588,19 +524,6 @@ export class AutoeditAnalyticsLogger {
         this.writeAutoeditEvent({
             action: 'feedback-submitted',
             logDebugArgs: [`Feedback submitted for file: ${feedbackData.file_path}`],
-            telemetryParams: {
-                version: 0,
-                metadata: {
-                    recordsPrivateMetadataTranscript: 1,
-                },
-                privateMetadata: {
-                    inlineCompletionItemContext: feedbackData,
-                },
-                billingMetadata: {
-                    product: 'cody',
-                    category: 'core',
-                },
-            },
         })
     }
 }

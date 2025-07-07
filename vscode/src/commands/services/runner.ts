@@ -10,7 +10,6 @@ import {
     PromptString,
 } from '@sourcegraph/cody-shared'
 
-import { telemetryRecorder } from '@sourcegraph/cody-shared'
 import { type ExecuteEditArguments, executeEdit } from '../../edit/execute'
 import type { EditMode } from '../../edit/types'
 import { logDebug } from '../../output-channel-logger'
@@ -58,25 +57,6 @@ export class CommandRunner implements vscode.Disposable {
             console.error('Default commands are not supported in runner.')
             return undefined
         }
-
-        const addCodebaseContex = false
-        telemetryRecorder.recordEvent('cody.command.custom', 'executed', {
-            metadata: {
-                useCodebaseContex: addCodebaseContex ? 1 : 0,
-                useShellCommand: this.command.context?.command ? 1 : 0,
-            },
-            interactionID: this.args.requestID,
-            privateMetadata: {
-                mode: this.command.mode,
-                requestID: this.args.requestID,
-                source: this.args.source,
-                traceId: this.span.spanContext().traceId,
-            },
-            billingMetadata: {
-                product: 'cody',
-                category: 'core',
-            },
-        })
 
         // Conditions checks
         const clientConfig = await ClientConfigSingleton.getInstance().getConfig()

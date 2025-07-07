@@ -105,7 +105,6 @@ import { NetworkDiagnostics } from './services/NetworkDiagnostics'
 import { VSCodeSecretStorage, secretStorage } from './services/SecretStorageProvider'
 import { registerSidebarCommands } from './services/SidebarCommands'
 import { CodyStatusBar } from './services/StatusBar'
-import { createOrUpdateTelemetryRecorderProvider } from './services/telemetry-v2'
 import {
     enableVerboseDebugMode,
     exportOutputLog,
@@ -210,7 +209,6 @@ export async function start(
         disposables.push(logGlobalStateEmissions())
     }
 
-    disposables.push(createOrUpdateTelemetryRecorderProvider(isExtensionModeDevOrTest))
     disposables.push(await register(context, platform, isExtensionModeDevOrTest))
     return vscode.Disposable.from(...disposables)
 }

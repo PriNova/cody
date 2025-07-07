@@ -13,7 +13,6 @@ import {
     currentAuthStatusAuthed,
     editorStateFromPromptString,
     subscriptionDisposable,
-    telemetryRecorder,
 } from '@sourcegraph/cody-shared'
 import { logDebug, logError } from '../../output-channel-logger'
 import type { MessageProviderOptions } from '../MessageProvider'
@@ -288,12 +287,6 @@ export class ChatsController implements vscode.Disposable {
     }
 
     private async sendEditorContextToChat(uri?: URI): Promise<void> {
-        telemetryRecorder.recordEvent('cody.addChatContext', 'clicked', {
-            billingMetadata: {
-                category: 'billable',
-                product: 'cody',
-            },
-        })
         const provider = await this.getActiveChatController()
         if (provider === this.panel) {
             await vscode.commands.executeCommand('cody.chat.focus')
@@ -395,12 +388,6 @@ export class ChatsController implements vscode.Disposable {
      * Export chat history to file system
      */
     private async exportHistory(): Promise<void> {
-        telemetryRecorder.recordEvent('cody.exportChatHistoryButton', 'clicked', {
-            billingMetadata: {
-                product: 'cody',
-                category: 'billable',
-            },
-        })
         const authStatus = currentAuthStatus()
         if (authStatus.authenticated) {
             try {

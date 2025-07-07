@@ -13,7 +13,6 @@ import SourcegraphIcon from '../../resources/sourcegraph-mark.svg'
 import type { UserAccountInfo } from '../Chat'
 import { CodyLogo } from '../icons/CodyLogo'
 import { getVSCodeAPI } from '../utils/VSCodeApi'
-import { useTelemetryRecorder } from '../utils/telemetry'
 import { MarkdownFromCody } from './MarkdownFromCody'
 import { useLocalStorage } from './hooks'
 import { Button } from './shadcn/ui/button'
@@ -35,8 +34,6 @@ interface NoticesProps {
 const storageKey = 'DismissedWelcomeNotices'
 
 export const Notices: React.FC<NoticesProps> = ({ user, instanceNotices }) => {
-    const telemetryRecorder = useTelemetryRecorder()
-
     // dismissed notices from local storage
     const [dismissedNotices, setDismissedNotices] = useLocalStorage(storageKey, '')
     // session-only dismissal - for notices we want to show if the user logs out and logs back in.
@@ -50,12 +47,9 @@ export const Notices: React.FC<NoticesProps> = ({ user, instanceNotices }) => {
             } else {
                 // For notices we want to show if the user logs out and logs back in.
                 setSessionDismissedNotices(prev => [...prev, noticeId])
-                telemetryRecorder.recordEvent('cody.notice.cta', 'clicked', {
-                    privateMetadata: { noticeId, title: 'close' },
-                })
             }
         },
-        [telemetryRecorder, setDismissedNotices]
+        [setDismissedNotices]
     )
 
     const notices: Notice[] = useMemo(
@@ -162,8 +156,6 @@ const NoticeContent: FunctionComponent<NoticeContentProps> = ({
     footer,
     onDismiss,
 }) => {
-    const telemetryRecorder = useTelemetryRecorder()
-
     const bgColor = {
         default: 'tw-bg-accent tw-bg-opacity-50',
         warning: 'tw-bg-red-700 tw-text-white',
@@ -212,9 +204,6 @@ const NoticeContent: FunctionComponent<NoticeContentProps> = ({
                         size="sm"
                         onClick={() => {
                             action.onClick?.()
-                            telemetryRecorder.recordEvent('cody.notice.cta', 'clicked', {
-                                privateMetadata: { noticeId: id, title: action.label },
-                            })
                         }}
                         className="tw-flex tw-gap-1"
                     >

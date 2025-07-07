@@ -8,7 +8,6 @@ import {
     isMacOS,
     subscriptionDisposable,
 } from '@sourcegraph/cody-shared'
-import { telemetryRecorder } from '@sourcegraph/cody-shared'
 import { type DebouncedFunc, throttle } from 'lodash'
 import * as vscode from 'vscode'
 import type { SyntaxNode } from 'web-tree-sitter'
@@ -160,7 +159,6 @@ const HINT_DECORATIONS: Record<
 
 const DOCUMENTABLE_SYMBOL_THROTTLE = 10
 const GHOST_TEXT_THROTTLE = 250
-const TELEMETRY_THROTTLE = 30 * 1000 // 30 Seconds
 
 export class GhostHintDecorator implements vscode.Disposable {
     // permanentDisposables are disposed when this instance is disposed.
@@ -172,7 +170,6 @@ export class GhostHintDecorator implements vscode.Disposable {
     private isActive = false
     private activeDecorationRange: vscode.Range | null = null
     private setThrottledGhostText: DebouncedFunc<typeof this.setGhostText>
-    private fireThrottledDisplayEvent: DebouncedFunc<typeof this._fireDisplayEvent>
     private getThrottledDocumentableSymbol: DebouncedFunc<typeof this.getDocumentableSymbol>
 
     /** Store the last line that the user typed on, we want to avoid showing the text here */
@@ -183,14 +180,6 @@ export class GhostHintDecorator implements vscode.Disposable {
             leading: false,
             trailing: true,
         })
-        this.fireThrottledDisplayEvent = throttle(
-            this._fireDisplayEvent.bind(this),
-            TELEMETRY_THROTTLE,
-            {
-                leading: true,
-                trailing: false,
-            }
-        )
         this.getThrottledDocumentableSymbol = throttle(
             this.getDocumentableSymbol.bind(this),
             DOCUMENTABLE_SYMBOL_THROTTLE,
@@ -365,8 +354,6 @@ export class GhostHintDecorator implements vscode.Disposable {
             return
         }
 
-        this.fireThrottledDisplayEvent(variant)
-
         const decorationHint = HINT_DECORATIONS[variant]
         const decorationText = UNICODE_SPACE.repeat(textPadding) + decorationHint.text
         this.activeDecorationRange = new vscode.Range(position, position)
@@ -428,10 +415,6 @@ export class GhostHintDecorator implements vscode.Disposable {
         Object.values(HINT_DECORATIONS).map(({ decoration }) => {
             editor.setDecorations(decoration, [])
         })
-    }
-
-    private _fireDisplayEvent(variant: GhostVariant): void {
-        telemetryRecorder.recordEvent('cody.ghostText', 'visible', { privateMetadata: { variant } })
     }
 
     private async updateEnablement(authStatus: AuthStatus): Promise<void> {

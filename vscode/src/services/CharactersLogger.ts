@@ -1,15 +1,12 @@
 import omit from 'lodash/omit'
 import * as vscode from 'vscode'
 
-import { isFileURI, telemetryRecorder } from '@sourcegraph/cody-shared'
+import { isFileURI } from '@sourcegraph/cody-shared'
 
 import { outputChannelLogger } from '../output-channel-logger'
 
 import { splitSafeMetadata } from './telemetry-v2'
-import {
-    isCodeFromChatCodeBlockAction,
-    recordPasteFromChatEvent,
-} from './utils/codeblock-action-tracker'
+import { isCodeFromChatCodeBlockAction } from './utils/codeblock-action-tracker'
 
 export const LOG_INTERVAL = 30 * 60 * 1000 // 30 minutes
 export const RAPID_CHANGE_TIMEOUT = 15
@@ -153,9 +150,10 @@ export class CharactersLogger implements vscode.Disposable {
     public flush(): void {
         try {
             this.nextTimeoutId = null
-            telemetryRecorder.recordEvent('cody.characters', 'flush', {
-                metadata: { ...this.changeCounters },
-            })
+            // TODO: Add telemetry recording for characters flush
+            // telemetryRecorder.recordEvent('cody.characters', 'flush', {
+            //     metadata: { ...this.changeCounters },
+            // })
         } catch (error) {
             outputChannelLogger.logError('CharactersLogger', 'Failed to record telemetry event:', error)
         } finally {
@@ -181,10 +179,6 @@ export class CharactersLogger implements vscode.Disposable {
             const codeBlockActionMatch = await isCodeFromChatCodeBlockAction(
                 event.contentChanges[0]?.text
             )
-            if (codeBlockActionMatch?.operation === 'paste') {
-                // Sends the `cody.keyDown:paste` event.
-                recordPasteFromChatEvent(codeBlockActionMatch)
-            }
 
             // Marks the change as originating from Cody Chat to prevent double-counting.
             // For example, double-counting occurs when a change is counted both as a manual user input

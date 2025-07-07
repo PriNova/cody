@@ -14,7 +14,6 @@ import {
     pluralize,
     skipPendingOperation,
     subscriptionDisposable,
-    telemetryRecorder,
 } from '@sourcegraph/cody-shared'
 import * as vscode from 'vscode'
 import { outputChannelLogger } from '../../output-channel-logger'
@@ -92,13 +91,6 @@ export class CodySourceControl implements vscode.Disposable {
      * @param scm - The source control instance to use for the commit message generation.
      */
     public async generate(scm?: vscode.SourceControl): Promise<void> {
-        telemetryRecorder.recordEvent('cody.command.generate-commit', 'executed', {
-            billingMetadata: {
-                product: 'cody',
-                category: 'core',
-            },
-        })
-
         const currentWorkspaceUri = scm?.rootUri ?? vscode.workspace.workspaceFolders?.[0]?.uri
         if (!this.gitAPI || !currentWorkspaceUri) {
             vscode.window.showInformationMessage('Git is not available in the current workspace.')

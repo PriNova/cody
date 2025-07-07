@@ -14,7 +14,6 @@ import {
     isS2,
     skipPendingOperation,
     switchMap,
-    telemetryRecorder,
 } from '@sourcegraph/cody-shared'
 import { doesFileExist } from '../../commands/utils/workspace-files'
 import { executePrefetchSmartApply, executeSmartApply } from '../../edit/smart-apply'
@@ -49,13 +48,6 @@ let lastStoredCode: LastStoredCode = { ...defaultLastStoredCode }
 let insertInProgress = false
 
 /**
- * SourceMetadataMapping is used to map the source to a numerical value, so telemetry can be recorded on `metadata`.
- **/
-enum SourceMetadataMapping {
-    chat = 1,
-}
-
-/**
  * Sets the last stored code snippet and associated metadata.
  *
  * This is used to track code generation events in VS Code.
@@ -75,43 +67,20 @@ function setLastStoredCode({
 
     lastStoredCode = codeCount
 
-    let operation: string
-
     // 🚨 [Telemetry] if any new event names/types are added, check that those actions qualify as core events
     //(https://sourcegraph.notion.site/Cody-analytics-6b77a2cb2373466fae4797b6529a0e3d#2ca9035287854de48877a7cef2b3d4b4).
     // If not, the event recorded below this switch statement needs to be updated.
     switch (eventName) {
         case 'copyButton':
         case 'keyDown.Copy':
-            operation = 'copy'
             break
         case 'applyButton':
-            operation = 'apply'
             break
         case 'insertButton':
-            operation = 'insert'
             break
         case 'saveButton':
-            operation = 'save'
             break
     }
-
-    telemetryRecorder.recordEvent(`cody.${eventName}`, 'clicked', {
-        metadata: {
-            source: SourceMetadataMapping[source as keyof typeof SourceMetadataMapping] || 0, // Use 0 as default if source is not found
-            lineCount,
-            charCount,
-        },
-        privateMetadata: {
-            source,
-            op: operation,
-        },
-        billingMetadata: {
-            product: 'cody',
-            // 🚨 ensure that any new event names added qualify as core events, or update this parameter.
-            category: 'core',
-        },
-    })
 }
 
 /**
@@ -277,25 +246,6 @@ export async function handleCopiedCode(text: string, eventType: string): Promise
     if (copiedCode) {
         setLastStoredCode({ code: copiedCode, eventName })
     }
-}
-
-// For tracking paste events for inline-chat
-export function recordPasteFromChatEvent({ lineCount, charCount, source }: LastStoredCode) {
-    telemetryRecorder.recordEvent('cody.keyDown', 'paste', {
-        metadata: {
-            lineCount,
-            charCount,
-            source: SourceMetadataMapping[source as keyof typeof SourceMetadataMapping] || 0, // Use 0 as default if source is not found
-        },
-        privateMetadata: {
-            source,
-            op: 'paste',
-        },
-        billingMetadata: {
-            product: 'cody',
-            category: 'core',
-        },
-    })
 }
 
 export async function isCodeFromChatCodeBlockAction(

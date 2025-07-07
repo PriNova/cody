@@ -26,7 +26,7 @@ export class EditHandler implements AgentHandler {
             span,
             signal,
             chatBuilder,
-            recorder,
+
             model,
         }: AgentRequest,
         delegate: AgentHandlerDelegate
@@ -50,8 +50,6 @@ export class EditHandler implements AgentHandler {
                   inputTextWithoutContextChipsFromPromptEditorState(editorState)
               )
             : inputText
-
-        recorder.recordChatQuestionExecuted(context, { addMetadata: true, current: span })
 
         // Send context to webview for display before sending the request.
         delegate.postMessageInProgress({

@@ -12,7 +12,7 @@ import { AlertTriangleIcon, BookOpenIcon, BrainIcon, BuildingIcon, ExternalLinkI
 import { type FunctionComponent, type ReactNode, useCallback, useMemo } from 'react'
 import type { UserAccountInfo } from '../../Chat'
 import { getVSCodeAPI } from '../../utils/VSCodeApi'
-import { useTelemetryRecorder } from '../../utils/telemetry'
+
 import { chatModelIconComponent } from '../ChatModelIcon'
 import { Badge } from '../shadcn/ui/badge'
 import { Command, CommandGroup, CommandItem, CommandLink, CommandList } from '../shadcn/ui/command'
@@ -59,8 +59,6 @@ export const ModelSelectField: React.FunctionComponent<{
     modelSelectorRef,
     modelsData,
 }) => {
-    const telemetryRecorder = useTelemetryRecorder()
-
     // The first model is the always the default.
     const selectedModel = models[0]
 
@@ -71,21 +69,6 @@ export const ModelSelectField: React.FunctionComponent<{
     const onModelSelect = useCallback(
         (model: Model): void => {
             if (selectedModel.id !== model.id) {
-                telemetryRecorder.recordEvent('cody.modelSelector', 'select', {
-                    metadata: {
-                        modelIsCodyProOnly: isCodyProModel(model) ? 1 : 0,
-                        isCodyProUser: isCodyProUser ? 1 : 0,
-                    },
-                    privateMetadata: {
-                        modelId: model.id,
-                        modelProvider: model.provider,
-                        modelTitle: model.title,
-                    },
-                    billingMetadata: {
-                        product: 'cody',
-                        category: 'billable',
-                    },
-                })
             }
             if (showCodyProBadge && isCodyProModel(model)) {
                 getVSCodeAPI().postMessage({
@@ -98,34 +81,14 @@ export const ModelSelectField: React.FunctionComponent<{
         },
         [
             selectedModel,
-            telemetryRecorder.recordEvent,
+
             showCodyProBadge,
             parentOnModelSelect,
-            isCodyProUser,
         ]
     )
 
     // Readonly if they are an enterprise user that does not support server-sent models
     const readOnly = !(userInfo.isDotComUser || serverSentModelsEnabled)
-
-    const onOpenChange = useCallback(
-        (open: boolean): void => {
-            if (open) {
-                // Trigger only when dropdown is about to be opened.
-                telemetryRecorder.recordEvent('cody.modelSelector', 'open', {
-                    metadata: {
-                        isCodyProUser: isCodyProUser ? 1 : 0,
-                        totalModels: models.length,
-                    },
-                    billingMetadata: {
-                        product: 'cody',
-                        category: 'billable',
-                    },
-                })
-            }
-        },
-        [telemetryRecorder.recordEvent, isCodyProUser, models.length]
-    )
 
     const options = useMemo<SelectListOption[]>(
         () =>
@@ -266,18 +229,7 @@ export const ModelSelectField: React.FunctionComponent<{
                                     href={ENTERPRISE_MODEL_DOCS_PAGE}
                                     target="_blank"
                                     rel="noreferrer"
-                                    onSelect={() => {
-                                        telemetryRecorder.recordEvent(
-                                            'cody.modelSelector',
-                                            'clickEnterpriseModelOption',
-                                            {
-                                                billingMetadata: {
-                                                    product: 'cody',
-                                                    category: 'billable',
-                                                },
-                                            }
-                                        )
-                                    }}
+                                    onSelect={() => {}}
                                     className={styles.modelTitleWithIcon}
                                 >
                                     <span className={styles.modelIcon}>
@@ -298,7 +250,7 @@ export const ModelSelectField: React.FunctionComponent<{
                     </CommandList>
                 </Command>
             )}
-            popoverRootProps={{ onOpenChange }}
+            popoverRootProps={{}}
             popoverContentProps={{
                 className: 'tw-min-w-[325px] tw-w-[unset] tw-max-w-[90%] !tw-p-0',
                 onKeyDown: onKeyDown,

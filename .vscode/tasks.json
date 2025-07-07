@@ -4,13 +4,18 @@
     {
       "type": "typescript",
       "tsconfig": "tsconfig.json",
-      "problemMatcher": ["$tsc-watch"],
+      "problemMatcher": [
+        "$tsc-watch"
+      ],
       "group": {
         "kind": "build",
         "isDefault": true
       },
       "option": "watch",
-      "runOptions": { "runOn": "folderOpen", "instanceLimit": 1 },
+      "runOptions": {
+        "runOn": "folderOpen",
+        "instanceLimit": 1
+      },
       "isBackground": true,
       "presentation": {
         "reveal": "never"
@@ -22,7 +27,7 @@
       "path": "vscode",
       "script": "build:dev:desktop",
       "problemMatcher": "$tsc-watch",
-      "options": { "cwd": "vscode" },
+      "options": {},
       "isBackground": true
     },
     {
@@ -31,7 +36,9 @@
       "path": "vscode",
       "script": "build:dev:web",
       "problemMatcher": "$tsc-watch",
-      "options": { "cwd": "vscode" },
+      "options": {
+        "cwd": "vscode"
+      },
       "isBackground": true
     },
     {
@@ -39,11 +46,12 @@
       "label": "Build Agent",
       "command": "pnpm install && pnpm build",
       "windows": {
-        "command": "pnpm install; pnpm build",
+        "command": "pnpm install; pnpm build"
       },
       "options": {
         "cwd": "${workspaceFolder}/agent"
-      }
+      },
+      "problemMatcher": []
     }
   ]
 }

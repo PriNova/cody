@@ -6,7 +6,6 @@ import type { CSSProperties } from 'react'
 import { URI } from 'vscode-uri'
 import '../../node_modules/@vscode/codicons/dist/codicon.css'
 import { AppWrapperForTest } from '../AppWrapperForTest'
-import { TelemetryRecorderContext, createWebviewTelemetryRecorder } from '../utils/telemetry'
 import styles from './VSCodeStoryDecorator.module.css'
 
 setDisplayPathEnvInfo({
@@ -83,11 +82,7 @@ export function VSCodeDecorator(className: string | undefined, style?: CSSProper
 
         return (
             <div className={clsx(styles.container, className)} style={style}>
-                <AppWrapperForTest>
-                    <TelemetryRecorderContext.Provider value={telemetryRecorder}>
-                        {story(storyProps)}
-                    </TelemetryRecorderContext.Provider>
-                </AppWrapperForTest>
+                <AppWrapperForTest>{story(storyProps)}</AppWrapperForTest>
             </div>
         )
     }
@@ -101,5 +96,3 @@ const acquireVsCodeApi = () => ({
 if (!(window as any).acquireVsCodeApi) {
     ;(window as any).acquireVsCodeApi = acquireVsCodeApi
 }
-
-const telemetryRecorder = createWebviewTelemetryRecorder(acquireVsCodeApi())

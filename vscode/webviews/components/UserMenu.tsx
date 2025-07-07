@@ -35,7 +35,7 @@ import {
 import { SourcegraphLogo } from '../icons/SourcegraphLogo'
 import { View } from '../tabs'
 import { getVSCodeAPI } from '../utils/VSCodeApi'
-import { useTelemetryRecorder } from '../utils/telemetry'
+
 import { useFeatureFlag } from '../utils/useFeatureFlags'
 import { UserAvatar } from './UserAvatar'
 import { Badge } from './shadcn/ui/badge'
@@ -74,7 +74,6 @@ export const UserMenu: React.FunctionComponent<UserMenuProps> = ({
     IDE,
     setTabView,
 }) => {
-    const telemetryRecorder = useTelemetryRecorder()
     const { displayName, username, primaryEmail, endpoint } = authStatus
     const isDotComUser = isDotCom(endpoint)
     const isWorkspaceUser = isWorkspaceInstance(endpoint)
@@ -112,21 +111,12 @@ export const UserMenu: React.FunctionComponent<UserMenuProps> = ({
                 endpoint: addFormData.endpoint,
                 value: addFormData.accessToken,
             })
-            onOpenChange(false)
+
             setUserMenuView('main')
             setEndpointToRemove(null)
             setAddFormData({ endpoint: '', accessToken: '' })
         },
         [addFormData]
-    )
-
-    const onOpenChange = useCallback(
-        (open: boolean): void => {
-            if (open) {
-                telemetryRecorder.recordEvent('cody.userMenu', 'open', {})
-            }
-        },
-        [telemetryRecorder.recordEvent]
     )
 
     const onKeyDown = useCallback(
@@ -147,12 +137,6 @@ export const UserMenu: React.FunctionComponent<UserMenuProps> = ({
     const onSignOutClick = useCallback(
         (selectedEndpoint: string): void => {
             if (endpointHistory.some(e => e === selectedEndpoint)) {
-                telemetryRecorder.recordEvent('cody.auth.logout', 'clicked', {
-                    billingMetadata: {
-                        product: 'cody',
-                        category: 'billable',
-                    },
-                })
                 getVSCodeAPI().postMessage({
                     command: 'auth',
                     authKind: 'signout',
@@ -163,7 +147,7 @@ export const UserMenu: React.FunctionComponent<UserMenuProps> = ({
             setUserMenuView('main')
             setAddFormData({ endpoint: '', accessToken: '' })
         },
-        [telemetryRecorder, endpointHistory]
+        [endpointHistory]
     )
 
     return (
@@ -348,11 +332,6 @@ export const UserMenu: React.FunctionComponent<UserMenuProps> = ({
                                     target="_blank"
                                     rel="noreferrer"
                                     onSelect={() => {
-                                        telemetryRecorder.recordEvent(
-                                            'cody.userMenu.helpLink',
-                                            'open',
-                                            {}
-                                        )
                                         close()
                                     }}
                                 >
@@ -517,11 +496,6 @@ export const UserMenu: React.FunctionComponent<UserMenuProps> = ({
                                         target="_blank"
                                         rel="noreferrer"
                                         onSelect={() => {
-                                            telemetryRecorder.recordEvent(
-                                                'cody.userMenu.upgradeToProLink',
-                                                'open',
-                                                {}
-                                            )
                                             close()
                                         }}
                                     >
@@ -607,11 +581,6 @@ export const UserMenu: React.FunctionComponent<UserMenuProps> = ({
                                         target="_blank"
                                         rel="noreferrer"
                                         onSelect={() => {
-                                            telemetryRecorder.recordEvent(
-                                                'cody.userMenu.exploreEnterprisePlanLink',
-                                                'open',
-                                                {}
-                                            )
                                             close()
                                         }}
                                     >
@@ -629,11 +598,6 @@ export const UserMenu: React.FunctionComponent<UserMenuProps> = ({
                                         target="_blank"
                                         rel="noreferrer"
                                         onSelect={() => {
-                                            telemetryRecorder.recordEvent(
-                                                'cody.userMenu.docsQuickstartLink',
-                                                'open',
-                                                {}
-                                            )
                                             close()
                                         }}
                                     >
@@ -679,7 +643,7 @@ export const UserMenu: React.FunctionComponent<UserMenuProps> = ({
                     )}
                 </Command>
             )}
-            popoverRootProps={{ onOpenChange }}
+            popoverRootProps={{}}
             popoverContentProps={{
                 className: '!tw-p-2 tw-mr-6',
                 onKeyDown: onKeyDown,

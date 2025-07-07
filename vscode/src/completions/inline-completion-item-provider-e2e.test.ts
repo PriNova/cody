@@ -1,5 +1,5 @@
 import { Observable } from 'observable-fns'
-import { type MockInstance, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import type * as vscode from 'vscode'
 
 import {
@@ -11,7 +11,6 @@ import {
     featureFlagProvider,
     mockClientCapabilities,
     nextTick,
-    telemetryRecorder,
 } from '@sourcegraph/cody-shared'
 
 import { mockLocalStorage } from '../services/LocalStorageProvider'
@@ -54,27 +53,6 @@ vi.mock('vscode', async () => {
 const DUMMY_CONTEXT: vscode.InlineCompletionContext = {
     selectedCompletionInfo: undefined,
     triggerKind: vsCodeMocks.InlineCompletionTriggerKind.Automatic,
-}
-
-const getAnalyticEventCalls = (mockInstance: MockInstance) => {
-    return mockInstance.mock.calls.map(args => {
-        const events = args.slice(0, 2)
-
-        const isSuggestion = events.at(1) === 'suggested'
-        if (isSuggestion) {
-            const metadata = args.at(2)?.metadata
-            if (!metadata || metadata.read === undefined) {
-                throw new Error(
-                    'Unable to extract metadata from analytics calls. Did we change how we log events?'
-                )
-            }
-
-            events.push({ read: Boolean(metadata.read) })
-            return events
-        }
-
-        return events
-    })
 }
 
 class MockRequestProvider extends Provider {
@@ -242,7 +220,6 @@ describe.skip('InlineCompletionItemProvider E2E', () => {
          */
         it('handles subsequent requests, that are not parallel', async () => {
             vi.useFakeTimers()
-            const logSpy: MockInstance = vi.spyOn(telemetryRecorder, 'recordEvent')
             const provider = getInlineCompletionProvider()
 
             const { resolve: resolve1 } = createCompletion('console.█', provider)
@@ -262,25 +239,6 @@ describe.skip('InlineCompletionItemProvider E2E', () => {
             // Enough for completion events to be logged
             vi.advanceTimersByTime(1000)
             CompletionAnalyticsLogger.logSuggestionEvents(true)
-
-            expect(getAnalyticEventCalls(logSpy)).toMatchInlineSnapshot(`
-              [
-                [
-                  "cody.completion",
-                  "suggested",
-                  {
-                    "read": false,
-                  },
-                ],
-                [
-                  "cody.completion",
-                  "suggested",
-                  {
-                    "read": true,
-                  },
-                ],
-              ]
-            `)
         })
 
         /**
@@ -294,7 +252,6 @@ describe.skip('InlineCompletionItemProvider E2E', () => {
          */
         it('handles two parallel requests, by marking the old one as stale and only suggesting the final one', async () => {
             vi.useFakeTimers()
-            const logSpy: MockInstance = vi.spyOn(telemetryRecorder, 'recordEvent')
             const provider = getInlineCompletionProvider()
 
             const { resolve: resolve1 } = createCompletion('console.█', provider)
@@ -314,22 +271,6 @@ describe.skip('InlineCompletionItemProvider E2E', () => {
             // Enough for completion events to be logged
             vi.advanceTimersByTime(1000)
             CompletionAnalyticsLogger.logSuggestionEvents(true)
-
-            expect(getAnalyticEventCalls(logSpy)).toMatchInlineSnapshot(`
-              [
-                [
-                  "cody.completion",
-                  "synthesizedFromParallelRequest",
-                ],
-                [
-                  "cody.completion",
-                  "suggested",
-                  {
-                    "read": true,
-                  },
-                ],
-              ]
-            `)
         })
 
         /**
@@ -346,7 +287,7 @@ describe.skip('InlineCompletionItemProvider E2E', () => {
          */
         it('handles multiple parallel requests, by marking the old one as stale and only suggesting one of the remaining ones', async () => {
             vi.useFakeTimers()
-            const logSpy: MockInstance = vi.spyOn(telemetryRecorder, 'recordEvent')
+
             const provider = getInlineCompletionProvider()
 
             const { resolve: resolve1 } = createCompletion('console.█', provider)
@@ -383,26 +324,6 @@ describe.skip('InlineCompletionItemProvider E2E', () => {
             // Enough for completion events to be logged
             vi.advanceTimersByTime(1000)
             CompletionAnalyticsLogger.logSuggestionEvents(true)
-
-            expect(getAnalyticEventCalls(logSpy)).toMatchInlineSnapshot(`
-              [
-                [
-                  "cody.completion",
-                  "synthesizedFromParallelRequest",
-                ],
-                [
-                  "cody.completion",
-                  "synthesizedFromParallelRequest",
-                ],
-                [
-                  "cody.completion",
-                  "suggested",
-                  {
-                    "read": true,
-                  },
-                ],
-              ]
-            `)
         })
     })
 })

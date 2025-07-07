@@ -23,15 +23,12 @@ import {
     isWindows,
     isWorkspaceInstance,
     subscriptionDisposable,
-    telemetryRecorder,
     uriBasename,
     uriDirname,
 } from '@sourcegraph/cody-shared'
 
-import { logDebug } from '../output-channel-logger'
-
-import path from 'node:path'
 import { getEditor } from '../editor/active-editor'
+import { logDebug } from '../output-channel-logger'
 import { getSymfPath } from './download-symf'
 
 const execFile = promisify(_execFile)
@@ -249,14 +246,6 @@ export class SymfRunner implements vscode.Disposable {
                 await this.ensureIndex(scopeDir, {
                     retryIfLastAttemptFailed: false,
                     ignoreExisting: true,
-                })
-
-                const { indexDir } = this.getIndexDir(scopeDir)
-                const indexSize = await getDirSize(indexDir.path)
-                telemetryRecorder.recordEvent('cody.context.symf', 'indexed', {
-                    metadata: {
-                        indexSize,
-                    },
                 })
             }
         } catch (error) {
@@ -700,17 +689,6 @@ function toSymfError(error: unknown): Error {
         errorMessage = `symf failed: ${error}`
     }
     return new EvalError(errorMessage)
-}
-
-async function getDirSize(dirPath: string): Promise<number> {
-    const files = await fs.readdir(dirPath)
-    let totalSize = 0
-
-    for (const file of files) {
-        const stats = await fs.stat(path.join(dirPath, file))
-        totalSize += stats.size // Symf doesn't create indexes with nested directories, so don't recurse
-    }
-    return totalSize
 }
 
 function initializeSymfIndexManagement(symf: SymfRunner): vscode.Disposable {

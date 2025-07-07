@@ -7,7 +7,7 @@ import {
     ps,
     wrapInActiveSpan,
 } from '@sourcegraph/cody-shared'
-import { telemetryRecorder } from '@sourcegraph/cody-shared'
+
 import * as vscode from 'vscode'
 import { defaultCommands, selectedCodePromptWithExtraFiles } from '.'
 import type { ChatCommandResult } from '../../CommandResult'
@@ -74,21 +74,6 @@ export async function executeSmellCommand(
         }
 
         logDebug('executeSmellCommand', 'executing', { args })
-        telemetryRecorder.recordEvent('cody.command.smell', 'executed', {
-            metadata: {
-                useCodebaseContex: 0,
-            },
-            interactionID: args?.requestID,
-            privateMetadata: {
-                requestID: args?.requestID,
-                source: args?.source,
-                traceId: span.spanContext().traceId,
-            },
-            billingMetadata: {
-                product: 'cody',
-                category: 'core',
-            },
-        })
 
         const chatArguments = await smellCommand(span, args)
         if (chatArguments === null) {

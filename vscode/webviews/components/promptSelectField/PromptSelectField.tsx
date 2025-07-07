@@ -8,7 +8,7 @@ import {
     useRef,
     useState,
 } from 'react'
-import { useTelemetryRecorder } from '../../utils/telemetry'
+
 import { useConfig } from '../../utils/useConfig'
 import { PromptList, type PromptsFilterArgs } from '../promptList/PromptList'
 import type { Organization } from '../promptOwnerFilter/PromptOwnerFilter'
@@ -34,7 +34,6 @@ export const PromptSelectField: React.FunctionComponent<{
     /** For storybooks only. */
     __storybook__open?: boolean
 }> = ({ onSelect, onCloseByEscape, className, __storybook__open, promptSelectorRef }) => {
-    const telemetryRecorder = useTelemetryRecorder()
     const [selectedTagId, setSelectedTagId] = useState<string | null>(null)
     const [ownerFilterValue, setOwnerFilterValue] = useState<string | null>(null)
     const { value: userId, error: userIdError } = useCurrentUserId()
@@ -74,17 +73,6 @@ export const PromptSelectField: React.FunctionComponent<{
         const baseUrl = authStatus.endpoint.replace(/\/$/, '')
         return `${baseUrl}/prompts`
     }, [authStatus.endpoint])
-
-    const onOpenChange = useCallback(
-        (open: boolean): void => {
-            if (open) {
-                telemetryRecorder.recordEvent('cody.promptSelectField', 'open', {
-                    billingMetadata: { product: 'cody', category: 'billable' },
-                })
-            }
-        },
-        [telemetryRecorder.recordEvent]
-    )
 
     const onKeyDown = useCallback(
         (event: React.KeyboardEvent<HTMLDivElement>) => {
@@ -174,7 +162,7 @@ export const PromptSelectField: React.FunctionComponent<{
                     </div>
                 </div>
             )}
-            popoverRootProps={{ onOpenChange }}
+            popoverRootProps={{}}
             popoverContentProps={{
                 className: 'tw-min-w-[325px] tw-w-[75vw] tw-max-w-[550px] !tw-p-0',
                 onKeyDown: onKeyDown,

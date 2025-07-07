@@ -6,7 +6,6 @@ import {
     currentUserProductSubscription,
     featureFlagProvider,
     storeLastValue,
-    telemetryRecorder,
 } from '@sourcegraph/cody-shared'
 import * as vscode from 'vscode'
 import { localStorage } from '../services/LocalStorageProvider'
@@ -64,7 +63,6 @@ export class AutoEditBetaOnboarding implements vscode.Disposable {
             )
         // Set Enroll to true in local storage so that we don't override the setting if the user changes it
         this.markUserAsAutoEditBetaEnrolled()
-        this.writeAutoeditNotificationEvent()
 
         const selection = await vscode.window.showInformationMessage(
             'You have been enrolled to Cody Auto-edit! Cody will intelligently suggest next edits as you navigate the codebase.',
@@ -81,13 +79,6 @@ export class AutoEditBetaOnboarding implements vscode.Disposable {
                     vscode.ConfigurationTarget.Global
                 )
         }
-    }
-
-    private writeAutoeditNotificationEvent(): void {
-        // Track that the user has been enrolled to auto edit beta for monitoring purposes
-        telemetryRecorder.recordEvent('cody.autoedit', 'beta-enrolled', {
-            version: 0,
-        })
     }
 
     private async isUserEligibleForAutoeditBetaOverride(): Promise<boolean> {

@@ -1,7 +1,5 @@
 import type * as vscode from 'vscode'
 
-import { telemetryRecorder } from '@sourcegraph/cody-shared'
-
 export const LOG_INTERVAL = 30 * 60 * 1000 // 30 minutes
 
 /**
@@ -47,13 +45,11 @@ export class AutocompleteStageCounter implements vscode.Disposable {
 
         // Do not log empty counter events.
         if (Object.values(stateToLog).some(count => count > 0)) {
-            // adding something like for events
-            // Add a counting of events and send those via looker for the events
-            // Flush a set of events for trim lrejection
-            telemetryRecorder.recordEvent('cody.completion.stageCounter', 'flush', {
-                metadata: stateToLog,
-                privateMetadata: { providerModel: this.providerModel },
-            })
+            // TODO: Add telemetry recording for completion stageCounter flush
+            // telemetryRecorder.recordEvent('cody.completion.stageCounter', 'flush', {
+            //     metadata: stateToLog,
+            //     privateMetadata: { providerModel: this.providerModel },
+            // })
         }
 
         this.nextTimeoutId = setTimeout(() => this.flush(), LOG_INTERVAL)

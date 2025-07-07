@@ -15,7 +15,6 @@ import {
     logDebug,
     newPromptMixin,
     ps,
-    telemetryRecorder,
     wrapInActiveSpan,
 } from '@sourcegraph/cody-shared'
 import { DeepCodyAgentID } from '@sourcegraph/cody-shared/src/models/client'
@@ -159,26 +158,8 @@ export class DeepCodyAgent {
         maxLoops = 2
     ): Promise<ContextItem[]> {
         span.setAttribute('sampled', true)
-        const startTime = performance.now()
+
         await this.reviewLoop(requestID, span, chatAbortSignal, maxLoops)
-        telemetryRecorder.recordEvent('cody.deep-cody.context', 'reviewed', {
-            privateMetadata: {
-                requestID,
-                model: DeepCodyAgent.model,
-                traceId: span.spanContext().traceId,
-                chatAgent: DeepCodyAgent.id,
-            },
-            metadata: {
-                loop: this.stats.loop, // Number of loops run.
-                fetched: this.stats.context, // Number of context fetched.
-                context: this.context.length, // Number of context used.
-                durationMs: performance.now() - startTime,
-            },
-            billingMetadata: {
-                product: 'cody',
-                category: 'billable',
-            },
-        })
         return this.context
     }
 

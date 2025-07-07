@@ -3,7 +3,6 @@ import { type FC, useCallback } from 'react'
 
 import type { NLSSearchResult } from '@sourcegraph/cody-shared/src/sourcegraph-api/graphql/client'
 import type { Observable } from 'observable-fns'
-import { useTelemetryRecorder } from '../utils/telemetry'
 import { useConfig } from '../utils/useConfig'
 import {
     type FetchFileParameters,
@@ -32,15 +31,10 @@ export const NLSResultSnippet: FC<NLSResultSnippetProps> = ({
         [highlights]
     )
 
-    const telemetryRecorder = useTelemetryRecorder()
     const logSelection = useCallback(() => {
         if (result.__typename === 'FileMatch') {
-            telemetryRecorder.recordEvent('onebox.searchResult', 'clicked', {
-                privateMetadata: { filename: result.file.path },
-                billingMetadata: { product: 'cody', category: 'core' },
-            })
         }
-    }, [telemetryRecorder, result])
+    }, [result])
 
     if (result.__typename === 'FileMatch') {
         return (

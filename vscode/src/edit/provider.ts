@@ -5,18 +5,13 @@ import { Utils } from 'vscode-uri'
 
 import {
     BotResponseMultiplexer,
-    DEFAULT_EVENT_SOURCE,
-    EventSourceTelemetryMetadataMapping,
     type SiteAndCodyAPIVersions,
     Typewriter,
-    currentAuthStatus,
     currentSiteVersion,
     isAbortError,
-    isDotCom,
     isNetworkLikeError,
     modelsService,
     posixFilePaths,
-    telemetryRecorder,
     tracer,
     uriBasename,
     wrapInActiveSpan,
@@ -28,8 +23,6 @@ import type { FixupController } from '../non-stop/FixupController'
 import type { FixupTask } from '../non-stop/FixupTask'
 import { CodyTaskState } from '../non-stop/state'
 import { logError } from '../output-channel-logger'
-import { splitSafeMetadata } from '../services/telemetry-v2'
-import { countCode } from '../services/utils/code-count'
 import { resolveRelativeOrAbsoluteUri } from '../services/utils/edit-create-file'
 import type { ModelParameterProvider } from './adapters/base'
 import { DefaultModelParameterProvider } from './adapters/default'
@@ -40,7 +33,6 @@ import { DefaultEditPromptBuilder } from './prompt'
 import { PROMPT_TOPICS, SMART_APPLY_MODEL_IDENTIFIERS } from './prompt/constants'
 import { SmartApplyCustomEditPromptBuilder } from './prompt/smart-apply/apply/smart-apply-custom'
 import type { EditPromptBuilder } from './prompt/type'
-import { EditIntentTelemetryMetadataMapping, EditModeTelemetryMetadataMapping } from './types'
 
 interface EditProviderOptions extends EditManagerOptions {
     task: FixupTask
@@ -401,32 +393,6 @@ export class EditProvider {
             if (!(await this.checkGuardrails(task, response))) {
                 return
             }
-
-            const legacyMetadata = {
-                intent: EditIntentTelemetryMetadataMapping[task.intent] || task.intent,
-                mode: EditModeTelemetryMetadataMapping[task.mode] || task.mode,
-                source:
-                    EventSourceTelemetryMetadataMapping[task.source || DEFAULT_EVENT_SOURCE] ||
-                    task.source,
-                ...countCode(response),
-            }
-            const { metadata, privateMetadata } = splitSafeMetadata(legacyMetadata)
-            const endpoint = currentAuthStatus().endpoint
-            telemetryRecorder.recordEvent('cody.fixup.response', 'hasCode', {
-                metadata,
-                privateMetadata: {
-                    ...privateMetadata,
-                    model: task.model,
-                    // 🚨 SECURITY: edit responses are to be included only for DotCom users AND for V2 telemetry
-                    // V2 telemetry exports privateMetadata only for DotCom users
-                    // the condition below is an aditional safegaurd measure
-                    responseText: endpoint && isDotCom(endpoint) ? response : undefined,
-                },
-                billingMetadata: {
-                    product: 'cody',
-                    category: 'billable',
-                },
-            })
         }
 
         if (this.config.task.isStreamed) {

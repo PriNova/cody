@@ -98,7 +98,7 @@ export class GeminiAgenticHandler extends ChatHandler implements AgentHandler {
     }
 
     public async handle(req: AgentRequest, delegate: AgentHandlerDelegate): Promise<void> {
-        const { requestID, chatBuilder, inputText, editorState, span, recorder, signal, mentions } = req
+        const { requestID, chatBuilder, inputText, editorState, span, signal, mentions } = req
         const sessionID = chatBuilder.sessionID
 
         const model = modelsService.getModelByID(this.agentModel) as Model
@@ -123,10 +123,9 @@ export class GeminiAgenticHandler extends ChatHandler implements AgentHandler {
 
         logDebug('AgenticHandler', `Starting agent session ${sessionID}`)
 
-        recorder.recordChatQuestionExecuted(contextItems, { addMetadata: true, current: span })
         try {
             // Run the main conversation loop
-            await this.runConversationLoop(chatBuilder, delegate, recorder, span, signal, contextItems)
+            await this.runConversationLoop(chatBuilder, delegate, span, signal, contextItems)
         } catch (error) {
             this.handleError(sessionID, error, delegate, signal)
         } finally {
@@ -162,7 +161,7 @@ export class GeminiAgenticHandler extends ChatHandler implements AgentHandler {
     protected async runConversationLoop(
         chatBuilder: ChatBuilder,
         delegate: AgentHandlerDelegate,
-        recorder: AgentRequest['recorder'],
+
         span: Span,
         parentSignal: AbortSignal,
         contextItems: ContextItem[] = []
@@ -183,7 +182,7 @@ export class GeminiAgenticHandler extends ChatHandler implements AgentHandler {
                 const { botResponse, toolCalls } = await this.requestLLM(
                     chatBuilder,
                     delegate,
-                    recorder,
+
                     span,
                     signal,
                     this.agentModel,
@@ -259,7 +258,7 @@ export class GeminiAgenticHandler extends ChatHandler implements AgentHandler {
     protected async requestLLM(
         chatBuilder: ChatBuilder,
         delegate: AgentHandlerDelegate,
-        recorder: AgentRequest['recorder'],
+
         span: Span,
         signal: AbortSignal,
         model: string,

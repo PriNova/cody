@@ -36,7 +36,7 @@ import type { UserAccountInfo } from '../../../../../Chat'
 import { type ClientActionListener, useClientActionListener } from '../../../../../client/clientState'
 import { promptModeToIntent } from '../../../../../prompts/promptUtils'
 import { getVSCodeAPI } from '../../../../../utils/VSCodeApi'
-import { useTelemetryRecorder } from '../../../../../utils/telemetry'
+
 import { useConfig } from '../../../../../utils/useConfig'
 import { useLinkOpener } from '../../../../../utils/useLinkOpener'
 import { useOmniBox } from '../../../../../utils/useOmniBox'
@@ -113,8 +113,6 @@ export const HumanMessageEditor: FunctionComponent<{
     setIsGoogleSearchEnabled,
     onTokenCountChange,
 }) => {
-    const telemetryRecorder = useTelemetryRecorder()
-
     const editorRef = useRef<PromptEditorRefAPI>(null)
     useImperativeHandle(parentEditorRef, (): PromptEditorRefAPI | null => editorRef.current)
 
@@ -211,8 +209,6 @@ export const HumanMessageEditor: FunctionComponent<{
                 throw new Error('No editorRef')
             }
 
-            const value = editorRef.current.getSerializedValue()
-
             const processImage = async () => {
                 if (imageFile) {
                     const readFileGetBase64String = (file: File): Promise<string> => {
@@ -250,32 +246,8 @@ export const HumanMessageEditor: FunctionComponent<{
             processGoogleSearch()
 
             parentOnSubmit(_intent)
-
-            telemetryRecorder.recordEvent('cody.humanMessageEditor', 'submit', {
-                metadata: {
-                    isFirstMessage: isFirstMessage ? 1 : 0,
-                    isEdit: isSent ? 1 : 0,
-                    messageLength: value.text.length,
-                    contextItems: value.contextItems.length,
-                    intent: [undefined, 'chat', 'search', 'edit'].findIndex(i => i === _intent),
-                },
-                billingMetadata: {
-                    product: 'cody',
-                    category: 'billable',
-                },
-            })
         },
-        [
-            submitState,
-            parentOnSubmit,
-            onStop,
-            telemetryRecorder.recordEvent,
-            isFirstMessage,
-            isSent,
-            imageFile,
-            setImageFile,
-            isGoogleSearchEnabled,
-        ]
+        [submitState, parentOnSubmit, onStop, imageFile, setImageFile, isGoogleSearchEnabled]
     )
 
     const omniBoxEnabled = useOmniBox() && !userInfo.isDotComUser

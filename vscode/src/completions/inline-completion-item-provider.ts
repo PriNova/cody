@@ -14,7 +14,6 @@ import {
     isAuthError,
     isDotCom,
     subscriptionDisposable,
-    telemetryRecorder,
     wrapInActiveSpan,
 } from '@sourcegraph/cody-shared'
 
@@ -931,10 +930,7 @@ export class InlineCompletionItemProvider
             if (hasRateLimitError) {
                 return
             }
-
-            const isEnterpriseUser = this.isDotComUser !== true
             const canUpgrade = error.upgradeIsAvailable
-            const tier = isEnterpriseUser ? 'enterprise' : canUpgrade ? 'free' : 'pro'
 
             let errorTitle: string
             let pageName: string
@@ -953,13 +949,6 @@ export class InlineCompletionItemProvider
                 timeout: error.retryAfterDate ? Number(error.retryAfterDate) : undefined,
                 removeAfterSelected: true,
                 onSelect: () => {
-                    if (canUpgrade) {
-                        telemetryRecorder.recordEvent('cody.upsellUsageLimitCTA', 'clicked', {
-                            privateMetadata: {
-                                limit_type: 'suggestions',
-                            },
-                        })
-                    }
                     void vscode.commands.executeCommand('cody.show-page', pageName)
                 },
                 onShow: () => {
@@ -967,26 +956,8 @@ export class InlineCompletionItemProvider
                         return
                     }
                     shown = true
-                    telemetryRecorder.recordEvent(
-                        canUpgrade ? 'cody.upsellUsageLimitCTA' : 'cody.abuseUsageLimitCTA',
-                        'shown',
-                        {
-                            privateMetadata: {
-                                limit_type: 'suggestions',
-                                tier,
-                            },
-                        }
-                    )
                 },
             })
-
-            telemetryRecorder.recordEvent(
-                canUpgrade ? 'cody.upsellUsageLimitStatusBar' : 'cody.abuseUsageLimitStatusBar',
-                'shown',
-                {
-                    privateMetadata: { limit_type: 'suggestions', tier },
-                }
-            )
             return
         }
 

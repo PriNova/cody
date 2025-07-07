@@ -4,7 +4,6 @@ import type { AuthCredentials } from '@sourcegraph/cody-shared'
 
 import { localStorage } from '../services/LocalStorageProvider'
 
-import { telemetryRecorder } from '@sourcegraph/cody-shared'
 import { showActionNotification } from '.'
 
 export const showSetupNotification = async (auth: AuthCredentials): Promise<void> => {
@@ -26,7 +25,7 @@ export const showSetupNotification = async (auth: AuthCredentials): Promise<void
         return
     }
 
-    telemetryRecorder.recordEvent('cody.signInNotification', 'shown')
+    // TODO: Add telemetry recording for signInNotification shown
 
     return showActionNotification({
         message: 'Sign in to Cody to get started',
@@ -35,19 +34,14 @@ export const showSetupNotification = async (auth: AuthCredentials): Promise<void
                 label: 'Sign In',
                 onClick: async () => {
                     vscode.commands.executeCommand('cody.chat.focus')
-                    telemetryRecorder.recordEvent('cody.signInNotification.signInButton', 'clicked')
+                    // TODO: Add telemetry recording for signInButton clicked
                 },
             },
             {
                 label: 'Do not show again',
                 onClick: async () => {
                     localStorage.set('notification.setupDismissed', 'true')
-                    telemetryRecorder.recordEvent('cody.signInNotification.doNotShow', 'clicked', {
-                        billingMetadata: {
-                            category: 'billable',
-                            product: 'cody',
-                        },
-                    })
+                    // TODO: Add telemetry recording for doNotShow clicked
                 },
             },
         ],

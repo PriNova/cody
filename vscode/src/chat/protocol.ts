@@ -18,10 +18,6 @@ import type {
     UserProductSubscription,
 } from '@sourcegraph/cody-shared'
 
-import type { BillingCategory, BillingProduct } from '@sourcegraph/cody-shared/src/telemetry-v2'
-
-import type { TelemetryEventParameters } from '@sourcegraph/telemetry'
-
 import type { McpServer } from '@sourcegraph/cody-shared/src/llm-providers/mcp/types'
 import type { Uri } from 'vscode'
 import type { View } from '../../webviews/tabs/types'
@@ -34,15 +30,6 @@ import type { CodyTaskState } from '../non-stop/state'
  *
  * V2 telemetry RPC parameter type for webviews.
  */
-export type WebviewRecordEventParameters = TelemetryEventParameters<
-    // 👷 HACK:  We use looser string types instead of the actual SDK at
-    // '@sourcegraph/cody-shared/src/telemetry-v2' because this defines a
-    // wire protocol where the stricter type-checking is pointless. Do not
-    // do this elsewhere!
-    { [key: string]: number },
-    BillingProduct,
-    BillingCategory
->
 
 /**
  * The location of where the webview is displayed.
@@ -69,7 +56,6 @@ export type WebviewMessage =
           // do this elsewhere!
           feature: string
           action: string
-          parameters: WebviewRecordEventParameters
       }
     | ({ command: 'submit' } & WebviewSubmitMessage)
     | ({ command: 'regenerateCodeBlock' } & WebviewRegenerateCodeBlockMessage)

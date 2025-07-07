@@ -1,9 +1,6 @@
 import {
     type AuthCredentials,
     type AuthStatus,
-    type BillingCategory,
-    type BillingProduct,
-    CHAT_OUTPUT_TOKEN_BUDGET,
     type ChatClient,
     type ChatMessage,
     type ChatModel,
@@ -68,9 +65,7 @@ import {
     startWith,
     subscriptionDisposable,
     switchMap,
-    telemetryRecorder,
     tracer,
-    truncatePromptString,
     userProductSubscription,
     wrapInActiveSpan,
 } from '@sourcegraph/cody-shared'
@@ -83,7 +78,6 @@ import { ChatHistoryType } from '@sourcegraph/cody-shared/src/chat/transcript'
 import type { SubMessage } from '@sourcegraph/cody-shared/src/chat/transcript/messages'
 import { resolveAuth } from '@sourcegraph/cody-shared/src/configuration/auth-resolver'
 import type { McpServer } from '@sourcegraph/cody-shared/src/llm-providers/mcp/types'
-import type { TelemetryEventParameters } from '@sourcegraph/telemetry'
 import { Observable, Subject, map } from 'observable-fns'
 import type { URI } from 'vscode-uri'
 import { View } from '../../../webviews/tabs/types'
@@ -134,7 +128,6 @@ import type {
     SmartApplyResult,
     WebviewMessage,
 } from '../protocol'
-import { countGeneratedCode } from '../utils'
 import { ChatBuilder, prepareChatMessage } from './ChatBuilder'
 import { chatHistory } from './ChatHistoryManager'
 import { CodyChatEditorViewType } from './ChatsController'
@@ -142,7 +135,6 @@ import { CodeBlockRegenerator, type RegenerateRequestParams } from './CodeBlockR
 import type { ContextRetriever } from './ContextRetriever'
 import { InitDoer } from './InitDoer'
 import { getChatPanelTitle, isCodyTesting } from './chat-helpers'
-import { OmniboxTelemetry } from './handlers/OmniboxTelemetry'
 import { getAgent } from './handlers/registry'
 import { getPromptsMigrationInfo, startPromptsMigration } from './prompts-migration'
 import { MCPManager } from './tools/MCPManager'
@@ -504,24 +496,6 @@ export class ChatController implements vscode.Disposable, vscode.WebviewViewProv
             }
 
             case 'recordEvent':
-                telemetryRecorder.recordEvent(
-                    // 👷 HACK: We have no control over what gets sent over JSON RPC,
-                    // so we depend on client implementations to give type guidance
-                    // to ensure that we don't accidentally share arbitrary,
-                    // potentially sensitive string values. In this RPC handler,
-                    // when passing the provided event to the TelemetryRecorder
-                    // implementation, we forcibly cast all the inputs below
-                    // (feature, action, parameters) into known types (strings
-                    // 'feature', 'action', 'key') so that the recorder will accept
-                    // it. DO NOT do this elsewhere!
-                    message.feature as 'feature',
-                    message.action as 'action',
-                    message.parameters as TelemetryEventParameters<
-                        { key: number },
-                        BillingProduct,
-                        BillingCategory
-                    >
-                )
                 break
             case 'auth': {
                 if (message.authKind === 'refresh') {
@@ -540,15 +514,7 @@ export class ChatController implements vscode.Disposable, vscode.WebviewViewProv
                             credentials,
                             'store-if-valid'
                         )
-                        telemetryRecorder.recordEvent('cody.auth.fromTokenReceiver.web', 'succeeded', {
-                            metadata: {
-                                success: authStatus.authenticated ? 1 : 0,
-                            },
-                            billingMetadata: {
-                                product: 'cody',
-                                category: 'billable',
-                            },
-                        })
+
                         if (!authStatus.authenticated) {
                             void vscode.window.showErrorMessage(
                                 'Authentication failed. Please check your token and try again.'
@@ -882,19 +848,6 @@ export class ChatController implements vscode.Disposable, vscode.WebviewViewProv
         span.addEvent('ChatController.sendChat')
         signal.throwIfAborted()
 
-        const recorder = await OmniboxTelemetry.create({
-            requestID,
-            chatModel: model,
-            source,
-            command,
-            sessionID: this.chatBuilder.sessionID,
-            traceId: span.spanContext().traceId,
-            promptText: inputText,
-        })
-        recorder.recordChatQuestionSubmitted(mentions)
-
-        signal.throwIfAborted()
-
         this.postEmptyMessageInProgress(model)
 
         const agent = getAgent(model, manuallySelectedIntent, {
@@ -904,10 +857,6 @@ export class ChatController implements vscode.Disposable, vscode.WebviewViewProv
         })
 
         this.setFrequentlyUsedContextItemsToStorage(mentions)
-
-        recorder.setIntentInfo({
-            userSpecifiedIntent: manuallySelectedIntent ?? 'chat',
-        })
 
         this.postEmptyMessageInProgress(model)
         let messageInProgress: ChatMessage = { speaker: 'assistant', model }
@@ -921,7 +870,7 @@ export class ChatController implements vscode.Disposable, vscode.WebviewViewProv
                     signal,
                     chatBuilder: this.chatBuilder,
                     span,
-                    recorder,
+
                     model,
                 },
                 {
@@ -1283,13 +1232,6 @@ export class ChatController implements vscode.Disposable, vscode.WebviewViewProv
     }): Promise<void> {
         const abortSignal = this.startNewSubmitOrEditOperation()
 
-        telemetryRecorder.recordEvent('cody.editChatButton', 'clicked', {
-            billingMetadata: {
-                product: 'cody',
-                category: 'billable',
-            },
-        })
-
         try {
             const humanMessage = index ?? this.chatBuilder.getLastSpeakerMessageIndex('human')
             if (humanMessage === undefined) {
@@ -1328,13 +1270,6 @@ export class ChatController implements vscode.Disposable, vscode.WebviewViewProv
         index: number
     }): Promise<void> {
         const abort = this.startNewSubmitOrEditOperation()
-
-        telemetryRecorder.recordEvent('cody.regenerateCodeBlock', 'clicked', {
-            billingMetadata: {
-                product: 'cody',
-                category: 'billable',
-            },
-        })
 
         // TODO: Add trace spans around this operation
 
@@ -1387,12 +1322,6 @@ export class ChatController implements vscode.Disposable, vscode.WebviewViewProv
         this.cancelSubmitOrEditOperation()
         // Notify the webview there is no message in progress.
         this.postViewTranscript()
-        telemetryRecorder.recordEvent('cody.sidebar.abortButton', 'clicked', {
-            billingMetadata: {
-                category: 'billable',
-                product: 'cody',
-            },
-        })
     }
 
     public async addContextItemsToLastHumanInput(
@@ -1573,21 +1502,6 @@ export class ChatController implements vscode.Disposable, vscode.WebviewViewProv
             } catch (error) {
                 logDebug('ChatController', 'setCustomChatTitle', { verbose: error })
             }
-            telemetryRecorder.recordEvent('cody.chat.customTitle', 'generated', {
-                privateMetadata: {
-                    requestID,
-                    model: model,
-                    traceId: span.spanContext().traceId,
-                },
-                metadata: {
-                    titleLength: title.length,
-                    inputLength: inputText.length,
-                },
-                billingMetadata: {
-                    product: 'cody',
-                    category: 'billable',
-                },
-            })
         })
     }
 
@@ -1641,35 +1555,6 @@ export class ChatController implements vscode.Disposable, vscode.WebviewViewProv
         this.chatBuilder.addBotMessage({ text: messageText, didYouMeanQuery }, model)
         void this.saveSession()
         this.postViewTranscript()
-
-        const authStatus = currentAuthStatus()
-
-        // Count code generated from response
-        const generatedCode = countGeneratedCode(messageText.toString())
-        const responseEventAction = generatedCode.charCount > 0 ? 'hasCode' : 'noCode'
-        telemetryRecorder.recordEvent('cody.chatResponse', responseEventAction, {
-            version: 2, // increment for major changes to this event
-            interactionID: requestID,
-            metadata: {
-                ...generatedCode,
-                // Flag indicating this is a transcript event to go through ML data pipeline. Only for dotcom users
-                // See https://github.com/sourcegraph/sourcegraph/pull/59524
-                recordsPrivateMetadataTranscript: isDotCom(authStatus) ? 1 : 0,
-            },
-            privateMetadata: {
-                // 🚨 SECURITY: chat transcripts are to be included only for DotCom users AND for V2 telemetry
-                // V2 telemetry exports privateMetadata only for DotCom users
-                // the condition below is an aditional safegaurd measure
-                responseText:
-                    isDotCom(authStatus) &&
-                    (await truncatePromptString(messageText, CHAT_OUTPUT_TOKEN_BUDGET)),
-                chatModel: model,
-            },
-            billingMetadata: {
-                product: 'cody',
-                category: 'billable',
-            },
-        })
     }
 
     // #endregion
@@ -1739,10 +1624,6 @@ export class ChatController implements vscode.Disposable, vscode.WebviewViewProv
         await vscode.commands.executeCommand('cody.chat.moveToEditor')
         // Restore the old session in the current window
         this.restoreSession(sessionID)
-
-        telemetryRecorder.recordEvent('cody.duplicateSession', 'clicked', {
-            billingMetadata: { product: 'cody', category: 'billable' },
-        })
     }
 
     public clearAndRestartSession(chatMessages?: ChatMessage[]): void {
