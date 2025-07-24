@@ -1,6 +1,6 @@
 import type { ChatMessage } from '@sourcegraph/cody-shared'
 import { isMacOS } from '@sourcegraph/cody-shared'
-import { BetweenHorizonalEnd, MessageSquare, Pencil, Search, Sparkle } from 'lucide-react'
+import { MessageSquare, Pencil, Search, Sparkle } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Badge } from '../../../../../../components/shadcn/ui/badge'
 import { Command, CommandItem, CommandList } from '../../../../../../components/shadcn/ui/command'
@@ -72,14 +72,21 @@ export const ModeSelectorField: React.FunctionComponent<{
             },
             {
                 title: 'Search',
-                badge: isDotComUser ? 'Enterprise' : 'Beta',
+                badge: isDotComUser ? 'Enterprise' : undefined,
                 icon: Search,
                 intent: 'search',
-                hidden: !omniBoxEnabled,
                 // Bug fix: Search intent should only be available for non-Pro and non-Free users
                 // Previously it was incorrectly allowing Free users to access search
                 disabled: isDotComUser || isCodyProUser,
                 value: IntentEnum.Search,
+            },
+            {
+                title: 'Edit',
+                icon: Pencil,
+                intent: 'edit',
+                hidden: !isEditEnabled,
+                disabled: !isEditEnabled,
+                value: IntentEnum.Edit,
             },
             {
                 title: 'Agent',
@@ -91,26 +98,8 @@ export const ModeSelectorField: React.FunctionComponent<{
                 disabled: !agenticChatEnabled || !isEditEnabled,
                 value: IntentEnum.Agentic,
             },
-            {
-                title: 'Edit Code',
-                badge: 'Experimental',
-                icon: Pencil,
-                intent: 'edit',
-                hidden: true,
-                disabled: !isEditEnabled,
-                value: IntentEnum.Edit,
-            },
-            {
-                title: 'Insert Code',
-                badge: 'Experimental',
-                icon: BetweenHorizonalEnd,
-                intent: 'insert',
-                hidden: true,
-                disabled: !isEditEnabled,
-                value: IntentEnum.Insert,
-            },
         ].filter(option => !option.hidden) as IntentOption[]
-    }, [edit, config?.experimentalAgenticChatEnabled, isDotComUser, isCodyProUser, omniBoxEnabled])
+    }, [edit, config?.experimentalAgenticChatEnabled, isDotComUser, isCodyProUser])
 
     // Get available (non-disabled) options
     const availableOptions = useMemo(
@@ -121,6 +110,10 @@ export const ModeSelectorField: React.FunctionComponent<{
     // Initialize with the provided intent or fallback to chat
     const [currentSelectedIntent, setCurrentSelectedIntent] = useState(() => {
         const mappedIntent = INTENT_MAPPING[_intent || 'chat']
+        // For agentic intent, check if the feature flag is enabled
+        if (_intent === 'agentic' && !config?.experimentalAgenticChatEnabled) {
+            return IntentEnum.Chat
+        }
         // Check if the intent is available and not disabled
         const isValidIntent = intentOptions.some(
             option => option.value === mappedIntent && !option.disabled
@@ -132,7 +125,7 @@ export const ModeSelectorField: React.FunctionComponent<{
     const handleSelectIntent = useCallback(
         (intent: ChatMessage['intent'], close?: () => void) => {
             manuallySelectIntent(intent)
-            setCurrentSelectedIntent(INTENT_MAPPING[intent || 'chat'])
+            setCurrentSelectedIntent(INTENT_MAPPING[intent || 'chat'] || IntentEnum.Chat)
             close?.()
         },
         [manuallySelectIntent]
@@ -142,6 +135,18 @@ export const ModeSelectorField: React.FunctionComponent<{
     useEffect(() => {
         // Only enable shortcut if there are multiple available options
         if (availableOptions.length <= 1) return
+
+        // If intent is agentic but feature flag is off, fallback to Chat
+        if (_intent === 'agentic' && !config?.experimentalAgenticChatEnabled) {
+            if (currentSelectedIntent !== IntentEnum.Chat) {
+                setCurrentSelectedIntent(IntentEnum.Chat)
+            }
+            return
+        }
+
+        if (INTENT_MAPPING[_intent || IntentEnum.Chat] !== currentSelectedIntent) {
+            setCurrentSelectedIntent(INTENT_MAPPING[_intent || 'chat'] || IntentEnum.Chat)
+        }
 
         const handleKeyDown = (event: KeyboardEvent) => {
             if ((isMac ? event.metaKey : event.ctrlKey) && event.key === '.') {
@@ -160,7 +165,13 @@ export const ModeSelectorField: React.FunctionComponent<{
 
         document.addEventListener('keydown', handleKeyDown)
         return () => document.removeEventListener('keydown', handleKeyDown)
-    }, [availableOptions, currentSelectedIntent, handleSelectIntent])
+    }, [
+        availableOptions,
+        currentSelectedIntent,
+        handleSelectIntent,
+        _intent,
+        config?.experimentalAgenticChatEnabled,
+    ])
 
     return (
         <ToolbarPopoverItem

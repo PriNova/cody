@@ -22,7 +22,6 @@ import {
     isNetworkLikeError,
     isWorkspaceInstance,
     resolvedConfig,
-    telemetryRecorder,
 } from '@sourcegraph/cody-shared'
 import { resolveAuth } from '@sourcegraph/cody-shared/src/configuration/auth-resolver'
 import {
@@ -85,19 +84,11 @@ export async function showSignInMenu(
     const authStatus = currentAuthStatus()
     const mode: AuthMenuType = authStatus.authenticated ? 'switch' : 'signin'
     logDebug('AuthProvider:signinMenu', mode)
-    telemetryRecorder.recordEvent('cody.auth.login', 'clicked')
     const item = await showAuthMenu(mode)
     if (!item) {
         return
     }
     const menuID = type || item?.id
-    telemetryRecorder.recordEvent('cody.auth.signin.menu', 'clicked', {
-        privateMetadata: { menuID },
-        billingMetadata: {
-            product: 'cody',
-            category: 'billable',
-        },
-    })
     switch (menuID) {
         case 'enterprise': {
             const instanceUrl = await showInstanceURLInputBox(item.uri)
@@ -268,15 +259,6 @@ async function signinMenuForInstanceUrl(instanceUrl: string): Promise<void> {
         { serverEndpoint: instanceUrl, credentials: { token, source: 'paste' } },
         'store-if-valid'
     )
-    telemetryRecorder.recordEvent('cody.auth.signin.token', 'clicked', {
-        metadata: {
-            success: authStatus.authenticated ? 1 : 0,
-        },
-        billingMetadata: {
-            product: 'cody',
-            category: 'billable',
-        },
-    })
     await showAuthResultMessage(instanceUrl, authStatus)
 }
 
@@ -361,15 +343,6 @@ export async function tokenCallbackHandler(uri: vscode.Uri): Promise<void> {
         { serverEndpoint: endpoint, credentials: { token, source: 'redirect' } },
         'store-if-valid'
     )
-    telemetryRecorder.recordEvent('cody.auth.fromCallback.web', 'succeeded', {
-        metadata: {
-            success: authStatus?.authenticated ? 1 : 0,
-        },
-        billingMetadata: {
-            product: 'cody',
-            category: 'billable',
-        },
-    })
     if (authStatus?.authenticated) {
         await vscode.window.showInformationMessage(`Signed in to ${endpoint}`)
     } else {
@@ -403,12 +376,6 @@ export function formatURL(uri: string): string | null {
 }
 
 export async function showSignOutMenu(): Promise<void> {
-    telemetryRecorder.recordEvent('cody.auth.logout', 'clicked', {
-        billingMetadata: {
-            product: 'cody',
-            category: 'billable',
-        },
-    })
     const { endpoint } = currentAuthStatus()
 
     if (endpoint) {

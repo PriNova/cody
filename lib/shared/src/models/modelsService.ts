@@ -412,6 +412,7 @@ export class ModelsService {
                 const models = data.primaryModels
                     .concat(data.localModels)
                     .filter(model => model.usage.includes(type))
+
                 if (!currentModel) {
                     return models
                 }
@@ -461,10 +462,10 @@ export class ModelsService {
                 if (modelsData.preferences) {
                     // Check to see if the user has a selected a default model for this
                     // usage type and if not see if there is a server sent default type
-                    const selected = this.resolveModel(
-                        modelsData,
+                    const selectedModelId =
                         modelsData.preferences.selected[type] ?? modelsData.preferences.defaults[type]
-                    )
+
+                    const selected = this.resolveModel(modelsData, selectedModelId)
                     if (
                         selected &&
                         // Don't set default model for ModelUsage.Edit if the model has certain tags
@@ -537,12 +538,16 @@ export class ModelsService {
         if (!this.storage) {
             throw new Error('ModelsService.storage is not set')
         }
-        const serverEndpoint = currentAuthStatus().endpoint
+        const authEndpoint = currentAuthStatus().endpoint
+        // Normalize endpoint to match what's used in storage (add trailing slash if missing)
+        const serverEndpoint = authEndpoint.endsWith('/') ? authEndpoint : `${authEndpoint}/`
         const currentPrefs = deepClone(this.storage.getModelPreferences())
+
         if (!currentPrefs[serverEndpoint]) {
             currentPrefs[serverEndpoint] = modelsData.preferences
         }
         currentPrefs[serverEndpoint].selected[type] = resolved.id
+
         await this.storage.setModelPreferences(currentPrefs)
     }
 

@@ -3,7 +3,6 @@ import * as Tabs from '@radix-ui/react-tabs'
 
 import clsx from 'clsx'
 import {
-    BookTextIcon,
     Cog,
     ColumnsIcon,
     DownloadIcon,
@@ -11,7 +10,6 @@ import {
     type LucideProps,
     MessageSquarePlusIcon,
     MessagesSquareIcon,
-    Settings2Icon,
     Trash2Icon,
 } from 'lucide-react'
 import { getVSCodeAPI } from '../utils/VSCodeApi'
@@ -24,7 +22,6 @@ import { useConfig } from '../utils/useConfig'
 
 import { useExtensionAPI } from '@sourcegraph/prompt-editor'
 import { isEqual } from 'lodash'
-import { Observable } from 'observable-fns'
 import type { UserAccountInfo } from '../Chat'
 import { downloadChatHistory } from '../chat/downloadChatHistory'
 import { UserMenu } from '../components/UserMenu'
@@ -174,6 +171,7 @@ export const TabsBar = memo<TabsBarProps>(props => {
                                 className="!tw-opacity-100 tw-h-full"
                                 isWorkspacesUpgradeCtaEnabled={props.isWorkspacesUpgradeCtaEnabled}
                                 IDE={IDE}
+                                setTabView={setView}
                             />
                         )}
                     </div>
@@ -362,7 +360,6 @@ TabButton.displayName = 'TabButton'
  */
 function useTabs(input: Pick<TabsBarProps, 'user'>): TabConfig[] {
     const IDE = input.user.IDE
-    const isMcpEnabled = Observable.of(true)
     const extensionAPI = useExtensionAPI<'userHistory'>()
 
     return useMemo<TabConfig[]>(
@@ -417,22 +414,8 @@ function useTabs(input: Pick<TabsBarProps, 'user'>): TabConfig[] {
                         Icon: Cog,
                         changesView: true,
                     },
-                    {
-                        view: View.Prompts,
-                        title: 'Prompts',
-                        Icon: BookTextIcon,
-                        changesView: true,
-                    },
-                    isMcpEnabled
-                        ? {
-                              view: View.Settings,
-                              title: 'Settings',
-                              Icon: Settings2Icon,
-                              changesView: true,
-                          }
-                        : null,
                 ] as (TabConfig | null)[]
             ).filter(isDefined),
-        [IDE, extensionAPI, isMcpEnabled]
+        [IDE, extensionAPI]
     )
 }

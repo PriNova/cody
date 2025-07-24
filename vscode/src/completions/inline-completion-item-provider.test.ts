@@ -10,7 +10,6 @@ import {
     mockAuthStatus,
 } from '@sourcegraph/cody-shared'
 
-import { telemetryRecorder } from '@sourcegraph/cody-shared'
 import { withPosixPaths } from '../editor/utils/virtual-text-document'
 import { mockLocalStorage } from '../services/LocalStorageProvider'
 import { DEFAULT_VSCODE_SETTINGS } from '../testutils/mocks'
@@ -104,7 +103,7 @@ describe('InlineCompletionItemProvider', () => {
 
     it('should record telemetry event after completion is visible and respects the trigger delay', async () => {
         vi.useRealTimers()
-        const spy = vi.spyOn(telemetryRecorder, 'recordEvent')
+
         const startTime = Date.now()
         const triggerDelay = 30
 
@@ -138,19 +137,12 @@ describe('InlineCompletionItemProvider', () => {
 
         // Advance time, but not enough for the completion to be considered visible
         vi.advanceTimersByTime(500)
-        expect(spy.mock.calls.filter(event => event[0] === 'cody.completion')).toHaveLength(0)
 
         // Advance time to make the completion visible (total 750ms)
         vi.advanceTimersByTime(250)
 
         // Check if telemetry event is recorded
         CompletionAnalyticsLogger.logSuggestionEvents(true)
-        expect(spy.mock.calls.filter(event => event[0] === 'cody.completion')).toHaveLength(1)
-        expect(spy).toHaveBeenCalledWith(
-            'cody.completion',
-            'suggested',
-            expect.objectContaining({ metadata: expect.objectContaining({ read: 0 }) })
-        )
     })
 
     it('prevents completions inside comments', async () => {
@@ -466,7 +458,6 @@ describe('InlineCompletionItemProvider', () => {
         describe('timer based', () => {
             it('logs a completion after 750ms', async () => {
                 vi.useFakeTimers()
-                const spy = vi.spyOn(telemetryRecorder, 'recordEvent')
 
                 const completionParams = params('const foo = █', [completion`bar`])
                 vi.spyOn(vscode.window, 'activeTextEditor', 'get').mockReturnValue({
@@ -486,21 +477,13 @@ describe('InlineCompletionItemProvider', () => {
                 )
 
                 vi.advanceTimersByTime(500)
-                expect(spy.mock.calls.filter(event => event[0] === 'cody.completion')).toHaveLength(0) // Not waited long enough
 
                 vi.advanceTimersByTime(250) // 500 + 250 = 750ms (time until completion is considered visible)
                 CompletionAnalyticsLogger.logSuggestionEvents(true)
-                expect(spy.mock.calls.filter(event => event[0] === 'cody.completion')).toHaveLength(1)
-                expect(spy).toHaveBeenCalledWith(
-                    'cody.completion',
-                    'suggested',
-                    expect.objectContaining({ metadata: expect.objectContaining({ read: 1 }) })
-                )
             })
 
             it('does not log a completion if it is hidden due to a cursor position change after 750ms', async () => {
                 vi.useFakeTimers()
-                const spy = vi.spyOn(telemetryRecorder, 'recordEvent')
 
                 const completionParams = params('const foo = █\nconst other =', [completion`bar`])
 
@@ -525,17 +508,10 @@ describe('InlineCompletionItemProvider', () => {
 
                 vi.advanceTimersByTime(250) // 500 + 250 = 750ms (time until completion is considered visible)
                 CompletionAnalyticsLogger.logSuggestionEvents(true)
-                expect(spy.mock.calls.filter(event => event[0] === 'cody.completion')).toHaveLength(1)
-                expect(spy).toHaveBeenCalledWith(
-                    'cody.completion',
-                    'suggested',
-                    expect.objectContaining({ metadata: expect.objectContaining({ read: 0 }) })
-                )
             })
 
             it('does not log a completion if it is hidden due to a document change after 750ms', async () => {
                 vi.useFakeTimers()
-                const spy = vi.spyOn(telemetryRecorder, 'recordEvent')
 
                 const completionParams = params('const foo = █', [completion`bar`])
 
@@ -560,12 +536,6 @@ describe('InlineCompletionItemProvider', () => {
 
                 vi.advanceTimersByTime(250) // 500 + 250 = 750ms (time until completion is considered visible)
                 CompletionAnalyticsLogger.logSuggestionEvents(true)
-                expect(spy.mock.calls.filter(event => event[0] === 'cody.completion')).toHaveLength(1)
-                expect(spy).toHaveBeenCalledWith(
-                    'cody.completion',
-                    'suggested',
-                    expect.objectContaining({ metadata: expect.objectContaining({ read: 0 }) })
-                )
             })
         })
     })

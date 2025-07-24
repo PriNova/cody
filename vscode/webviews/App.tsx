@@ -1,29 +1,23 @@
-import { type ComponentProps, useCallback, useEffect, useMemo, useState } from 'react'
+import { type ComponentProps, useEffect, useMemo, useState } from 'react'
 
 import {
     type ChatMessage,
     type CodyClientConfig,
     type DefaultContext,
     PromptString,
-    type TelemetryRecorder,
     createGuardrailsImpl,
 } from '@sourcegraph/cody-shared'
-import type { AuthMethod } from '../src/chat/protocol'
-import styles from './App.module.css'
-import { AuthPage } from './AuthPage'
 import { LoadingPage } from './LoadingPage'
 import { useClientActionDispatcher } from './client/clientState'
 import { WebviewOpenTelemetryService } from './utils/webviewOpenTelemetryService'
 
 import { ExtensionAPIProviderFromVSCodeAPI } from '@sourcegraph/prompt-editor'
 import { CodyPanel } from './CodyPanel'
-import { AuthenticationErrorBanner } from './components/AuthenticationErrorBanner'
 import { useSuppressKeys } from './components/hooks'
 import { View } from './tabs'
 import type { VSCodeWrapper } from './utils/VSCodeApi'
 import { ComposedWrappers, type Wrapper } from './utils/composeWrappers'
 import { updateDisplayPathEnvInfoForWebview } from './utils/displayPathEnvInfo'
-import { TelemetryRecorderContext, createWebviewTelemetryRecorder } from './utils/telemetry'
 import { ClientConfigProvider } from './utils/useClientConfig'
 import { type Config, ConfigProvider } from './utils/useConfig'
 import { useDevicePixelRatioNotifier } from './utils/useDevicePixelRatio'
@@ -136,23 +130,6 @@ export const App: React.FunctionComponent<{ vscodeAPI: VSCodeWrapper }> = ({ vsc
         }
     }, [view, vscodeAPI])
 
-    const loginRedirect = useCallback(
-        (method: AuthMethod) => {
-            // We do not change the view here. We want to keep presenting the
-            // login buttons until we get a token so users don't get stuck if
-            // they close the browser during an auth flow.
-            vscodeAPI.postMessage({
-                command: 'auth',
-                authKind: 'simplified-onboarding',
-                authMethod: method,
-            })
-        },
-        [vscodeAPI]
-    )
-
-    // V2 telemetry recorder
-    const telemetryRecorder = useMemo(() => createWebviewTelemetryRecorder(vscodeAPI), [vscodeAPI])
-
     const webviewTelemetryService = useMemo(() => {
         const service = WebviewOpenTelemetryService.getInstance()
         return service
@@ -174,8 +151,8 @@ export const App: React.FunctionComponent<{ vscodeAPI: VSCodeWrapper }> = ({ vsc
     useDevicePixelRatioNotifier()
 
     const wrappers = useMemo<Wrapper[]>(
-        () => getAppWrappers({ vscodeAPI, telemetryRecorder, config, clientConfig }),
-        [vscodeAPI, telemetryRecorder, config, clientConfig]
+        () => getAppWrappers({ vscodeAPI, config, clientConfig }),
+        [vscodeAPI, config, clientConfig]
     )
 
     // Wait for all the data to be loaded before rendering Chat View
@@ -185,43 +162,25 @@ export const App: React.FunctionComponent<{ vscodeAPI: VSCodeWrapper }> = ({ vsc
 
     return (
         <ComposedWrappers wrappers={wrappers}>
-            {view === View.Login || !config.authStatus.authenticated ? (
-                <div className={styles.outerContainer}>
-                    {!config.authStatus.authenticated && config.authStatus.error && (
-                        <AuthenticationErrorBanner errorMessage={config.authStatus.error} />
-                    )}
-                    <AuthPage
-                        simplifiedLoginRedirect={loginRedirect}
-                        uiKindIsWeb={config.config.uiKindIsWeb}
-                        vscodeAPI={vscodeAPI}
-                        codyIDE={config.clientCapabilities.agentIDE}
-                        endpoints={config.config.endpointHistory ?? []}
-                        authStatus={config.authStatus}
-                        allowEndpointChange={config.config.allowEndpointChange}
-                    />
-                </div>
-            ) : (
-                <CodyPanel
-                    view={view}
-                    setView={setView}
-                    configuration={config}
-                    errorMessages={errorMessages}
-                    setErrorMessages={setErrorMessages}
-                    chatEnabled={clientConfig?.chatEnabled ?? true}
-                    instanceNotices={clientConfig?.notices ?? []}
-                    messageInProgress={messageInProgress}
-                    transcript={transcript}
-                    vscodeAPI={vscodeAPI}
-                    guardrails={guardrails}
-                />
-            )}
+            <CodyPanel
+                view={view}
+                setView={setView}
+                configuration={config}
+                errorMessages={errorMessages}
+                setErrorMessages={setErrorMessages}
+                chatEnabled={clientConfig?.chatEnabled ?? true}
+                instanceNotices={clientConfig?.notices ?? []}
+                messageInProgress={messageInProgress}
+                transcript={transcript}
+                vscodeAPI={vscodeAPI}
+                guardrails={guardrails}
+            />
         </ComposedWrappers>
     )
 }
 
 interface GetAppWrappersOptions {
     vscodeAPI: VSCodeWrapper
-    telemetryRecorder: TelemetryRecorder
     config: Config | null
     clientConfig: CodyClientConfig | null
     staticDefaultContext?: DefaultContext
@@ -229,16 +188,11 @@ interface GetAppWrappersOptions {
 
 export function getAppWrappers({
     vscodeAPI,
-    telemetryRecorder,
     config,
     clientConfig,
     staticDefaultContext,
 }: GetAppWrappersOptions): Wrapper[] {
     return [
-        {
-            provider: TelemetryRecorderContext.Provider,
-            value: telemetryRecorder,
-        } satisfies Wrapper<ComponentProps<typeof TelemetryRecorderContext.Provider>['value']>,
         {
             component: ExtensionAPIProviderFromVSCodeAPI,
             props: { vscodeAPI, staticDefaultContext },

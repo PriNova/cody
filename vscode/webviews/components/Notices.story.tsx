@@ -1,17 +1,15 @@
 import { CodyIDE } from '@sourcegraph/cody-shared'
 import { ExtensionAPIProviderForTestsOnly, MOCK_API } from '@sourcegraph/prompt-editor'
 import type { Meta, StoryObj } from '@storybook/react'
-import { TelemetryRecorderContext } from '../utils/telemetry'
+
 import { Notices } from './Notices'
 
 const meta: Meta<typeof Notices> = {
     title: 'cody/Notices',
     component: props => (
-        <TelemetryRecorderContext.Provider value={{ recordEvent: () => {} }}>
-            <ExtensionAPIProviderForTestsOnly value={MOCK_API}>
-                <Notices {...props} />
-            </ExtensionAPIProviderForTestsOnly>
-        </TelemetryRecorderContext.Provider>
+        <ExtensionAPIProviderForTestsOnly value={MOCK_API}>
+            <Notices {...props} />
+        </ExtensionAPIProviderForTestsOnly>
     ),
     parameters: {
         layout: 'centered',
@@ -51,6 +49,7 @@ export const SgTeammateNotice: Story = {
                 ],
             },
         },
+        instanceNotices: [],
     },
 }
 
@@ -60,6 +59,7 @@ export const NoNotices: Story = {
             ...baseUser,
             isDotComUser: false,
         },
+        instanceNotices: [],
     },
 }
 
@@ -69,5 +69,6 @@ export const WebUserNoNotices: Story = {
             ...baseUser,
             IDE: CodyIDE.Web,
         },
+        instanceNotices: [],
     },
 }

@@ -7,13 +7,11 @@ import {
     isDotComAuthed,
     isS2,
     storeLastValue,
-    telemetryRecorder,
 } from '@sourcegraph/cody-shared'
 import { LRUCache } from 'lru-cache'
 import type * as vscode from 'vscode'
 import { gitMetadataForCurrentEditor } from '../repository/git-metadata-for-editor'
 import { GitHubDotComRepoMetadata } from '../repository/githubRepoMetadata'
-import { splitSafeMetadata } from '../services/telemetry-v2'
 import type { SmartApplySelectionType } from './prompt/smart-apply/selection'
 
 const MAX_LOGGING_PAYLOAD_SIZE_BYTES = 1024 * 1024 // 1 MB
@@ -193,17 +191,6 @@ export class SmartApplyContextLogger {
         if (!context) {
             return
         }
-        const { metadata, privateMetadata } = splitSafeMetadata(context)
-        telemetryRecorder.recordEvent('cody.smart-apply.context', 'applied', {
-            metadata: {
-                ...metadata,
-                recordsPrivateMetadataTranscript: 1,
-            },
-            privateMetadata: {
-                ...privateMetadata,
-            },
-            billingMetadata: { product: 'cody', category: 'billable' },
-        })
     }
 
     private getSmartApplyLoggingContext(taskId: string): SmartApplyLoggingContext | undefined {

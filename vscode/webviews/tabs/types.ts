@@ -4,6 +4,6 @@ export enum View {
     History = 'history',
     Toolbox = 'toolbox',
     Account = 'account',
-    Prompts = 'prompts',
     Settings = 'settings',
+    Mcp = 'mcp',
 }

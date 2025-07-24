@@ -92,20 +92,6 @@ describe('server sent models', async () => {
     }
     const titan = createModelFromServerModel(serverTitan, false)
 
-    const SERVER_MODELS: ServerModelConfiguration = {
-        schemaVersion: '1.0',
-        revision: '-',
-        providers: [],
-        models: [serverOpus, serverClaude, serverTitan],
-        defaultModels: {
-            chat: serverOpus.modelRef,
-            fastChat: serverTitan.modelRef,
-            codeCompletion: serverClaude.modelRef,
-            unlimitedChat: serverOpus.modelRef,
-        },
-    }
-
-    const mockFetchServerSideModels = vi.fn(() => Promise.resolve(SERVER_MODELS))
     vi.mocked(featureFlagProvider).evaluatedFeatureFlag.mockReturnValue(Observable.of(false))
 
     const result = await firstValueFrom(
@@ -120,7 +106,7 @@ describe('server sent models', async () => {
             clientConfig: Observable.of({
                 modelsAPIEnabled: true,
             } satisfies Partial<CodyClientConfig> as CodyClientConfig),
-            fetchServerSideModels_: mockFetchServerSideModels,
+
             userProductSubscription: Observable.of({ userCanUpgrade: true }),
         }).pipe(skipPendingOperation())
     )
@@ -180,7 +166,7 @@ describe('syncModels', () => {
                 authStatus: authStatusSubject.pipe(shareReplay()),
                 configOverwrites: configOverwritesSubject.pipe(shareReplay()),
                 clientConfig: clientConfigSubject.pipe(shareReplay()),
-                fetchServerSideModels_: mockFetchServerSideModels,
+
                 userProductSubscription: Observable.of({ userCanUpgrade: true }),
             })
             const { values, clearValues, unsubscribe, done } = readValuesFrom(syncModelsObservable)
@@ -387,47 +373,6 @@ describe('syncModels', () => {
     )
 
     it('not to set Agentic Chat as default chat model when feature flag is enabled', async () => {
-        const serverSonnet: ServerModel = {
-            modelRef: 'anthropic::unknown::claude-3-5-sonnet',
-            displayName: 'Sonnet',
-            modelName: 'anthropic.claude-3-5-sonnet',
-            capabilities: ['chat'],
-            category: 'balanced' as ModelCategory,
-            status: 'stable',
-            tier: 'enterprise' as ModelTier,
-            contextWindow: {
-                maxInputTokens: 9000,
-                maxOutputTokens: 4000,
-            },
-        }
-        const serverHaiku: ServerModel = {
-            modelRef: 'anthropic::unknown::claude-3-5-haiku',
-            displayName: 'Haiku',
-            modelName: 'anthropic.claude-3-5-haiku',
-            capabilities: ['chat'],
-            category: 'balanced' as ModelCategory,
-            status: 'stable',
-            tier: 'enterprise' as ModelTier,
-            contextWindow: {
-                maxInputTokens: 9000,
-                maxOutputTokens: 4000,
-            },
-        }
-
-        const SERVER_MODELS: ServerModelConfiguration = {
-            schemaVersion: '0.0',
-            revision: '-',
-            providers: [],
-            models: [serverSonnet, serverHaiku],
-            defaultModels: {
-                chat: serverSonnet.modelRef,
-                fastChat: serverSonnet.modelRef,
-                codeCompletion: serverSonnet.modelRef,
-                unlimitedChat: serverSonnet.modelRef,
-            },
-        }
-
-        const mockFetchServerSideModels = vi.fn(() => Promise.resolve(SERVER_MODELS))
         vi.mocked(featureFlagProvider).evaluatedFeatureFlag.mockReturnValue(Observable.of(true))
 
         const result = await firstValueFrom(
@@ -442,7 +387,7 @@ describe('syncModels', () => {
                 clientConfig: Observable.of({
                     modelsAPIEnabled: true,
                 } satisfies Partial<CodyClientConfig> as CodyClientConfig),
-                fetchServerSideModels_: mockFetchServerSideModels,
+
                 userProductSubscription: Observable.of({ userCanUpgrade: true }),
             }).pipe(skipPendingOperation())
         )
@@ -453,8 +398,8 @@ describe('syncModels', () => {
         expect(storage.data?.[AUTH_STATUS_FIXTURE_AUTHED.endpoint]!.selected.chat).toBe(undefined)
         vi.spyOn(modelsService, 'modelsChanges', 'get').mockReturnValue(Observable.of(result))
 
-        // Check if Deep Cody model is in the primary models list.
-        expect(result.primaryModels.some(model => model.id.includes('deep-cody'))).toBe(true)
+        // Check if Deep Cody model is no longer in the models list.
+        expect(result.primaryModels.some(model => model.id.includes('deep-cody'))).toBe(false)
 
         // preference should not be affected and remains unchanged as this is handled in a later step.
         expect(result.preferences.selected.chat).toBe(undefined)
@@ -462,46 +407,6 @@ describe('syncModels', () => {
     })
 
     describe('model selection based on user tier and feature flags', () => {
-        const serverHaiku: ServerModel = {
-            modelRef: 'anthropic::unknown::claude-3-5-haiku',
-            displayName: 'Haiku',
-            modelName: 'anthropic.claude-3-5-haiku',
-            capabilities: ['chat'],
-            category: 'balanced' as ModelCategory,
-            status: 'stable',
-            tier: 'free' as ModelTier,
-            contextWindow: {
-                maxInputTokens: 7000,
-                maxOutputTokens: 4000,
-            },
-        }
-        const serverSonnet: ServerModel = {
-            modelRef: 'anthropic::unknown::sonnet',
-            displayName: 'Sonnet',
-            modelName: 'anthropic.claude-3-5-sonnet',
-            capabilities: ['chat'],
-            category: 'balanced' as ModelCategory,
-            status: 'stable',
-            tier: 'enterprise' as ModelTier,
-            contextWindow: {
-                maxInputTokens: 9000,
-                maxOutputTokens: 4000,
-            },
-        }
-        const SERVER_MODELS: ServerModelConfiguration = {
-            schemaVersion: '0.0',
-            revision: '-',
-            providers: [],
-            models: [serverHaiku, serverSonnet],
-            defaultModels: {
-                chat: serverSonnet.modelRef,
-                fastChat: serverSonnet.modelRef,
-                codeCompletion: serverSonnet.modelRef,
-                unlimitedChat: serverSonnet.modelRef,
-            },
-        }
-        const mockFetchServerSideModels = vi.fn(() => Promise.resolve(SERVER_MODELS))
-
         async function getModelResult(featureFlagEnabled: boolean, userCanUpgrade: boolean) {
             // set the feature flag
             if (featureFlagEnabled) {
@@ -536,7 +441,7 @@ describe('syncModels', () => {
                     clientConfig: Observable.of({
                         modelsAPIEnabled: true,
                     } satisfies Partial<CodyClientConfig> as CodyClientConfig),
-                    fetchServerSideModels_: mockFetchServerSideModels,
+
                     userProductSubscription: Observable.of({ userCanUpgrade }),
                 }).pipe(skipPendingOperation())
             )

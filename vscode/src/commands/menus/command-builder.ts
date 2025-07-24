@@ -3,7 +3,6 @@ import { type QuickPickItem, window } from 'vscode'
 import type { CodyCommand } from '@sourcegraph/cody-shared'
 
 import { type CodyCommandMode, CustomCommandType } from '@sourcegraph/cody-shared'
-import { telemetryRecorder } from '@sourcegraph/cody-shared'
 import { fromSlashCommand } from '../utils/common'
 import { CommandModeMenuOptions, customPromptsContextOptions } from './items/menu'
 
@@ -30,13 +29,6 @@ export class CustomCommandsBuilderMenu {
         const type = prompt && (await this.selectCommandType())
 
         if (key && mode && prompt && type) {
-            telemetryRecorder.recordEvent('cody.command.custom.build', 'executed', {
-                billingMetadata: {
-                    product: 'cody',
-                    category: 'core',
-                },
-            })
-
             return { key, prompt: { ...prompt, key, mode }, type }
         }
 

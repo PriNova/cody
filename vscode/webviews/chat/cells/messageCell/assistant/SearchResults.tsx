@@ -15,7 +15,6 @@ import { LastEditorContext } from '../../../../chat/context'
 import { NLSResultSnippet } from '../../../../components/NLSResultSnippet'
 import { Button } from '../../../../components/shadcn/ui/button'
 import { Label } from '../../../../components/shadcn/ui/label'
-import { useTelemetryRecorder } from '../../../../utils/telemetry'
 import { useOmniBoxDebug } from '../../../../utils/useOmniBox'
 import { InfoMessage } from '../../../components/InfoMessage'
 import { LoadingDots } from '../../../components/LoadingDots'
@@ -39,7 +38,6 @@ export const SearchResults = ({
     onSelectedFiltersUpdate,
     enableContextSelection,
 }: SearchResultsProps) => {
-    const telemetryRecorder = useTelemetryRecorder()
     const experimentalOneBoxDebug = useOmniBoxDebug()
     const lastEditorRef = useContext(LastEditorContext)
     const [selectedFollowUpResults, updateSelectedFollowUpResults] = useReducer(
@@ -121,33 +119,16 @@ export const SearchResults = ({
         }
     }, [enableContextSelection, selectedFollowUpResults, lastEditorRef])
 
-    const handleSelectForContext = useCallback(
-        (selected: boolean, result: NLSSearchResult) => {
-            telemetryRecorder.recordEvent(
-                'onebox.resultContext',
-                selected ? 'individualSelected' : 'individualDeselected',
-                {
-                    metadata: { resultRank: totalResults.indexOf(result) },
-                    billingMetadata: { product: 'cody', category: 'billable' },
-                }
-            )
-            updateSelectedFollowUpResults({
-                type: selected ? 'add' : 'remove',
-                results: [result],
-            })
-        },
-        [totalResults, telemetryRecorder]
-    )
+    const handleSelectForContext = useCallback((selected: boolean, result: NLSSearchResult) => {
+        updateSelectedFollowUpResults({
+            type: selected ? 'add' : 'remove',
+            results: [result],
+        })
+    }, [])
 
     const onFilterSidebarClose = useCallback(() => {
-        telemetryRecorder.recordEvent('onebox.filterSidebar', 'closed', {
-            billingMetadata: {
-                product: 'cody',
-                category: 'billable',
-            },
-        })
         setShowFiltersSidebar(false)
-    }, [telemetryRecorder])
+    }, [])
 
     if (showFiltersModal) {
         return (
@@ -156,9 +137,6 @@ export const SearchResults = ({
                 selectedFilters={message.search.selectedFilters || []}
                 onSelectedFiltersUpdate={onSelectedFiltersUpdate}
                 close={() => {
-                    telemetryRecorder.recordEvent('onebox.filterModal', 'closed', {
-                        billingMetadata: { product: 'cody', category: 'billable' },
-                    })
                     setShowFiltersModal(false)
                 }}
             />
@@ -213,16 +191,6 @@ export const SearchResults = ({
                                         <>
                                             <Button
                                                 onClick={() => {
-                                                    telemetryRecorder.recordEvent(
-                                                        'onebox.filterModal',
-                                                        'opened',
-                                                        {
-                                                            billingMetadata: {
-                                                                product: 'cody',
-                                                                category: 'billable',
-                                                            },
-                                                        }
-                                                    )
                                                     setShowFiltersModal(true)
                                                 }}
                                                 variant="outline"
@@ -249,16 +217,6 @@ export const SearchResults = ({
                                         <>
                                             <Button
                                                 onClick={() => {
-                                                    telemetryRecorder.recordEvent(
-                                                        'onebox.filterModal',
-                                                        'opened',
-                                                        {
-                                                            billingMetadata: {
-                                                                product: 'cody',
-                                                                category: 'billable',
-                                                            },
-                                                        }
-                                                    )
                                                     setShowFiltersSidebar(true)
                                                 }}
                                                 variant="outline"
@@ -292,17 +250,6 @@ export const SearchResults = ({
                                                 }
                                                 onChange={event => {
                                                     const checked = event.target.checked
-
-                                                    telemetryRecorder.recordEvent(
-                                                        'onebox.results',
-                                                        checked ? 'selectAll' : 'deselectAll',
-                                                        {
-                                                            billingMetadata: {
-                                                                product: 'cody',
-                                                                category: 'billable',
-                                                            },
-                                                        }
-                                                    )
 
                                                     if (checked) {
                                                         updateSelectedFollowUpResults({
@@ -371,21 +318,6 @@ export const SearchResults = ({
                                 resultsToShow !== totalResults && (
                                     <Button
                                         onClick={() => {
-                                            telemetryRecorder.recordEvent(
-                                                'onebox.moreResults',
-                                                'clicked',
-                                                {
-                                                    metadata: {
-                                                        totalResults: totalResults.length,
-                                                        resultsAdded:
-                                                            totalResults.length - resultsToShow.length,
-                                                    },
-                                                    billingMetadata: {
-                                                        product: 'cody',
-                                                        category: 'billable',
-                                                    },
-                                                }
-                                            )
                                             setShowAll(true)
                                             updateSelectedFollowUpResults({
                                                 type: 'add',

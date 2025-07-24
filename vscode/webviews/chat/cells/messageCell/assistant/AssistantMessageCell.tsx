@@ -18,16 +18,16 @@ import type { PromptEditorRefAPI } from '@sourcegraph/prompt-editor'
 import isEqual from 'lodash/isEqual'
 import { type FunctionComponent, type RefObject, memo, useMemo } from 'react'
 import type { ApiPostMessage, UserAccountInfo } from '../../../../Chat'
-import { chatModelIconComponent } from '../../../../components/ChatModelIcon'
-import { CheckCodeBlockIcon } from '../../../../icons/CodeBlockActionIcons'
-import { useOmniBox } from '../../../../utils/useOmniBox'
 import {
     ChatMessageContent,
     type CodeBlockActionsProps,
 } from '../../../ChatMessageContent/ChatMessageContent'
+
+import { chatModelIconComponent } from '../../../../components/ChatModelIcon'
+import styles from '../../../ChatMessageContent/ChatMessageContent.module.css'
+import { CopyButton } from '../../../ChatMessageContent/EditButtons'
 import { ErrorItem, RequestErrorItem } from '../../../ErrorItem'
 import { type Interaction, editHumanMessage } from '../../../Transcript'
-import { CopyIcon } from '../../../components/CopyIcon'
 import { BaseMessageCell, MESSAGE_CELL_AVATAR_SIZE } from '../BaseMessageCell'
 import { SearchResults } from './SearchResults'
 import { SubMessageCell } from './SubMessageCell'
@@ -84,16 +84,14 @@ export const AssistantMessageCell: FunctionComponent<{
             () => (message.text ? reformatBotMessageForChat(message.text).toString() : ''),
             [message.text]
         )
-
         const chatModel = useChatModelByID(message.model, models)
         const ModelIcon = chatModel ? chatModelIconComponent(chatModel.id) : null
         const isAborted = isAbortErrorOrSocketHangUp(message.error)
 
         const hasLongerResponseTime = chatModel?.tags?.includes(ModelTag.StreamDisabled)
 
-        const omniboxEnabled = useOmniBox()
-
-        const isSearchIntent = omniboxEnabled && humanMessage?.intent === 'search'
+        const messageIntent = humanMessage?.intent ?? message.intent ?? 'chat'
+        const isSearchIntent = messageIntent === 'search'
 
         // Determine if the speaker info (icon and title) should be shown
         // Show if intent is NOT agentic, OR if intent IS agentic AND it's the first interaction.
@@ -140,7 +138,7 @@ export const AssistantMessageCell: FunctionComponent<{
                                 />
                             )
                         ) : null}
-                        {omniboxEnabled && !isLoading && message.search ? (
+                        {!isLoading && message.search ? (
                             <SearchResults
                                 message={message as ChatMessageWithSearch}
                                 onSelectedFiltersUpdate={onSelectedFiltersUpdate}
@@ -197,36 +195,23 @@ export const AssistantMessageCell: FunctionComponent<{
                                 </div>
                             </div>
                         )}
-                        <div className="tw-flex tw-items-center tw-divide-x tw-transition tw-divide-muted tw-opacity-65 hover:tw-opacity-100">
-                            {!isLoading && (!message.error || isAborted) && !isSearchIntent && (
-                                <div className="tw-flex tw-items-center">
-                                    <button
-                                        type="button"
-                                        className="tw-flex tw-items-center tw-gap-2 tw-text-sm tw-text-muted-foreground hover:tw-text-foreground"
-                                        onClick={event => {
-                                            const button = event.currentTarget
-                                            const originalContent = button.innerHTML
-
-                                            // Change to check icon when clicked
-                                            button.innerHTML = JSON.stringify(CheckCodeBlockIcon)
-
-                                            // Copy text to clipboard
-                                            navigator.clipboard.writeText(message.text?.toString() || '')
-                                            copyButtonOnSubmit?.(message.text?.toString() || '')
-
-                                            // Reset after 5 seconds
-                                            setTimeout(() => {
-                                                button.innerHTML = originalContent
-                                            }, 5000)
-                                        }}
-                                        title="Copy message to clipboard"
-                                    >
-                                        Copy message to clipboard
-                                        <CopyIcon />
-                                    </button>
+                        {!isLoading &&
+                            (!message.error || isAborted) &&
+                            // Do not display copy button for non-chat mode.
+                            // NOTE: Empty intent is defaulted to chat.
+                            messageIntent === 'chat' && (
+                                <div
+                                    className={`tw-flex tw-items-center tw-justify-end tw-gap-4  ${styles.buttonsContainer}`}
+                                >
+                                    <CopyButton
+                                        text={message.text?.toString() || ''}
+                                        onCopy={copyButtonOnSubmit}
+                                        showLabel={false}
+                                        className={'tw-transition tw-opacity-65 hover:tw-opacity-100'}
+                                        title="Copy Message"
+                                    />
                                 </div>
                             )}
-                        </div>
                     </div>
                 }
             />

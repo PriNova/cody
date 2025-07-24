@@ -303,7 +303,6 @@ export {
     type RepoListResponse,
     type SuggestionsRepo,
     type RepoSuggestionsSearchResponse,
-    type ChatIntentResult,
     type NLSSearchResult,
     type NLSSearchResponse,
     type NLSSearchFileMatch,
@@ -321,17 +320,6 @@ export type {
 } from './sourcegraph-api/graphql/client'
 export { RestClient } from './sourcegraph-api/rest/client'
 export { GraphQLTelemetryExporter } from './sourcegraph-api/telemetry/GraphQLTelemetryExporter'
-export { type BillingCategory, type BillingProduct } from './telemetry-v2'
-export {
-    MockServerTelemetryRecorderProvider,
-    NoOpTelemetryRecorderProvider,
-    TelemetryRecorderProvider,
-    noOpTelemetryRecorder,
-    type ExtensionDetails,
-} from './telemetry-v2/TelemetryRecorderProvider'
-export type { TelemetryRecorder } from './telemetry-v2/TelemetryRecorderProvider'
-export * from './telemetry-v2/singleton'
-export { events as telemetryEvents } from './telemetry-v2/events'
 export { testFileUri } from './test/path-helpers'
 export * from './test/constants'
 export * from './tracing'
@@ -363,10 +351,7 @@ export {
     type ContextMentionProviderID,
     type ContextMentionProviderMetadata,
 } from './mentions/api'
-export {
-    TokenCounter,
-    TokenCounterUtils,
-} from './token/counter'
+export { TokenCounter, getTokenCounterUtils, TokenCounterUtils } from './token/counter'
 export { CORPUS_CONTEXT_ALLOCATION as ENHANCED_CONTEXT_ALLOCATION } from './token/constants'
 export { tokensToChars, charsToTokens } from './token/utils'
 export * from './prompt/prompt-string'

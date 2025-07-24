@@ -22,11 +22,9 @@ import type { AgentHandler, AgentHandlerDelegate, AgentRequest } from './interfa
 
 export class SearchHandler implements AgentHandler {
     async handle(
-        { editorState, inputText, mentions, chatBuilder, signal, recorder, span }: AgentRequest,
+        { editorState, inputText, mentions, chatBuilder, signal, span }: AgentRequest,
         delegate: AgentHandlerDelegate
     ): Promise<void> {
-        recorder.recordChatQuestionExecuted(mentions, { addMetadata: true, current: span })
-
         const inputTextWithoutContextChips = editorState
             ? inputTextWithoutContextChipsFromPromptEditorState(editorState)
             : inputText.toString()

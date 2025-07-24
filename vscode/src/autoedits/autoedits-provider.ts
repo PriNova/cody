@@ -7,11 +7,13 @@ import type { Histogram } from '@opentelemetry/api'
 import {
     type ChatClient,
     type ClientCapabilities,
+    type CodeToReplaceData,
     type DocumentContext,
     clientCapabilities,
     currentResolvedConfig,
     tokensToChars,
 } from '@sourcegraph/cody-shared'
+
 import type { CompletionBookkeepingEvent } from '../completions/analytics-logger'
 import { ContextRankingStrategy } from '../completions/context/completions-context-ranker'
 import { ContextMixer } from '../completions/context/context-mixer'
@@ -23,6 +25,7 @@ import type { AutocompleteEditItem, AutoeditChanges } from '../jsonrpc/agent-pro
 import { isRunningInsideAgent } from '../jsonrpc/isRunningInsideAgent'
 import type { FixupController } from '../non-stop/FixupController'
 import type { CodyStatusBar } from '../services/StatusBar'
+
 import type {
     AbortedModelResponse,
     AutoeditsModelAdapter,
@@ -36,6 +39,7 @@ import {
     type AutoeditHotStreakID,
     type AutoeditRequestID,
     type AutoeditRequestStateForAgentTesting,
+    type AutoeditTriggerKindMetadata,
     autoeditAnalyticsLogger,
     autoeditDiscardReason,
     autoeditSource,
@@ -46,24 +50,21 @@ import { AutoeditCompletionItem } from './autoedit-completion-item'
 import { autoeditsOnboarding } from './autoedit-onboarding'
 import { autoeditsProviderConfig } from './autoedits-config'
 import { FilterPredictionBasedOnRecentEdits } from './filter-prediction-edits'
-import { type ProcessedHotStreakResponse, processHotStreakResponses } from './hot-streak'
+import { processHotStreakResponses } from './hot-streak'
 import { createMockResponseGenerator } from './mock-response-generator'
 import { autoeditsOutputChannelLogger } from './output-channel-logger'
 import type { AutoeditsUserPromptStrategy } from './prompt/base'
 import { createPromptProvider } from './prompt/create-prompt-provider'
-import { type CodeToReplaceData, getCodeToReplaceData } from './prompt/prompt-utils'
-import { getCurrentFilePath } from './prompt/prompt-utils'
-import type { DecorationInfo } from './renderer/decorators/base'
-import { DefaultDecorator } from './renderer/decorators/default-decorator'
-import { InlineDiffDecorator } from './renderer/decorators/inline-diff-decorator'
-import { getAddedLines, getDecorationInfo } from './renderer/diff-utils'
+import { getCodeToReplaceData } from './prompt/prompt-utils/code-to-replace'
+import { getCurrentFilePath } from './prompt/prompt-utils/common'
+import { getAddedLines, getDecorationInfoFromPrediction } from './renderer/diff-utils'
 import { initImageSuggestionService } from './renderer/image-gen'
-import { AutoEditsInlineRendererManager } from './renderer/inline-manager'
-import { AutoEditsDefaultRendererManager, type AutoEditsRendererManager } from './renderer/manager'
+import { AutoEditsRendererManager } from './renderer/manager'
 import {
     extractAutoEditResponseFromCurrentDocumentCommentTemplate,
     shrinkReplacerTextToCodeToReplaceRange,
 } from './renderer/mock-renderer'
+import { NextCursorManager } from './renderer/next-cursor-manager'
 import type { AutoEditRenderOutput } from './renderer/render-output'
 import { type AutoeditRequestManagerParams, RequestManager } from './request-manager'
 import { shrinkPredictionUntilSuffix } from './shrink-prediction'
@@ -145,7 +146,6 @@ export type AutoeditClientCapabilities = Pick<
 >
 
 interface AutoeditsFeatures {
-    shouldRenderInline: boolean
     shouldHotStreak: boolean
     allowUsingWebSocket: boolean
 }
@@ -177,6 +177,7 @@ export class AutoeditsProvider implements vscode.InlineCompletionItemProvider, v
     private readonly modelAdapter: AutoeditsModelAdapter
     private readonly requestManager = new RequestManager()
     public readonly smartThrottleService = new SmartThrottleService()
+    protected nextCursorManager = new NextCursorManager(this.requestManager)
 
     private readonly promptStrategy: AutoeditsUserPromptStrategy
     public readonly filterPrediction = new FilterPredictionBasedOnRecentEdits()
@@ -192,6 +193,7 @@ export class AutoeditsProvider implements vscode.InlineCompletionItemProvider, v
     private modelCallLatencyMetric: Histogram<{
         adapter: string
         model: string
+        seq: number
     }>
 
     constructor(
@@ -221,17 +223,7 @@ export class AutoeditsProvider implements vscode.InlineCompletionItemProvider, v
             allowUsingWebSocket: this.features.allowUsingWebSocket,
         })
 
-        this.rendererManager = this.features.shouldRenderInline
-            ? new AutoEditsInlineRendererManager(
-                  editor => new InlineDiffDecorator(editor),
-                  fixupController,
-                  this.requestManager
-              )
-            : new AutoEditsDefaultRendererManager(
-                  editor => new DefaultDecorator(editor),
-                  fixupController,
-                  this.requestManager
-              )
+        this.rendererManager = new AutoEditsRendererManager(fixupController, this.requestManager)
 
         this.onSelectionChangeDebounced = debounce(
             (event: vscode.TextEditorSelectionChangeEvent) => this.onSelectionChange(event),
@@ -243,6 +235,7 @@ export class AutoeditsProvider implements vscode.InlineCompletionItemProvider, v
             this.contextMixer,
             this.rendererManager,
             this.modelAdapter,
+            this.nextCursorManager,
             vscode.window.onDidChangeTextEditorSelection(this.onSelectionChangeDebounced),
             vscode.workspace.onDidChangeTextDocument(event => {
                 this.onDidChangeTextDocument(event)
@@ -261,8 +254,9 @@ export class AutoeditsProvider implements vscode.InlineCompletionItemProvider, v
         this.modelCallLatencyMetric = meter.createHistogram<{
             adapter: string
             model: string
-        }>('autoedit.model.call.latency', {
-            description: 'Autoedit model call latency',
+            seq: number
+        }>('autoedit.model.latency', {
+            description: 'Autoedit model call latency by adapter and model',
             unit: 'ms',
         })
 
@@ -324,7 +318,12 @@ export class AutoeditsProvider implements vscode.InlineCompletionItemProvider, v
 
         if (inlineCompletionContext.selectedCompletionInfo !== undefined) {
             const { range, text } = inlineCompletionContext.selectedCompletionInfo
-            const completion = new AutoeditCompletionItem({ id: null, insertText: text, range })
+            const completion = new AutoeditCompletionItem({
+                id: null,
+                insertText: text,
+                range,
+                withoutCurrentLinePrefix: { insertText: text, range },
+            })
             // User has a currently selected item in the autocomplete widget.
             // Instead of attempting to suggest an auto-edit, just show the selected item
             // as the completion. This is to avoid an undesirable edit conflicting with the acceptance
@@ -339,6 +338,11 @@ export class AutoeditsProvider implements vscode.InlineCompletionItemProvider, v
         }
 
         try {
+            const triggerKind =
+                this.lastManualTriggerTimestamp > performance.now() - 50
+                    ? autoeditTriggerKind.manual
+                    : autoeditTriggerKind.automatic
+
             stopLoading = this.statusBar.addLoader({
                 title: 'Auto-edits are being generated',
                 timeout: 5_000,
@@ -347,7 +351,7 @@ export class AutoeditsProvider implements vscode.InlineCompletionItemProvider, v
             const throttledRequest = this.smartThrottleService.throttle({
                 uri: document.uri.toString(),
                 position,
-                isManuallyTriggered: this.lastManualTriggerTimestamp > performance.now() - 50,
+                isManuallyTriggered: triggerKind === autoeditTriggerKind.manual,
             })
 
             const abortSignal = throttledRequest.abortController.signal
@@ -398,13 +402,13 @@ export class AutoeditsProvider implements vscode.InlineCompletionItemProvider, v
                 filePath: getCurrentFilePath(document).toString(),
                 codeToReplaceData: requestCodeToReplaceData,
                 position,
-                docContext: requestDocContext,
+                requestDocContext,
                 document,
                 payload: {
                     languageId: document.languageId,
                     model: autoeditsProviderConfig.model,
                     codeToRewrite: requestCodeToReplaceData.codeToRewrite,
-                    triggerKind: autoeditTriggerKind.automatic,
+                    triggerKind,
                 },
             })
 
@@ -461,8 +465,9 @@ export class AutoeditsProvider implements vscode.InlineCompletionItemProvider, v
                 position,
                 prompt,
                 codeToReplaceData: requestCodeToReplaceData,
-                docContext: requestDocContext,
+                requestDocContext,
                 abortSignal,
+                triggerKind,
             })
 
             if (abortSignal?.aborted || predictionResult.type === 'aborted') {
@@ -474,6 +479,19 @@ export class AutoeditsProvider implements vscode.InlineCompletionItemProvider, v
                 return null
             }
 
+            const initialPrediction = predictionResult.response.prediction
+            autoeditAnalyticsLogger.markAsLoaded({
+                requestId,
+                prompt,
+                modelResponse: predictionResult.response,
+                payload: {
+                    // TODO: make it required
+                    source: predictionResult.response.source ?? autoeditSource.network,
+                    isFuzzyMatch: false,
+                    prediction: initialPrediction,
+                },
+            })
+
             if (predictionResult.type === 'ignored') {
                 this.discardSuggestion({
                     startedAt,
@@ -483,26 +501,16 @@ export class AutoeditsProvider implements vscode.InlineCompletionItemProvider, v
                 return null
             }
 
-            const initialPrediction = predictionResult.response.prediction
             const predictionDocContext = predictionResult.docContext
             const predictionCodeToReplaceData = predictionResult.codeToReplaceData
 
-            autoeditAnalyticsLogger.markAsLoaded({
+            autoeditAnalyticsLogger.markAsPostProcessed({
                 requestId,
                 cacheId: predictionResult.cacheId,
                 hotStreakId: predictionResult.hotStreakId,
-                prompt,
-                modelResponse: predictionResult.response,
-                docContext: predictionDocContext,
+                predictionDocContext,
                 codeToReplaceData: predictionCodeToReplaceData,
                 editPosition: predictionResult.editPosition,
-                payload: {
-                    // TODO: make it required
-                    source: predictionResult.response.source ?? autoeditSource.network,
-                    isFuzzyMatch: false,
-                    prediction: initialPrediction,
-                    codeToRewrite: predictionCodeToReplaceData.codeToRewrite,
-                },
             })
 
             if (throttledRequest.isStale) {
@@ -591,7 +599,6 @@ export class AutoeditsProvider implements vscode.InlineCompletionItemProvider, v
                     prediction,
                     document,
                     position,
-                    docContext: predictionDocContext,
                     decorationInfo,
                     codeToReplaceData: predictionCodeToReplaceData,
                 },
@@ -623,7 +630,7 @@ export class AutoeditsProvider implements vscode.InlineCompletionItemProvider, v
             // `this.unstable_handleDidShowCompletionItem` can't receive anything apart from the `requestId`
             // because the agent does not know anything about our internal state.
             // We need to ensure all the relevant metadata can be retrieved from `requestId` only.
-            autoeditAnalyticsLogger.markAsPostProcessed({
+            autoeditAnalyticsLogger.markAsReadyToBeRendered({
                 requestId,
                 renderOutput,
                 prediction:
@@ -634,6 +641,24 @@ export class AutoeditsProvider implements vscode.InlineCompletionItemProvider, v
                         : decorationInfo,
             })
 
+            if (this.shouldDeferToNextCursorSuggestion({ prediction: predictionResult, position })) {
+                this.discardSuggestion({
+                    startedAt,
+                    requestId,
+                    discardReason: 'nextCursorSuggestionShownInstead',
+                })
+
+                this.nextCursorManager.suggest({
+                    uri: document.uri,
+                    position: predictionResult.editPosition,
+                    hotStreakId: predictionResult.hotStreakId,
+                })
+                return null
+            }
+
+            // Ensure any next cursor suggestion is discarded before we render a suggestion.
+            this.nextCursorManager.discard()
+
             if (!isRunningInsideAgent()) {
                 // Since VS Code has no callback as to when a completion is shown, we assume
                 // that if we pass the above visibility tests, the completion is going to be
@@ -643,11 +668,9 @@ export class AutoeditsProvider implements vscode.InlineCompletionItemProvider, v
 
             if ('decorations' in renderOutput) {
                 await this.rendererManager.renderInlineDecorations(
-                    decorationInfo,
+                    document.uri,
                     renderOutput.decorations
                 )
-            } else if (renderOutput.type === 'legacy-decorations') {
-                await this.rendererManager.renderInlineDecorations(decorationInfo)
             }
 
             if ('inlineCompletionItems' in renderOutput) {
@@ -705,8 +728,12 @@ export class AutoeditsProvider implements vscode.InlineCompletionItemProvider, v
 
             if (process.env.NODE_ENV === 'development') {
                 console.error(errorToReport)
+                if (errorToReport.stack) {
+                    console.error(errorToReport.stack)
+                }
             }
 
+            // TODO: surface errors in the autoedit debug panel
             autoeditAnalyticsLogger.logError(errorToReport)
             return null
         } finally {
@@ -807,65 +834,24 @@ export class AutoeditsProvider implements vscode.InlineCompletionItemProvider, v
         return this.rendererManager.handleDidShowSuggestion(requestId)
     }
 
-    /**
-     * Process model responses and emit hot streak predictions
-     * This allows us to emit suggestions before the model is done generating
-     */
-    private async getAndProcessModelResponses({
-        document,
-        position,
-        codeToReplaceData,
-        docContext,
-        prompt,
-        abortSignal,
-    }: {
-        document: vscode.TextDocument
-        position: vscode.Position
-        codeToReplaceData: CodeToReplaceData
-        docContext: DocumentContext
-        prompt: AutoeditsPrompt
-        abortSignal: AbortSignal
-    }): Promise<AsyncGenerator<ProcessedHotStreakResponse>> {
-        const userId = (await currentResolvedConfig()).clientState.anonymousUserID
-        const responseGenerator = await this.modelAdapter.getModelResponse({
-            url: autoeditsProviderConfig.url,
-            model: autoeditsProviderConfig.model,
-            prompt,
-            codeToRewrite: codeToReplaceData.codeToRewrite,
-            userId,
-            isChatModel: autoeditsProviderConfig.isChatModel,
-            abortSignal,
-            timeoutMs: autoeditsProviderConfig.timeoutMs,
-        })
-
-        return processHotStreakResponses({
-            responseGenerator,
-            document,
-            codeToReplaceData,
-            docContext,
-            position,
-            options: {
-                hotStreakEnabled: this.features.shouldHotStreak,
-            },
-        })
-    }
-
     private async getPrediction({
         requestId,
         document,
         position,
         codeToReplaceData,
-        docContext,
+        requestDocContext,
         prompt,
         abortSignal,
+        triggerKind,
     }: {
         requestId: AutoeditRequestID
         document: vscode.TextDocument
         position: vscode.Position
         codeToReplaceData: CodeToReplaceData
-        docContext: DocumentContext
+        requestDocContext: DocumentContext
         prompt: AutoeditsPrompt
         abortSignal: AbortSignal
+        triggerKind: AutoeditTriggerKindMetadata
     }): Promise<PredictionResult> {
         const requestParams: AutoeditRequestManagerParams = {
             requestId,
@@ -874,9 +860,10 @@ export class AutoeditsProvider implements vscode.InlineCompletionItemProvider, v
             documentText: document.getText(),
             documentVersion: document.version,
             codeToReplaceData,
-            docContext,
+            requestDocContext,
             position,
             abortSignal,
+            triggerKind,
         }
 
         if (autoeditsProviderConfig.isMockResponseFromCurrentDocumentTemplateEnabled) {
@@ -898,7 +885,7 @@ export class AutoeditsProvider implements vscode.InlineCompletionItemProvider, v
                             responseGenerator,
                             document,
                             codeToReplaceData,
-                            docContext,
+                            requestDocContext,
                             position,
                             options: {
                                 hotStreakEnabled: this.features.shouldHotStreak,
@@ -910,23 +897,58 @@ export class AutoeditsProvider implements vscode.InlineCompletionItemProvider, v
         }
 
         return this.requestManager.request(requestParams, async signal => {
-            const startedAt = getTimeNowInMillis()
-            const response = await this.getAndProcessModelResponses({
-                document,
-                position,
-                codeToReplaceData,
-                prompt,
-                abortSignal: signal,
-                docContext,
-            })
-
-            this.modelCallLatencyMetric.record(getTimeNowInMillis() - startedAt, {
-                adapter: this.modelAdapter.constructor.name,
+            const userId = (await currentResolvedConfig()).clientState.anonymousUserID
+            const responseGenerator = await this.modelAdapter.getModelResponse({
+                url: autoeditsProviderConfig.url,
                 model: autoeditsProviderConfig.model,
+                prompt,
+                codeToRewrite: codeToReplaceData.codeToRewrite,
+                userId,
+                isChatModel: autoeditsProviderConfig.isChatModel,
+                abortSignal,
+                timeoutMs: autoeditsProviderConfig.timeoutMs,
             })
 
-            return response
+            const responseWithTiming = this.generatorWithTiming(
+                this.modelAdapter.constructor.name,
+                autoeditsProviderConfig.model,
+                responseGenerator
+            )
+
+            return processHotStreakResponses({
+                responseGenerator: responseWithTiming,
+                document,
+                codeToReplaceData,
+                requestDocContext,
+                position,
+                options: {
+                    hotStreakEnabled: this.features.shouldHotStreak,
+                },
+            })
         })
+    }
+
+    private async *generatorWithTiming<T>(
+        adapter: string,
+        model: string,
+        generator: AsyncGenerator<T>
+    ): AsyncGenerator<T> {
+        const startedAt = getTimeNowInMillis()
+        let seq = 0
+        while (true) {
+            const res = await generator.next()
+            this.modelCallLatencyMetric.record(getTimeNowInMillis() - startedAt, {
+                adapter,
+                model,
+                seq,
+            })
+            seq += 1
+
+            if (res.done) {
+                return
+            }
+            yield res.value
+        }
     }
 
     public async manuallyTriggerCompletion(): Promise<void> {
@@ -940,12 +962,33 @@ export class AutoeditsProvider implements vscode.InlineCompletionItemProvider, v
         await vscode.commands.executeCommand('editor.action.inlineSuggest.trigger')
     }
 
+    /**
+     * Threshold in which we will prefer to show a next cursor suggestion instead
+     * of the current suggestion.
+     */
+    private NEXT_CURSOR_SUGGESTION_THRESHOLD = 10
+    private shouldDeferToNextCursorSuggestion({
+        prediction,
+        position,
+    }: {
+        prediction: SuggestedPredictionResult
+        position: vscode.Position
+    }): boolean {
+        if (!this.features.shouldHotStreak) {
+            // Only support next cursor suggestions when hot-streak is enabled
+            return false
+        }
+
+        const distance = prediction.editPosition.line - position.line
+        return distance > this.NEXT_CURSOR_SUGGESTION_THRESHOLD
+    }
+
     public getTestingAutoeditEvent(id: AutoeditRequestID): AutoeditRequestStateForAgentTesting {
         return this.rendererManager.testing_getTestingAutoeditEvent(id)
     }
 
     /**
-     * noop method for Agent compability with `InlineCompletionItemProvider`.
+     * noop method for Agent compatibility with `InlineCompletionItemProvider`.
      * See: vscode/src/completions/inline-completion-item-provider.ts
      */
     public clearLastCandidate(): void {
@@ -979,18 +1022,4 @@ export class AutoeditsProvider implements vscode.InlineCompletionItemProvider, v
         }
     }
 }
-
-export function getDecorationInfoFromPrediction(
-    document: vscode.TextDocument,
-    prediction: string,
-    range: vscode.Range
-): DecorationInfo {
-    const currentFileText = document.getText()
-    const predictedFileText =
-        currentFileText.slice(0, document.offsetAt(range.start)) +
-        prediction +
-        currentFileText.slice(document.offsetAt(range.end))
-
-    const decorationInfo = getDecorationInfo(currentFileText, predictedFileText)
-    return decorationInfo
-}
+export { getDecorationInfoFromPrediction }

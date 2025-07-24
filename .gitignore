@@ -49,3 +49,7 @@ test-results
 agent/bindings/kotlin/lib/bin/
 .aider.*
 .aiderignore
+.cody/
+.codyarchitect/
+.sourcegraph/
+*.rule.md

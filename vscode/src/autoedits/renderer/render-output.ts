@@ -1,5 +1,8 @@
-import type { CodeToReplaceData, DocumentContext } from '@sourcegraph/cody-shared'
 import * as vscode from 'vscode'
+
+import type { CodeToReplaceData } from '@sourcegraph/cody-shared'
+
+import { getCurrentLinePrefixAndSuffix } from '../../completions/get-current-doc-context'
 import { completionMatchesSuffix } from '../../completions/is-completion-visible'
 import { shortenPromptForOutputChannel } from '../../completions/output-channel-logger'
 import { isRunningInsideAgent } from '../../jsonrpc/isRunningInsideAgent'
@@ -7,6 +10,7 @@ import type { AutoeditRequestID } from '../analytics-logger'
 import { AutoeditCompletionItem } from '../autoedit-completion-item'
 import type { AutoeditClientCapabilities } from '../autoedits-provider'
 import { autoeditsOutputChannelLogger } from '../output-channel-logger'
+
 import type { AutoEditDecoration, AutoEditDecorations, DecorationInfo } from './decorators/base'
 import { cssPropertiesToString } from './decorators/utils'
 import { isOnlyAddingTextForModifiedLines, isOnlyRemovingTextForModifiedLines } from './diff-utils'
@@ -20,7 +24,6 @@ export interface GetRenderOutputArgs {
     document: vscode.TextDocument
     prediction: string
     position: vscode.Position
-    docContext: DocumentContext
     decorationInfo: DecorationInfo
     codeToReplaceData: CodeToReplaceData
 }
@@ -28,17 +31,6 @@ export interface GetRenderOutputArgs {
 interface NoCompletionRenderOutput {
     // Used when it is not deemed possible to render anything.
     type: 'none'
-}
-
-/**
- * Legacy completion output that is required for the deprecated default decoator.
- * See vscode/src/autoedits/renderer/decorators/default-decorator.ts
- */
-export interface LegacyCompletionRenderOutput {
-    type: 'legacy-completion'
-    inlineCompletionItems: AutoeditCompletionItem[]
-    updatedDecorationInfo: null
-    updatedPrediction: string
 }
 
 export interface CompletionRenderOutput {
@@ -54,16 +46,6 @@ interface CompletionWithDecorationsRenderOutput {
     decorations: AutoEditDecorations
     updatedDecorationInfo: DecorationInfo
     updatedPrediction: string
-}
-
-/**
- * Legacy decorations output that is required for the deprecated default decoator.
- * See vscode/src/autoedits/renderer/decorators/default-decorator.ts.
- */
-export interface LegacyDecorationsRenderOutput {
-    // Only the type, the logic to compute the decorations lives in the default decorator
-    // instead of `getRenderOutput`.
-    type: 'legacy-decorations'
 }
 
 interface DecorationsRenderOutput {
@@ -94,10 +76,8 @@ interface CustomRenderOutput {
 
 export type AutoEditRenderOutput =
     | NoCompletionRenderOutput
-    | LegacyCompletionRenderOutput
     | CompletionRenderOutput
     | CompletionWithDecorationsRenderOutput
-    | LegacyDecorationsRenderOutput
     | DecorationsRenderOutput
     | ImageRenderOutput
     | CustomRenderOutput
@@ -111,7 +91,36 @@ export type AutoEditRenderOutput =
  * 4. As an image (adding/removing text in a complex diff where decorations are not desirable)
  */
 export class AutoEditsRenderOutput {
-    protected getInlineRenderOutput(
+    public getRenderOutput(
+        args: GetRenderOutputArgs,
+        capabilities: AutoeditClientCapabilities
+    ): AutoEditRenderOutput {
+        const completionsWithDecorations = this.getCompletionsWithPossibleDecorationsRenderOutput(
+            args,
+            capabilities
+        )
+        if (completionsWithDecorations) {
+            return completionsWithDecorations
+        }
+
+        const inlineDiff = this.getInlineRenderOutput(args, capabilities)
+        if (inlineDiff) {
+            return inlineDiff
+        }
+
+        const asideDiff = this.getAsideRenderOutput(args, capabilities)
+        if (asideDiff) {
+            return asideDiff
+        }
+
+        // This should only happen if a client has opted in to `autoedit` but not provided a valid
+        // `autoeditInlineDiff` or `autoeditAsideDiff` capability.
+        throw new Error(
+            'Unable to get a render suitable suggestion for autoedit. Please ensure the correct clientCapabilities are set for this client.'
+        )
+    }
+
+    private getInlineRenderOutput(
         args: GetRenderOutputArgs,
         capabilities: AutoeditClientCapabilities
     ): AutoEditRenderOutput | null {
@@ -139,7 +148,7 @@ export class AutoEditsRenderOutput {
         }
     }
 
-    protected getAsideRenderOutput(
+    private getAsideRenderOutput(
         args: GetRenderOutputArgs,
         capabilities: AutoeditClientCapabilities
     ): AutoEditRenderOutput | null {
@@ -183,7 +192,7 @@ export class AutoEditsRenderOutput {
         }
     }
 
-    protected getCompletionsWithPossibleDecorationsRenderOutput(
+    private getCompletionsWithPossibleDecorationsRenderOutput(
         args: GetRenderOutputArgs,
         capabilities: AutoeditClientCapabilities
     ): CompletionRenderOutput | CompletionWithDecorationsRenderOutput | null {
@@ -237,7 +246,6 @@ export class AutoEditsRenderOutput {
     private tryMakeInlineCompletions({
         requestId,
         position,
-        docContext,
         prediction,
         document,
         decorationInfo,
@@ -253,18 +261,23 @@ export class AutoEditsRenderOutput {
             decorationInfo,
         })
 
+        const { currentLinePrefix, currentLineSuffix } = getCurrentLinePrefixAndSuffix({
+            document,
+            position,
+        })
+
         if (insertText.length === 0) {
             return null
         }
 
         // The current line suffix should not require any char removals to render the completion.
-        const isSuffixMatch = completionMatchesSuffix(insertText, docContext.currentLineSuffix)
+        const isSuffixMatch = completionMatchesSuffix(insertText, currentLineSuffix)
         if (!isSuffixMatch) {
             // Does not match suffix. Cannot render inline completion.
             return null
         }
 
-        const completionText = docContext.currentLinePrefix + insertText
+        const completionText = currentLinePrefix + insertText
         const inlineCompletionItems = [
             new AutoeditCompletionItem({
                 id: requestId,
@@ -281,6 +294,10 @@ export class AutoEditsRenderOutput {
                             requestId,
                         },
                     ],
+                },
+                withoutCurrentLinePrefix: {
+                    insertText,
+                    range: new vscode.Range(position, position),
                 },
             }),
         ]
@@ -321,7 +338,7 @@ export class AutoEditsRenderOutput {
         }
     }
 
-    protected shouldRenderInlineDiff(
+    private shouldRenderInlineDiff(
         decorationInfo: DecorationInfo,
         clientCapabilities: AutoeditClientCapabilities
     ): boolean {

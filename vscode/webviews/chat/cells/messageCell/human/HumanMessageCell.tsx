@@ -7,7 +7,6 @@ import {
 } from '@sourcegraph/cody-shared'
 import type { PromptEditorRefAPI } from '@sourcegraph/prompt-editor'
 import clsx from 'clsx'
-import isEqual from 'lodash/isEqual'
 import { type FC, memo, useMemo, useRef, useState } from 'react'
 import type { UserAccountInfo } from '../../../../Chat'
 import { BaseMessageCell } from '../BaseMessageCell'
@@ -103,13 +102,13 @@ const HumanMessageCellContent = memo<HumanMessageCellContent>(props => {
         editorRef,
         __storybook__focus,
         onEditorFocusChange,
-        intent,
         manuallySelectIntent,
         imageFile,
         isGoogleSearchEnabled,
         setIsGoogleSearchEnabled,
         setImageFile,
         onTokenCountChange,
+        intent,
     } = props
     const [isDragging, setIsDragging] = useState(false)
     const dragCounter = useRef(0)
@@ -195,7 +194,7 @@ const HumanMessageCellContent = memo<HumanMessageCellContent>(props => {
                         editorRef={editorRef}
                         __storybook__focus={__storybook__focus}
                         onEditorFocusChange={onEditorFocusChange}
-                        intent={intent}
+                        selectedIntent={intent}
                         manuallySelectIntent={manuallySelectIntent}
                         imageFile={imageFile}
                         setImageFile={setImageFile}
@@ -208,4 +207,4 @@ const HumanMessageCellContent = memo<HumanMessageCellContent>(props => {
             className={className}
         />
     )
-}, isEqual)
+})

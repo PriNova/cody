@@ -2,8 +2,6 @@ import type { Writable } from 'type-fest'
 import { type MockInstance, afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type * as vscode from 'vscode'
 
-import { telemetryRecorder } from '@sourcegraph/cody-shared'
-
 import { document } from '../completions/test-helpers'
 import { range } from '../editor/utils/virtual-text-document'
 
@@ -36,7 +34,8 @@ describe('CharactersLogger', () => {
     beforeEach(() => {
         vi.useFakeTimers()
 
-        recordSpy = vi.spyOn(telemetryRecorder, 'recordEvent')
+        // recordSpy = vi.spyOn(telemetryRecorder, 'recordEvent')
+        recordSpy = vi.fn() // Mock function since telemetryRecorder is removed
 
         mockWindowState = { focused: true }
         mockActiveTextEditor = {

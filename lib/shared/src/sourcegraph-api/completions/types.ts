@@ -137,7 +137,17 @@ export interface CompletionResponse {
     tools?: ToolCallContentPart[] | GeminiToolCallContentPart[]
 }
 
-export interface CompletionParameters {
+export interface CompletionsRewriteSpeculationParams {
+    // Rewrite and adaptive speculation is used by fireworks which improves performance for sparse rewrite tasks.
+    // https://docs.fireworks.ai/guides/predicted-outputs#using-predicted-outputs
+    rewriteSpeculation?: boolean
+    adaptiveSpeculation?: boolean
+    speculationLengthOnStrongMatch?: number
+    speculationMinLengthOnStrongMatch?: number
+    speculationStrongMatchThreshold?: number
+}
+
+export interface CompletionParameters extends CompletionsRewriteSpeculationParams {
     fast?: boolean
     messages: Message[]
     maxTokensToSample: number
@@ -157,10 +167,6 @@ export interface CompletionParameters {
         type: 'content'
         content: string
     }
-    // Rewrite and adaptive speculation is used by fireworks which improves performance for sparse rewrite tasks.
-    // https://docs.fireworks.ai/guides/predicted-outputs#using-predicted-outputs
-    rewriteSpeculation?: boolean
-    adaptiveSpeculation?: boolean
     tools?: any[]
 }
 
@@ -170,7 +176,7 @@ export interface SerializedCompletionParameters extends Omit<CompletionParameter
 
 export interface CompletionCallbacks {
     onChange: (text: string, content?: CompletionContentData[] | undefined | null) => void
-    onComplete: () => void
+    onComplete: (result?: CompletionResponse) => void
     onError: (error: Error, statusCode?: number) => void
 }
 

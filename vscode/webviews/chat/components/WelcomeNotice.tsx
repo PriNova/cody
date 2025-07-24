@@ -7,17 +7,15 @@ import { Button } from '../../components/shadcn/ui/button'
 import graphDarkCTA from '../../graph_dark.svg'
 import graphLightCTA from '../../graph_light.svg'
 import { SourcegraphLogo } from '../../icons/SourcegraphLogo'
-import { useTelemetryRecorder } from '../../utils/telemetry'
 export const WelcomeNotice: FunctionComponent = () => {
     // to test locally, bump the suffix
     const [dismissed, setDismissed] = useLocalStorage('sg_welcome_notice_001')
     if (dismissed === 1) {
         return null
     }
-    const telemetryRecorder = useTelemetryRecorder()
+
     const dismissNotice = () => {
         setDismissed(1)
-        telemetryRecorder.recordEvent('cody.notice.cta', 'clicked')
     }
 
     return (

@@ -13,7 +13,6 @@ import {
     AccordionTrigger,
 } from '../../../components/shadcn/ui/accordion'
 import { Tooltip, TooltipContent, TooltipTrigger } from '../../../components/shadcn/ui/tooltip'
-import { useTelemetryRecorder } from '../../../utils/telemetry'
 import { useConfig } from '../../../utils/useConfig'
 import { Cell } from '../Cell'
 import styles from './ContextCell.module.css'
@@ -78,7 +77,7 @@ export const ContextCell: FunctionComponent<{
             contextItemsToDisplay = contextAlternatives[selectedAlternative].items
         }
 
-        const { usedContext, excludedContext, itemCountLabel, excludedContextInfo } = getContextInfo(
+        const { itemCountLabel, excludedContextInfo } = getContextInfo(
             contextItemsToDisplay,
             isForFirstMessage
         )
@@ -89,24 +88,13 @@ export const ContextCell: FunctionComponent<{
 
         const triggerAccordion = useCallback(() => {
             setAccordionValue(prev => {
-                if (!prev) {
-                    telemetryRecorder.recordEvent('cody.contextCell', 'opened', {
-                        metadata: {
-                            fileCount: new Set(usedContext.map(file => file.uri.toString())).size,
-                            excludedAtContext: excludedContext.length,
-                        },
-                    })
-                }
-
                 return prev ? '' : 'item-1'
             })
-        }, [excludedContext.length, usedContext])
+        }, [])
 
         const {
             config: { internalDebugContext },
         } = useConfig()
-
-        const telemetryRecorder = useTelemetryRecorder()
 
         const isAgenticChat = model?.includes(DeepCodyAgentID) || agent === DeepCodyAgentID
 

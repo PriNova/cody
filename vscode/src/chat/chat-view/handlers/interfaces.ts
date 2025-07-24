@@ -12,7 +12,6 @@ import type { MessageErrorType } from '../../MessageProvider'
 import type { ChatBuilder } from '../ChatBuilder'
 import type { ChatControllerOptions } from '../ChatController'
 import type { ContextRetriever } from '../ContextRetriever'
-import type { OmniboxTelemetry } from './OmniboxTelemetry'
 
 export interface AgentTools {
     contextRetriever: Pick<ContextRetriever, 'retrieveContext' | 'computeDidYouMean'>
@@ -47,7 +46,7 @@ export interface AgentRequest {
     chatBuilder: ChatBuilder
     signal: AbortSignal
     span: Span
-    recorder: OmniboxTelemetry
+
     model: ChatModel
 }
 

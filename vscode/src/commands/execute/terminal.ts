@@ -1,10 +1,7 @@
 import { PromptString, type TerminalOutputArguments, logDebug, ps } from '@sourcegraph/cody-shared'
 import { wrapInActiveSpan } from '@sourcegraph/cody-shared'
-import { telemetryRecorder } from '@sourcegraph/cody-shared'
 import type { ChatCommandResult } from '../../CommandResult'
 import { executeChat } from './ask'
-
-import * as uuid from 'uuid'
 
 /**
  * Executes a chat command to explain the given terminal output.
@@ -19,23 +16,8 @@ export async function executeExplainOutput(
     return wrapInActiveSpan('command.terminal', async span => {
         span.setAttribute('sampled', true)
         logDebug('executeExplainOutput', 'executing', { args })
-        const requestID = uuid.v4()
+
         const source = 'terminal'
-        telemetryRecorder.recordEvent('cody.command.terminal', 'executed', {
-            metadata: {
-                useCodebaseContext: 0,
-            },
-            interactionID: requestID,
-            privateMetadata: {
-                requestID,
-                source,
-                traceId: span.spanContext().traceId,
-            },
-            billingMetadata: {
-                product: 'cody',
-                category: 'core',
-            },
-        })
 
         const promptArgs = PromptString.fromTerminalOutputArguments(args)
 

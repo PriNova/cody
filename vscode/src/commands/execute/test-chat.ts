@@ -1,6 +1,5 @@
 import { type ContextItem, DefaultChatCommands, logDebug, logError, ps } from '@sourcegraph/cody-shared'
 import { wrapInActiveSpan } from '@sourcegraph/cody-shared'
-import { telemetryRecorder } from '@sourcegraph/cody-shared'
 import type { ChatCommandResult } from '../../CommandResult'
 import { getEditor } from '../../editor/active-editor'
 import { getContextFileFromCursor } from '../context/selection'
@@ -89,21 +88,6 @@ export async function executeTestChatCommand(
         }
 
         logDebug('executeTestEditCommand', 'executing', { args })
-        telemetryRecorder.recordEvent('cody.command.test', 'executed', {
-            metadata: {
-                useCodebaseContex: 0,
-            },
-            interactionID: args?.requestID,
-            privateMetadata: {
-                requestID: args?.requestID,
-                source: args?.source,
-                traceId: span.spanContext().traceId,
-            },
-            billingMetadata: {
-                product: 'cody',
-                category: 'core',
-            },
-        })
 
         return {
             type: 'chat',

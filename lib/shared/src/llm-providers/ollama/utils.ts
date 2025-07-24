@@ -14,16 +14,26 @@ export async function fetchLocalOllamaModels(): Promise<Model[]> {
         // divergence.
         return []
     }
-    // TODO(sqs)#observe: make ollama models observable
-    return (await ollama.list()).models?.map(m =>
-        createModel({
-            id: `ollama/${m.name}`,
-            usage: [ModelUsage.Chat, ModelUsage.Edit],
-            contextWindow: {
-                input: OLLAMA_DEFAULT_CONTEXT_WINDOW,
-                output: CHAT_OUTPUT_TOKEN_BUDGET,
-            },
-            tags: [ModelTag.Local, ModelTag.Ollama, ModelTag.Experimental],
-        })
-    )
+
+    try {
+        const response = await ollama.list()
+        const models =
+            response.models?.map(m => {
+                const model = createModel({
+                    id: `ollama/${m.name}`,
+                    usage: [ModelUsage.Chat, ModelUsage.Edit],
+                    contextWindow: {
+                        input: OLLAMA_DEFAULT_CONTEXT_WINDOW,
+                        output: CHAT_OUTPUT_TOKEN_BUDGET,
+                    },
+                    tags: [ModelTag.Local, ModelTag.Ollama, ModelTag.Experimental],
+                })
+                return model
+            }) || []
+
+        return models
+    } catch (error) {
+        console.error('Error fetching Ollama models:', error)
+        return []
+    }
 }

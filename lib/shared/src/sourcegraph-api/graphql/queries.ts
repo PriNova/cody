@@ -212,26 +212,6 @@ query Repositories($names: [String!]!, $first: Int!) {
   }
 `
 
-export const LEGACY_CHAT_INTENT_QUERY = `
-query ChatIntent($query: String!, $interactionId: String!) {
-    chatIntent(query: $query, interactionId: $interactionId) {
-        intent
-        score
-    }
-}`
-
-export const CHAT_INTENT_QUERY = `
-query ChatIntent($query: String!, $interactionId: String!) {
-    chatIntent(query: $query, interactionId: $interactionId) {
-        intent
-        score
-        allScores {
-            intent
-            score
-        }
-    }
-}`
-
 export const LEGACY_CONTEXT_SEARCH_QUERY = `
 query GetCodyContext($repos: [ID!]!, $query: String!, $codeResultsCount: Int!, $textResultsCount: Int!) {
 	getCodyContext(repos: $repos, query: $query, codeResultsCount: $codeResultsCount, textResultsCount: $textResultsCount) {
@@ -380,11 +360,48 @@ export enum PromptsOrderBy {
     PROMPT_NAME_WITH_OWNER = 'PROMPT_NAME_WITH_OWNER',
     PROMPT_UPDATED_AT = 'PROMPT_UPDATED_AT',
     PROMPT_RECOMMENDED = 'PROMPT_RECOMMENDED',
+    PROMPT_RELEVANCE = 'PROMPT_RELEVANCE',
 }
 
-export const PROMPTS_QUERY = `
+export const LEGACY_PROMPTS_QUERY_6_3 = `
 query ViewerPrompts($query: String, $first: Int!, $recommendedOnly: Boolean!, $orderByMultiple: [PromptsOrderBy!], $tags: [ID!], $owner: ID, $includeViewerDrafts: Boolean!) {
     prompts(query: $query, first: $first, includeDrafts: false, recommendedOnly: $recommendedOnly, includeViewerDrafts: $includeViewerDrafts, viewerIsAffiliated: true, orderByMultiple: $orderByMultiple, tags: $tags, owner: $owner) {
+        nodes {
+            id
+            name
+            nameWithOwner
+            recommended
+            owner {
+                namespaceName
+            }
+            description
+            draft
+            autoSubmit
+            mode
+            definition {
+                text
+            }
+            url
+            createdBy {
+                id
+                username
+                displayName
+                avatarURL
+            }
+            tags(first: 999) {
+                nodes {
+                    id
+                    name
+                }
+            }
+        }
+        totalCount
+    }
+}`
+
+export const PROMPTS_QUERY = `
+query ViewerPrompts($query: String, $first: Int!, $recommendedOnly: Boolean!, $orderBy: PromptsOrderBy!, $tags: [ID!], $owner: ID, $includeViewerDrafts: Boolean!) {
+    prompts(query: $query, first: $first, includeDrafts: false, recommendedOnly: $recommendedOnly, includeViewerDrafts: $includeViewerDrafts, viewerIsAffiliated: true, orderBy: $orderBy, tags: $tags, owner: $owner) {
         nodes {
             id
             name

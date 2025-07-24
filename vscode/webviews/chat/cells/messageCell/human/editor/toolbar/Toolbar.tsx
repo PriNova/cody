@@ -15,7 +15,7 @@ import { ModelSelectField } from '../../../../../../components/modelSelectField/
 import { PromptSelectField } from '../../../../../../components/promptSelectField/PromptSelectField'
 import { Checkbox } from '../../../../../../components/shadcn/ui/checkbox'
 //import toolbarStyles from '../../../../../../components/shadcn/ui/toolbar.module.css'
-import { useActionSelect } from '../../../../../../prompts/PromptsTab'
+import { useActionSelect } from '../../../../../../prompts/promptUtils'
 import { useClientConfig } from '../../../../../../utils/useClientConfig'
 //import { MediaUploadButton } from './MediaUploadButton'
 import { ModeSelectorField } from './ModeSelectorButton'
@@ -43,7 +43,6 @@ export const Toolbar: FunctionComponent<{
     className?: string
 
     intent?: ChatMessage['intent']
-    manuallySelectIntent: (intent: ChatMessage['intent']) => void
     isLastInteraction?: boolean
     imageFile?: File
     setImageFile: (file: File | undefined) => void
@@ -54,6 +53,8 @@ export const Toolbar: FunctionComponent<{
 
     omniBoxEnabled: boolean
     onMediaUpload?: (mediaContextItem: ContextItemMedia) => void
+
+    setLastManuallySelectedIntent: (intent: ChatMessage['intent']) => void
 }> = ({
     userInfo,
     isEditorFocused,
@@ -65,7 +66,6 @@ export const Toolbar: FunctionComponent<{
     className,
     models,
     intent,
-    manuallySelectIntent,
     isLastInteraction,
     imageFile,
     setImageFile,
@@ -74,6 +74,7 @@ export const Toolbar: FunctionComponent<{
     extensionAPI,
     omniBoxEnabled,
     onMediaUpload,
+    setLastManuallySelectedIntent,
 }) => {
     /**
      * If the user clicks in a gap or on the toolbar outside of any of its buttons, report back to
@@ -104,6 +105,7 @@ export const Toolbar: FunctionComponent<{
     }, [userInfo?.isDotComUser, models?.[0]]) */
 
     const modelSelectorRef = useRef<{ open: () => void; close: () => void } | null>(null)
+    const promptSelectorRef = useRef<{ open: () => void; close: () => void } | null>(null)
 
     // Set up keyboard event listener
     useEffect(() => {
@@ -114,10 +116,15 @@ export const Toolbar: FunctionComponent<{
                 event.preventDefault()
                 modelSelectorRef?.current?.open()
             }
-
+            // Prompt selector (⌘/ on Mac, ctrl+/ on other platforms)
+            else if ((isMacOS() ? event.metaKey : event.ctrlKey) && event.key === '/') {
+                event.preventDefault()
+                promptSelectorRef?.current?.open()
+            }
             // Close dropdowns on Escape
             else if (event.key === 'Escape') {
                 modelSelectorRef?.current?.close()
+                promptSelectorRef?.current?.close()
             }
         }
 
@@ -125,7 +132,19 @@ export const Toolbar: FunctionComponent<{
         return () => window.removeEventListener('keydown', handleKeyboardShortcuts)
     }, [])
 
-    if (models?.length < 2) {
+    // TEMPORARY WORKAROUND: Add a fallback model if we only have 1 to ensure toolbar shows
+    let modelsWithFallback: Model[] = models || []
+    if (modelsWithFallback.length === 1) {
+        const fallbackModel: Model = {
+            ...modelsWithFallback[0],
+            id: 'fallback/claude-3-5-sonnet-20241022' as any,
+            title: 'Claude 3.5 Sonnet (Fallback)',
+            tags: [ModelTag.BYOK],
+        }
+        modelsWithFallback = [...modelsWithFallback, fallbackModel]
+    }
+
+    if (modelsWithFallback.length < 2) {
         return null
     }
 
@@ -145,7 +164,7 @@ export const Toolbar: FunctionComponent<{
         >
             <div className="tw-flex tw-items-center">
                 {/* Can't use tw-gap-1 because the popover creates an empty element when open. */}
-                {models[0]?.clientSideConfig?.options?.googleImage && (
+                {modelsWithFallback[0]?.clientSideConfig?.options?.googleImage && (
                     <UploadImageButton
                         className="tw-opacity-60"
                         imageFile={imageFile}
@@ -160,10 +179,14 @@ export const Toolbar: FunctionComponent<{
                         className={`tw-opacity-60 focus-visible:tw-opacity-100 hover:tw-opacity-100 tw-mr-2 tw-gap-0.5 ${toolbarStyles.button} ${toolbarStyles.buttonSmallIcon}`}
                     />
                 )} */}
-                <PromptSelectFieldToolbarItem focusEditor={focusEditor} className="tw-ml-1 tw-mr-1" />
+                <PromptSelectFieldToolbarItem
+                    focusEditor={focusEditor}
+                    className="tw-ml-1 tw-mr-1"
+                    promptSelectorRef={promptSelectorRef}
+                />
             </div>
             <div className="tw-flex tw-items-center tw-gap-2">
-                {models[0]?.clientSideConfig?.options?.googleSearch && (
+                {modelsWithFallback[0]?.clientSideConfig?.options?.googleSearch && (
                     <div className="tw-flex tw-items-center">
                         <Checkbox
                             id="google-search-toggle"
@@ -184,10 +207,10 @@ export const Toolbar: FunctionComponent<{
                     _intent={intent}
                     isDotComUser={userInfo?.isDotComUser}
                     isCodyProUser={userInfo?.isCodyProUser}
-                    manuallySelectIntent={manuallySelectIntent}
+                    manuallySelectIntent={setLastManuallySelectedIntent}
                 />
                 <ModelSelectFieldToolbarItem
-                    models={models}
+                    models={modelsWithFallback}
                     userInfo={userInfo}
                     focusEditor={focusEditor}
                     modelSelectorRef={modelSelectorRef}
@@ -206,7 +229,8 @@ export const Toolbar: FunctionComponent<{
 const PromptSelectFieldToolbarItem: FunctionComponent<{
     focusEditor?: () => void
     className?: string
-}> = ({ focusEditor, className }) => {
+    promptSelectorRef?: React.MutableRefObject<{ open: () => void; close: () => void } | null>
+}> = ({ focusEditor, className, promptSelectorRef }) => {
     const runAction = useActionSelect()
 
     const onSelect = useCallback(
@@ -217,7 +241,14 @@ const PromptSelectFieldToolbarItem: FunctionComponent<{
         [focusEditor, runAction]
     )
 
-    return <PromptSelectField onSelect={onSelect} onCloseByEscape={focusEditor} className={className} />
+    return (
+        <PromptSelectField
+            onSelect={onSelect}
+            onCloseByEscape={focusEditor}
+            className={className}
+            promptSelectorRef={promptSelectorRef}
+        />
+    )
 }
 
 const ModelSelectFieldToolbarItem: FunctionComponent<{

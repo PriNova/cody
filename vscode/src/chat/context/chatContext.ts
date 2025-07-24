@@ -23,7 +23,6 @@ import {
     skipPendingOperation,
     startWith,
     switchMapReplayOperation,
-    telemetryEvents,
 } from '@sourcegraph/cody-shared'
 import { RULES_PROVIDER_URI } from '@sourcegraph/cody-shared/src/context/openctx/api'
 import { WORKFLOW_PROVIDER } from '@sourcegraph/cody-shared/src/mentions/api'
@@ -99,7 +98,6 @@ export function getMentionMenuData(options: {
                 mentionMenuTelemetryCache.get(options.query.interactionID) ?? new Set<string | null>()
             if (!cache.has(options.query.provider)) {
                 cache.add(options.query.provider)
-                telemetryEvents['cody.at-mention/selected'].record('chat', options.query.provider)
             }
             mentionMenuTelemetryCache.set(options.query.interactionID, cache)
         }

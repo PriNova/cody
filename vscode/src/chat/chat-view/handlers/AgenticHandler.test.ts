@@ -110,7 +110,7 @@ describe('AgenticHandler', () => {
             chatBuilder: mockChatBuilder as any,
             signal: abortController.signal,
             span: mockSpan,
-            recorder: mockRecorder as any,
+
             model: 'claude',
         }
 
@@ -145,10 +145,6 @@ describe('AgenticHandler', () => {
             getDehydratedMessages: vi.fn().mockReturnValue([]),
         }
 
-        const mockRecorder = {
-            recordChatQuestionExecuted: vi.fn(),
-        }
-
         const abortController = new AbortController()
 
         const request: AgentRequest = {
@@ -159,7 +155,7 @@ describe('AgenticHandler', () => {
             chatBuilder: mockChatBuilder as any,
             signal: abortController.signal,
             span: mockSpan,
-            recorder: mockRecorder as any,
+
             model: 'test',
         }
 
