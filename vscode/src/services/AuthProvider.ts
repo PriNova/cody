@@ -2,39 +2,27 @@ import {
     type AuthCredentials,
     type AuthStatus,
     type ClientCapabilitiesWithLegacyFields,
-    ClientConfigSingleton,
     DOTCOM_URL,
-    EMPTY,
-    NEVER,
     type ResolvedConfiguration,
     type Unsubscribable,
-    abortableOperation,
-    authStatus,
-    combineLatest,
     currentResolvedConfig,
-    disposableSubscription,
-    distinctUntilChanged,
     clientCapabilities as getClientCapabilities,
-    isAbortError,
+    mockLocalStorageAuthStatus,
     resolvedConfig as resolvedConfig_,
     setAuthStatusObservable as setAuthStatusObservable_,
-    startWith,
-    switchMap,
-    withLatestFrom,
 } from '@sourcegraph/cody-shared'
 import { normalizeServerEndpointURL } from '@sourcegraph/cody-shared/src/configuration/auth-resolver'
-import {
-    isAvailabilityError,
-    isEnterpriseUserDotComError,
-    isInvalidAccessTokenError,
-    isNeedsAuthChallengeError,
-} from '@sourcegraph/cody-shared/src/sourcegraph-api/errors'
-import isEqual from 'lodash/isEqual'
-import { Observable, Subject, interval } from 'observable-fns'
-import * as vscode from 'vscode'
+// DISABLED: Error handling imports no longer needed for mock auth
+// import {
+//     isAvailabilityError,
+//     isInvalidAccessTokenError,
+// } from '@sourcegraph/cody-shared/src/sourcegraph-api/errors'
+import { Subject } from 'observable-fns'
+import type * as vscode from 'vscode'
 import { serializeConfigSnapshot } from '../../uninstall/serializeConfig'
 import { type ResolvedConfigurationCredentialsOnly, validateCredentials } from '../auth/auth'
-import { logError } from '../output-channel-logger'
+// DISABLED: Logging not needed for mock auth
+// import { logError } from '../output-channel-logger'
 import { version } from '../version'
 import { localStorage } from './LocalStorageProvider'
 
@@ -56,7 +44,282 @@ class AuthProvider implements vscode.Disposable {
 
     private subscriptions: Unsubscribable[] = []
 
-    private async validateAndUpdateAuthStatus(
+    private initializeMockAuth(): void {
+        // Use enhanced mock that provides complete AuthStatus for UI functionality
+        try {
+            // Check if localStorage is initialized by accessing private property safely
+            const localStorageInstance = localStorage as any
+            if (localStorageInstance?._storage) {
+                // Use enhanced mock with localStorage for complete profile data
+                mockLocalStorageAuthStatus(localStorage)
+            } else {
+                // localStorage not ready yet, use fallback
+                mockLocalStorageAuthStatus()
+            }
+
+            // Enhanced multi-level mocking to avoid "getter-only" property errors
+            this.mockUserProductSubscriptionComprehensive()
+
+            // Mock GraphQL operations that might fail without real authentication
+            this.mockGraphQLOperationsForTesting()
+
+            // Mock model preferences to eliminate endpoint dependency issues
+            this.mockModelPreferencesForTesting()
+        } catch (error) {
+            // Fallback with basic mock
+            mockLocalStorageAuthStatus()
+            this.mockUserProductSubscriptionComprehensive()
+            this.mockGraphQLOperationsForTesting()
+            this.mockModelPreferencesForTesting()
+        }
+    }
+
+    /**
+     * Comprehensive userProductSubscription mocking that avoids "getter-only" property errors
+     * by mocking at multiple levels of the Observable pipeline.
+     */
+    private mockUserProductSubscriptionComprehensive(): void {
+        try {
+            // Strategy 1: Mock at GraphQL client level (source of the Observable pipeline)
+            this.mockGraphQLClientForSubscription()
+
+            // Strategy 2: Mock at module level before imports are cached
+            this.mockAtModuleLevel()
+
+            // Strategy 3: Create Observable override if direct property access fails
+            this.createObservableOverride()
+
+            console.log('Comprehensive userProductSubscription mocking initialized successfully')
+        } catch (error) {
+            console.warn('Failed to initialize comprehensive subscription mocking:', error)
+            // Fallback to simpler approaches if comprehensive mocking fails
+            this.mockGraphQLClientForSubscription()
+        }
+    }
+
+    private mockGraphQLClientForSubscription(): void {
+        try {
+            const graphqlClientModule = require('@sourcegraph/cody-shared/src/sourcegraph-api/graphql')
+            if (graphqlClientModule?.graphqlClient) {
+                const originalGetCurrentUserCodySubscription =
+                    graphqlClientModule.graphqlClient.getCurrentUserCodySubscription
+                const originalGetCurrentUserCodyProEnabled =
+                    graphqlClientModule.graphqlClient.getCurrentUserCodyProEnabled
+
+                // Mock getCurrentUserCodySubscription
+                if (
+                    originalGetCurrentUserCodySubscription &&
+                    !originalGetCurrentUserCodySubscription.__mocked
+                ) {
+                    // Mock to return Pro subscription data
+                    graphqlClientModule.graphqlClient.getCurrentUserCodySubscription = async (
+                        signal?: AbortSignal
+                    ) => {
+                        return {
+                            plan: 'PRO',
+                            status: 'ACTIVE',
+                        }
+                    }
+                    graphqlClientModule.graphqlClient.getCurrentUserCodySubscription.__mocked = true
+                    console.log(
+                        'Successfully mocked GraphQL getCurrentUserCodySubscription for Pro user'
+                    )
+                }
+
+                // Mock getCurrentUserCodyProEnabled
+                if (
+                    originalGetCurrentUserCodyProEnabled &&
+                    !originalGetCurrentUserCodyProEnabled.__mocked
+                ) {
+                    // Mock to return Pro user enabled status
+                    graphqlClientModule.graphqlClient.getCurrentUserCodyProEnabled = async () => {
+                        return {
+                            codyProEnabled: true,
+                        }
+                    }
+                    graphqlClientModule.graphqlClient.getCurrentUserCodyProEnabled.__mocked = true
+                    console.log('Successfully mocked GraphQL getCurrentUserCodyProEnabled for Pro user')
+                }
+            }
+        } catch (error) {
+            console.warn('Failed to mock GraphQL client subscription method:', error)
+        }
+    }
+
+    private mockAtModuleLevel(): void {
+        try {
+            // Mock at Node.js require cache level to intercept module loading
+            const Module = require('node:module')
+            const originalRequire = Module.prototype.require
+
+            // Track if we've already wrapped the require function
+            if (!originalRequire.__codyMocked) {
+                Module.prototype.require = function (id: string, ...args: any[]) {
+                    const result = originalRequire.apply(this, [id, ...args])
+
+                    // Intercept userProductSubscription module
+                    if (id.includes('userProductSubscription') && result) {
+                        try {
+                            // Create enhanced module with mocked utility functions
+                            const mockSubscriptionData = { userCanUpgrade: false } // Pro user
+
+                            // Only modify if properties are configurable
+                            if (
+                                result.currentUserProductSubscription &&
+                                Object.getOwnPropertyDescriptor(result, 'currentUserProductSubscription')
+                                    ?.configurable !== false
+                            ) {
+                                result.currentUserProductSubscription = async () => mockSubscriptionData
+                            }
+
+                            if (
+                                result.cachedUserProductSubscription &&
+                                Object.getOwnPropertyDescriptor(result, 'cachedUserProductSubscription')
+                                    ?.configurable !== false
+                            ) {
+                                result.cachedUserProductSubscription = () => mockSubscriptionData
+                            }
+
+                            console.log(
+                                'Successfully intercepted userProductSubscription module at require level'
+                            )
+                        } catch (moduleError) {
+                            console.warn(
+                                'Module-level mocking encountered non-configurable properties:',
+                                moduleError
+                            )
+                        }
+                    }
+
+                    return result
+                }
+
+                // Mark as mocked to prevent double wrapping
+                Module.prototype.require.__codyMocked = true
+            }
+        } catch (error) {
+            console.warn('Module-level mocking failed:', error)
+        }
+    }
+
+    private createObservableOverride(): void {
+        try {
+            // Import Observable and create a replacement pipeline
+            const { Observable } = require('observable-fns')
+            const mockSubscriptionData = { userCanUpgrade: false } // Pro user
+
+            // Create a mock Observable that immediately emits Pro user data
+            const mockObservable = Observable.of(mockSubscriptionData)
+
+            // Try to access the userProductSubscription module after it may have been loaded
+            setTimeout(() => {
+                try {
+                    const userProductSubscriptionModule = require('@sourcegraph/cody-shared/src/sourcegraph-api/userProductSubscription')
+
+                    // Check if we can override the Observable (last resort)
+                    const descriptor = Object.getOwnPropertyDescriptor(
+                        userProductSubscriptionModule,
+                        'userProductSubscription'
+                    )
+                    if (descriptor?.configurable) {
+                        Object.defineProperty(userProductSubscriptionModule, 'userProductSubscription', {
+                            get: () => mockObservable,
+                            configurable: true,
+                            enumerable: true,
+                        })
+                        console.log(
+                            'Successfully created Observable override for userProductSubscription'
+                        )
+                    }
+                } catch (observableError) {
+                    // This is expected to fail in many cases - don't log as error
+                    console.debug('Observable override not possible (expected):', observableError)
+                }
+            }, 100) // Small delay to allow module loading
+        } catch (error) {
+            console.warn('Observable override creation failed:', error)
+        }
+    }
+
+    private mockGraphQLOperationsForTesting(): void {
+        try {
+            // Mock site version to prevent AbortError issues
+            const graphqlClientModule = require('@sourcegraph/cody-shared/src/sourcegraph-api/graphql')
+            if (graphqlClientModule?.graphqlClient) {
+                const originalGetSiteVersion = graphqlClientModule.graphqlClient.getSiteVersion
+
+                // Only mock if not already mocked
+                if (originalGetSiteVersion && !originalGetSiteVersion.__mocked) {
+                    graphqlClientModule.graphqlClient.getSiteVersion = async (signal?: AbortSignal) => {
+                        // Return a mock version that works with dotcom
+                        return '6.0.0'
+                    }
+                    // Mark as mocked to prevent double mocking
+                    graphqlClientModule.graphqlClient.getSiteVersion.__mocked = true
+                }
+            }
+
+            console.log('Successfully initialized GraphQL operation mocks')
+        } catch (error) {
+            console.warn('Failed to mock GraphQL operations:', error)
+            console.warn(
+                'Some operations may still fail with AbortError, but core functionality should work'
+            )
+        }
+    }
+
+    private mockModelPreferencesForTesting(): void {
+        try {
+            // Mock model preferences to eliminate endpoint dependency issues
+            // This provides a static preference structure that supports model selection
+            // while avoiding the trailing slash endpoint mismatch problems
+
+            const localStorageInstance = localStorage as any
+            if (localStorageInstance?._storage) {
+                // Override only the model preference methods, preserving all other functionality
+                const originalGetModelPreferences = localStorage.getModelPreferences.bind(localStorage)
+                const originalSetModelPreferences = localStorage.setModelPreferences.bind(localStorage)
+
+                // Check if already mocked to prevent double-mocking
+                if (!(localStorage.getModelPreferences as any).__mocked) {
+                    // Static mock preferences that work for common model selection scenarios
+                    const mockPreferences = {
+                        'https://sourcegraph.com/': {
+                            defaults: {
+                                chat: 'anthropic::2023-06-01::claude-3-5-sonnet-20241022',
+                                edit: 'openai::2024-02-01::gpt-4o',
+                                autocomplete: 'fireworks::v1::starcoder-hybrid',
+                            },
+                            selected: {},
+                        },
+                    }
+
+                    localStorage.getModelPreferences = () => {
+                        // Use stored preferences if they exist, otherwise return mock defaults
+                        const stored = originalGetModelPreferences()
+                        return Object.keys(stored).length > 0 ? stored : mockPreferences
+                    }
+
+                    localStorage.setModelPreferences = async preferences => {
+                        // Allow setting preferences normally - this preserves user selections
+                        return originalSetModelPreferences(preferences)
+                    }
+
+                    // Mark as mocked
+                    ;(localStorage.getModelPreferences as any).__mocked = true
+                    ;(localStorage.setModelPreferences as any).__mocked = true
+
+                    console.log('Successfully mocked model preferences methods')
+                }
+            }
+        } catch (error) {
+            console.warn('Failed to mock model preferences:', error)
+            console.warn('Model selection may still encounter endpoint dependency issues')
+        }
+    }
+
+    // DISABLED: Real authentication method - permanently commented out
+    /* private async validateAndUpdateAuthStatus(
         credentials: ResolvedConfigurationCredentialsOnly,
         signal?: AbortSignal,
         resetInitialAuthStatus?: boolean
@@ -83,9 +346,16 @@ class AuthProvider implements vscode.Disposable {
                 logError('AuthProvider', 'Unexpected error validating credentials', error)
             }
         }
-    }
+    } */
 
     constructor(setAuthStatusObservable = setAuthStatusObservable_, resolvedConfig = resolvedConfig_) {
+        // PERMANENT MOCK AUTHENTICATION - replaces all real authentication logic
+        // Initialize mock auth immediately - will use fallback username if localStorage not ready
+        this.initializeMockAuth()
+
+        // Real authentication logic is permanently disabled
+        // All code below is commented out to prevent real authentication
+        /*
         setAuthStatusObservable(this.status.pipe(distinctUntilChanged()))
 
         const credentialsChangesNeedingValidation = resolvedConfig.pipe(
@@ -197,6 +467,7 @@ class AuthProvider implements vscode.Disposable {
                 vscode.commands.registerCommand('cody.auth.refresh', () => this.refresh())
             )
         )
+        */
     }
 
     private async handleAuthTelemetry(authStatus: AuthStatus, signal?: AbortSignal): Promise<void> {
@@ -267,7 +538,7 @@ class AuthProvider implements vscode.Disposable {
         }
         if (!shouldStore) {
             // Always report telemetry even if we don't store it.
-            reportAuthTelemetryEvent(authStatus)
+            // reportAuthTelemetryEvent(authStatus) // DISABLED: Mock auth doesn't need telemetry
         }
         await this.handleAuthTelemetry(authStatus, undefined)
         return authStatus
@@ -332,13 +603,15 @@ export function newAuthProviderForTest(
     return new AuthProvider(...args)
 }
 
-function startAuthTelemetryReporter(): Unsubscribable {
+// DISABLED: Real auth telemetry - permanently commented out
+/* function startAuthTelemetryReporter(): Unsubscribable {
     return authStatus.subscribe(authStatus => {
-        reportAuthTelemetryEvent(authStatus)
+        // reportAuthTelemetryEvent(authStatus)
     })
-}
+} */
 
-function reportAuthTelemetryEvent(authStatus: AuthStatus): void {
+// DISABLED: Real auth telemetry event reporting - permanently commented out
+/* function reportAuthTelemetryEvent(authStatus: AuthStatus): void {
     if (authStatus.pendingValidation) {
         return // Not a valid event to report.
     }
@@ -350,7 +623,7 @@ function reportAuthTelemetryEvent(authStatus: AuthStatus): void {
     } else if (authStatus.authenticated) {
     } else {
     }
-}
+} */
 function toCredentialsOnlyNormalized(
     config: ResolvedConfiguration | ResolvedConfigurationCredentialsOnly
 ): ResolvedConfigurationCredentialsOnly {

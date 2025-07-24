@@ -566,29 +566,27 @@ export const HumanMessageEditor: FunctionComponent<{
                 contentEditableClassName={styles.editorContentEditable}
                 openExternalLink={openExternalLink}
             />
-            {!disabled && (
-                <Toolbar
-                    models={models}
-                    userInfo={userInfo}
-                    isEditorFocused={focused}
-                    omniBoxEnabled={omniBoxEnabled}
-                    onSubmitClick={onSubmitClick}
-                    submitState={submitState}
-                    onGapClick={onGapClick}
-                    focusEditor={focusEditor}
-                    hidden={!focused && isSent}
-                    className={styles.toolbar}
-                    intent={selectedIntent}
-                    isLastInteraction={isLastInteraction}
-                    imageFile={imageFile}
-                    setImageFile={setImageFile}
-                    isGoogleSearchEnabled={isGoogleSearchEnabled}
-                    setIsGoogleSearchEnabled={setIsGoogleSearchEnabled}
-                    extensionAPI={extensionAPI}
-                    onMediaUpload={onMediaUpload}
-                    setLastManuallySelectedIntent={manuallySelectIntent}
-                />
-            )}
+            <Toolbar
+                models={models}
+                userInfo={userInfo}
+                isEditorFocused={focused}
+                omniBoxEnabled={omniBoxEnabled}
+                onSubmitClick={onSubmitClick}
+                submitState={submitState}
+                onGapClick={onGapClick}
+                focusEditor={focusEditor}
+                hidden={!focused && isSent}
+                className={styles.toolbar}
+                intent={selectedIntent}
+                isLastInteraction={isLastInteraction}
+                imageFile={imageFile}
+                setImageFile={setImageFile}
+                isGoogleSearchEnabled={isGoogleSearchEnabled}
+                setIsGoogleSearchEnabled={setIsGoogleSearchEnabled}
+                extensionAPI={extensionAPI}
+                onMediaUpload={onMediaUpload}
+                setLastManuallySelectedIntent={manuallySelectIntent}
+            />
         </div>
     )
 }

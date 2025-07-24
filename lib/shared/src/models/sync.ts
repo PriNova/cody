@@ -129,14 +129,6 @@ export function syncModels({
     const remoteModelsData: Observable<RemoteModelsData | Error | typeof pendingOperation> =
         combineLatest(relevantConfig, authStatus, userProductSubscription).pipe(
             switchMapReplayOperation(([config, authStatus, userProductSubscription]) => {
-                if (
-                    authStatus.endpoint !== config.auth.serverEndpoint ||
-                    authStatus.pendingValidation ||
-                    userProductSubscription === pendingOperation
-                ) {
-                    return Observable.of(pendingOperation)
-                }
-
                 const isDotComUser = isDotCom(authStatus)
 
                 const serverModelsConfig: Observable<
@@ -285,12 +277,14 @@ export function syncModels({
         ),
         distinctUntilChanged(),
         tap(modelsData => {
-            if (modelsData !== pendingOperation && modelsData.primaryModels.length > 0) {
-                logDebug(
-                    'ModelsService',
-                    'ModelsData changed',
-                    `${modelsData.primaryModels.length} primary models`
-                )
+            if (modelsData !== pendingOperation) {
+                if (modelsData.primaryModels.length > 0) {
+                    logDebug(
+                        'ModelsService',
+                        'ModelsData changed',
+                        `${modelsData.primaryModels.length} primary models`
+                    )
+                }
             }
         }),
         shareReplay()
@@ -358,12 +352,12 @@ export interface ChatModelProviderConfig {
 function getModelsFromVSCodeConfiguration({
     configuration: { devModels },
 }: PickResolvedConfiguration<{ configuration: 'devModels' }>): Model[] {
-    return (
+    const models =
         devModels?.map(m => {
             //const isGeminiFlash = m?.model.includes('gemini-2.0-flash')
             const baseTags = [ModelTag.BYOK, ModelTag.Experimental, ModelTag.Local]
             //const tags = isGeminiFlash ? [...baseTags, ModelTag.Vision] : [...baseTags]
-            return createModel({
+            const model = createModel({
                 id: `${m.provider}/${m.model}`,
                 usage: [ModelUsage.Chat, ModelUsage.Edit],
                 contextWindow: {
@@ -378,8 +372,10 @@ function getModelsFromVSCodeConfiguration({
                 tags: baseTags,
                 title: m.title,
             })
+            return model
         }) ?? []
-    )
+
+    return models
 }
 
 /**

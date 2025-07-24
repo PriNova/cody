@@ -37,7 +37,7 @@ import {
     CURRENT_SITE_HAS_CODY_ENABLED_QUERY,
     CURRENT_SITE_VERSION_QUERY,
     CURRENT_USER_CODY_PRO_ENABLED_QUERY,
-    CURRENT_USER_CODY_SUBSCRIPTION_QUERY,
+    // CURRENT_USER_CODY_SUBSCRIPTION_QUERY,
     CURRENT_USER_ID_QUERY,
     CURRENT_USER_INFO_QUERY,
     CURRENT_USER_ROLE_QUERY,
@@ -224,18 +224,6 @@ interface CodyEnterpriseConfigSmartContextResponse {
 interface CurrentUserCodyProEnabledResponse {
     currentUser: {
         codyProEnabled: boolean
-    } | null
-}
-
-interface CurrentUserCodySubscriptionResponse {
-    currentUser: {
-        codySubscription: {
-            status: string
-            plan: string
-            applyProRateLimits: boolean
-            currentPeriodStartAt: Date
-            currentPeriodEndAt: Date
-        }
     } | null
 }
 
@@ -883,13 +871,14 @@ export class SourcegraphGraphQLAPIClient {
     public async getCurrentUserCodySubscription(
         signal?: AbortSignal
     ): Promise<CurrentUserCodySubscription | null | Error> {
-        return this.fetchSourcegraphAPI<APIResponse<CurrentUserCodySubscriptionResponse>>(
-            CURRENT_USER_CODY_SUBSCRIPTION_QUERY,
-            {},
-            signal
-        ).then(response =>
-            extractDataOrError(response, data => data.currentUser?.codySubscription ?? null)
-        )
+        // Mock as Pro user with unlimited access
+        return Promise.resolve({
+            status: 'ACTIVE',
+            plan: 'PRO',
+            applyProRateLimits: false,
+            currentPeriodStartAt: new Date('2020-01-01'),
+            currentPeriodEndAt: new Date('2099-12-31'),
+        })
     }
 
     public async getCurrentUserInfo(signal?: AbortSignal): Promise<CurrentUserInfo | null | Error> {

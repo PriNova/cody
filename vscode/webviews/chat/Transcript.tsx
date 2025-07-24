@@ -767,6 +767,7 @@ const TranscriptInteraction: FC<TranscriptInteractionProps> = memo(props => {
         <>
             {/* Show loading state on the last interaction */}
             {isLastInteraction && priorAssistantMessageIsLoading && <LoadingDots />}
+
             <HumanMessageCell
                 key={humanMessage.index}
                 userInfo={userInfo}

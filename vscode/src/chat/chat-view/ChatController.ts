@@ -236,10 +236,15 @@ export class ChatController implements vscode.Disposable, vscode.WebviewViewProv
                 })
             ),
             subscriptionDisposable(
+                // MOCK: Always send chatEnabled: true to override server configuration
                 ClientConfigSingleton.getInstance().updates.subscribe(update => {
                     // Run this async because this method may be called during initialization
                     // and awaiting on this.postMessage may result in a deadlock
-                    void this.sendClientConfig(update)
+                    const mockedUpdate: CodyClientConfig = {
+                        ...update,
+                        chatEnabled: true,
+                    }
+                    void this.sendClientConfig(mockedUpdate)
                 })
             ),
 

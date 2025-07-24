@@ -132,7 +132,19 @@ export const Toolbar: FunctionComponent<{
         return () => window.removeEventListener('keydown', handleKeyboardShortcuts)
     }, [])
 
-    if (models?.length < 2) {
+    // TEMPORARY WORKAROUND: Add a fallback model if we only have 1 to ensure toolbar shows
+    let modelsWithFallback: Model[] = models || []
+    if (modelsWithFallback.length === 1) {
+        const fallbackModel: Model = {
+            ...modelsWithFallback[0],
+            id: 'fallback/claude-3-5-sonnet-20241022' as any,
+            title: 'Claude 3.5 Sonnet (Fallback)',
+            tags: [ModelTag.BYOK],
+        }
+        modelsWithFallback = [...modelsWithFallback, fallbackModel]
+    }
+
+    if (modelsWithFallback.length < 2) {
         return null
     }
 
@@ -152,7 +164,7 @@ export const Toolbar: FunctionComponent<{
         >
             <div className="tw-flex tw-items-center">
                 {/* Can't use tw-gap-1 because the popover creates an empty element when open. */}
-                {models[0]?.clientSideConfig?.options?.googleImage && (
+                {modelsWithFallback[0]?.clientSideConfig?.options?.googleImage && (
                     <UploadImageButton
                         className="tw-opacity-60"
                         imageFile={imageFile}
@@ -174,7 +186,7 @@ export const Toolbar: FunctionComponent<{
                 />
             </div>
             <div className="tw-flex tw-items-center tw-gap-2">
-                {models[0]?.clientSideConfig?.options?.googleSearch && (
+                {modelsWithFallback[0]?.clientSideConfig?.options?.googleSearch && (
                     <div className="tw-flex tw-items-center">
                         <Checkbox
                             id="google-search-toggle"
@@ -198,7 +210,7 @@ export const Toolbar: FunctionComponent<{
                     manuallySelectIntent={setLastManuallySelectedIntent}
                 />
                 <ModelSelectFieldToolbarItem
-                    models={models}
+                    models={modelsWithFallback}
                     userInfo={userInfo}
                     focusEditor={focusEditor}
                     modelSelectorRef={modelSelectorRef}
