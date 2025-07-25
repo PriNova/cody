@@ -136,6 +136,13 @@ export async function start(
         platform.createStorage ? await platform.createStorage() : context.globalState
     )
 
+    try {
+        const result = authProvider.refreshWithRealUsername()
+        console.log('refreshWithRealUsername returned:', result)
+    } catch (error) {
+        console.error('Error calling refreshWithRealUsername:', error)
+    }
+
     if (secretStorage instanceof VSCodeSecretStorage) {
         secretStorage.setStorage(context.secrets)
     }
@@ -284,7 +291,6 @@ const register = async (
 
     const statusBar = CodyStatusBar.init()
     disposables.push(statusBar)
-
     disposables.push(
         NetworkDiagnostics.init({
             statusBar,
