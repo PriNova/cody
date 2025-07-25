@@ -42,7 +42,7 @@ export const HistoryTab: React.FC<HistoryTabProps> = props => {
     )
 
     return (
-        <div className="tw-flex tw-flex-col tw-justify-center tw-overflow-hidden tw-h-full tw-w-full tw-m-4">
+        <div className="tw-flex tw-flex-col tw-justify-start tw-overflow-y-auto tw-h-full tw-m-4 tw-p-4">
             {!chats ? (
                 <LoadingDots />
             ) : chats === null ? (

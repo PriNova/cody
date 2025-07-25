@@ -46,31 +46,20 @@ class AuthProvider implements vscode.Disposable {
 
     private initializeMockAuth(): void {
         // Use enhanced mock that provides complete AuthStatus for UI functionality
+        // Initial setup with fallback
+        mockLocalStorageAuthStatus()
+
+        this.mockUserProductSubscriptionComprehensive()
+        this.mockGraphQLOperationsForTesting()
+        this.mockModelPreferencesForTesting()
+    }
+
+    public refreshWithRealUsername(): void {
         try {
-            // Check if localStorage is initialized by accessing private property safely
-            const localStorageInstance = localStorage as any
-            if (localStorageInstance?._storage) {
-                // Use enhanced mock with localStorage for complete profile data
-                mockLocalStorageAuthStatus(localStorage)
-            } else {
-                // localStorage not ready yet, use fallback
-                mockLocalStorageAuthStatus()
-            }
-
-            // Enhanced multi-level mocking to avoid "getter-only" property errors
-            this.mockUserProductSubscriptionComprehensive()
-
-            // Mock GraphQL operations that might fail without real authentication
-            this.mockGraphQLOperationsForTesting()
-
-            // Mock model preferences to eliminate endpoint dependency issues
-            this.mockModelPreferencesForTesting()
+            // Call mockLocalStorageAuthStatus again with initialized localStorage
+            mockLocalStorageAuthStatus(localStorage)
         } catch (error) {
-            // Fallback with basic mock
-            mockLocalStorageAuthStatus()
-            this.mockUserProductSubscriptionComprehensive()
-            this.mockGraphQLOperationsForTesting()
-            this.mockModelPreferencesForTesting()
+            console.error('Error in refreshWithRealUsername:', error)
         }
     }
 

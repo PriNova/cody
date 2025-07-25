@@ -112,10 +112,12 @@ export function mockAuthStatus(
 }
 
 /**
- * Interface for localStorage provider that can provide anonymous user ID
+ * Interface for localStorage provider that can provide anonymous user ID and endpoint
  */
 interface LocalStorageProvider {
     anonymousUserID(): string
+    getEndpoint(): string | null
+    get<T>(key: string): T | null
 }
 
 /**
@@ -138,12 +140,38 @@ export function mockLocalStorageAuthStatus(localStorageProvider?: LocalStoragePr
     let displayName: string | undefined
     let primaryEmail: string | undefined
     let avatarURL: string | undefined
+    let endpoint = 'https://sourcegraph.com' // Default fallback
 
     // Try to get username and cached profile data from localStorage if available (in test environments)
     try {
         if (localStorageProvider) {
-            // Use provided localStorage provider (for explicit dependency injection)
-            username = localStorageProvider.anonymousUserID() || 'anonymous'
+            // Get real endpoint from localStorage
+            const realEndpoint = localStorageProvider.getEndpoint()
+            if (realEndpoint) {
+                endpoint = realEndpoint
+            }
+
+            // Try to extract real username from existing chat history keys
+            const chatHistory = localStorageProvider.get('cody-local-chatHistory-v2')
+            if (chatHistory && Object.keys(chatHistory).length > 0) {
+                // Extract username from existing chat history key (format: "endpoint-username")
+                const firstKey = Object.keys(chatHistory)[0]
+
+                if (firstKey.includes('-')) {
+                    const parts = firstKey.split('-')
+                    if (parts.length >= 2) {
+                        // Assume last part after last dash is username
+                        username = parts[parts.length - 1]
+                    }
+                }
+            }
+
+            // If we couldn't extract from chat history, fallback to anonymousUserID
+            if (username === 'anonymous') {
+                const realUsername = localStorageProvider.anonymousUserID()
+                username = realUsername || 'anonymous'
+            }
+            console.log('Final username set to:', username)
         } else {
             // Access localStorage from global scope if available (set up in test environment)
             const globalLocalStorage = (globalThis as any).localStorage
@@ -173,7 +201,7 @@ export function mockLocalStorageAuthStatus(localStorageProvider?: LocalStoragePr
 
     // Enhanced AuthStatus with all fields needed for full UI functionality
     const customAuthStatus: AuthenticatedAuthStatus = {
-        endpoint: 'https://sourcegraph.com',
+        endpoint, // Use real endpoint for chat history compatibility
         authenticated: true,
         username,
         displayName: displayName || username, // Fallback to username if no displayName cached
