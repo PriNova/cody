@@ -8,7 +8,7 @@ import { convertAutocompleteContextSnippetForTelemetry } from '../../../src/comp
 import { getOtherCompletionProvider } from '../../completions/analytics-logger'
 import { lines } from '../../completions/text-processing'
 import { charactersLogger } from '../../services/CharactersLogger'
-import { upstreamHealthProvider } from '../../services/UpstreamHealthProvider'
+//import { upstreamHealthProvider } from '../../services/UpstreamHealthProvider'
 import { captureException, shouldErrorBeReported } from '../../services/sentry/sentry'
 import type { AutoeditsPrompt, PartialModelResponse, SuccessModelResponse } from '../adapters/base'
 import { autoeditsOutputChannelLogger } from '../output-channel-logger'
@@ -114,8 +114,6 @@ export class AutoeditAnalyticsLogger {
             payload: {
                 otherCompletionProviderEnabled: otherCompletionProviders.length > 0,
                 otherCompletionProviders,
-                upstreamLatency: upstreamHealthProvider.getUpstreamLatency(),
-                gatewayLatency: upstreamHealthProvider.getGatewayLatency(),
                 // 🚨 SECURITY: included only for DotCom users.
                 codeToRewrite: isDotComAuthed() ? codeToRewrite : undefined,
                 ...restPayload,

@@ -1,26 +1,26 @@
-import { Observable, interval, map } from 'observable-fns'
-import semver from 'semver'
-import { authStatus } from '../auth/authStatus'
-import { editorWindowIsFocused } from '../editor/editorState'
-import { logDebug, logError } from '../logger'
+import { Observable } from 'observable-fns'
+//import semver from 'semver'
+//import { authStatus } from '../auth/authStatus'
+//import { editorWindowIsFocused } from '../editor/editorState'
+//import { logDebug, logError } from '../logger'
 import {
-    debounceTime,
+    //debounceTime,
     distinctUntilChanged,
     filter,
     firstValueFrom,
-    promiseFactoryToObservable,
-    retry,
-    startWith,
-    switchMap,
+    // promiseFactoryToObservable,
+    // retry,
+    //startWith,
+    //switchMap,
 } from '../misc/observable'
 import {
     pendingOperation,
     skipPendingOperation,
-    switchMapReplayOperation,
+    // switchMapReplayOperation,
 } from '../misc/observableOperation'
 import { isError } from '../utils'
-import { isAbortError } from './errors'
-import { type CodyConfigFeatures, type GraphQLAPIClientConfig, graphqlClient } from './graphql/client'
+//import { isAbortError } from './errors'
+import { type GraphQLAPIClientConfig, graphqlClient } from './graphql/client'
 import { setLatestCodyAPIVersion } from './siteVersion'
 
 export interface CodyNotice {
@@ -111,19 +111,34 @@ export class ClientConfigSingleton {
 
     // Default values for the legacy GraphQL features API, used when a Sourcegraph instance
     // does not support even the legacy GraphQL API.
-    private readonly featuresLegacy: Readonly<CodyConfigFeatures> = {
+    /*  private readonly featuresLegacy: Readonly<CodyConfigFeatures> = {
         chat: true,
         autoComplete: true,
         commands: true,
         attribution: false,
-    }
+    } */
 
     /**
      * An observable that immediately emits the last-cached value (or fetches it if needed) and then
      * emits changes.
      */
     public readonly changes: Observable<CodyClientConfig | undefined | typeof pendingOperation> =
-        authStatus.pipe(
+        Observable.of({
+            chatEnabled: true,
+            autoCompleteEnabled: false,
+            customCommandsEnabled: true,
+            attributionEnabled: false,
+            attribution: 'none',
+            smartContextWindowEnabled: true,
+            modelsAPIEnabled: false,
+            userShouldUseEnterprise: false,
+            notices: [],
+            siteVersion: '',
+            omniBoxEnabled: false,
+            codeSearchEnabled: false,
+            latestSupportedCompletionsStreamAPIVersion: 9,
+        })
+    /*  authStatus.pipe(
             debounceTime(0), // wait a tick for graphqlClient's auth to be updated
             switchMapReplayOperation(authStatus =>
                 authStatus.authenticated
@@ -143,8 +158,8 @@ export class ClientConfigSingleton {
                     : Observable.of(undefined)
             ),
             map(value => (isError(value) ? undefined : value)),
-            distinctUntilChanged()
-        )
+            distinctUntilChanged() *
+        )*/
 
     public readonly updates: Observable<CodyClientConfig> = this.changes.pipe(
         filter(value => value !== undefined && value !== pendingOperation),
@@ -172,7 +187,7 @@ export class ClientConfigSingleton {
         return await firstValueFrom(this.changes.pipe(skipPendingOperation()), signal)
     }
 
-    private async fetchConfig(signal?: AbortSignal): Promise<CodyClientConfig> {
+    /*  private async fetchConfig(signal?: AbortSignal): Promise<CodyClientConfig> {
         logDebug('ClientConfigSingleton', 'refreshing configuration')
         let omniBoxEnabled = false
 
@@ -259,9 +274,9 @@ export class ClientConfigSingleton {
                 }
                 throw e
             })
-    }
+    } */
 
-    private async fetchClientConfigLegacy(signal?: AbortSignal): Promise<CodyClientConfig> {
+    /*   private async fetchClientConfigLegacy(signal?: AbortSignal): Promise<CodyClientConfig> {
         // Note: all of these promises are written carefully to not throw errors internally, but
         // rather to return sane defaults, and so we do not catch() here.
         const smartContextWindow = await graphqlClient.getCodyLLMConfigurationSmartContext(signal)
@@ -284,10 +299,10 @@ export class ClientConfigSingleton {
             omniBoxEnabled: false,
             codeSearchEnabled: false,
         }
-    }
+    } */
 
     // Fetches the config features from the server and handles errors, using the old/legacy GraphQL API.
-    private async fetchConfigFeaturesLegacy(
+    /*  private async fetchConfigFeaturesLegacy(
         defaultErrorValue: CodyConfigFeatures,
         signal?: AbortSignal
     ): Promise<CodyConfigFeatures> {
@@ -299,7 +314,7 @@ export class ClientConfigSingleton {
             return defaultErrorValue
         }
         return features
-    }
+    } */
 
     private async fetchConfigEndpoint(
         signal?: AbortSignal,
