@@ -24,7 +24,7 @@ import type {
 import type { GitIdentifiersForFile } from '../repository/git-metadata-for-editor'
 import { GitHubDotComRepoMetadata } from '../repository/githubRepoMetadata'
 import { type CodeGenEventMetadata, charactersLogger } from '../services/CharactersLogger'
-import { upstreamHealthProvider } from '../services/UpstreamHealthProvider'
+//import { upstreamHealthProvider } from '../services/UpstreamHealthProvider'
 import {
     AUTOCOMPLETE_STAGE_COUNTER_INITIAL_STATE,
     type AutocompletePipelineCountedStage,
@@ -1097,8 +1097,6 @@ function getSharedParams(event: CompletionBookkeepingEvent): SharedEventPayload 
         items: event.items.map(i => ({ ...i })),
         otherCompletionProviderEnabled: otherCompletionProviders.length > 0,
         otherCompletionProviders,
-        upstreamLatency: upstreamHealthProvider.getUpstreamLatency(),
-        gatewayLatency: upstreamHealthProvider.getGatewayLatency(),
 
         // 🚨 SECURITY: Do not include any context by default
         inlineCompletionItemContext: undefined,
